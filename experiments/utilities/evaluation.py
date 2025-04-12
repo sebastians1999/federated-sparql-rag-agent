@@ -15,6 +15,7 @@ from experiments.utilities.metrics import eval_pairs
 import nltk
 import json
 from experiments.utilities.sparql_syntax_validation import validate_sparql_syntax
+from experiments.utilities.format import extract_endpoint_from_comment_regex
 
 
 
@@ -148,6 +149,7 @@ class AgentEvaluator:
                     
                     # New data
                     "predicted_query": result["final_state_response"],
+                    "predicted_endpoint": extract_endpoint_from_comment_regex(result["final_state_response"]),
                     "run_id_langsmith": str(result["run_id_langsmith"]),
                     "in_dataset": result["in_dataset"],
                     "execution_time": str(result["execution_time"]),
@@ -201,7 +203,7 @@ class AgentEvaluator:
                 filename = f"{resource_id}_comparison.ttl"
             
             # Save the comparison file
-            save_queries_comparison(
+            save_queries_comparison(item.get("target_endpoint", ""),
                 item.get("natural_language_question", ""),
                 item.get("ground_truth_query", ""), 
                 item.get("predicted_query", ""), 

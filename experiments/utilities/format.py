@@ -282,7 +282,7 @@ def process_specific_datasets_and_files(endpoint_files_map=None, dataset_dir=Non
     return timestamped_dir
 
 
-def save_queries_comparison(natural_language_question: str, ground_truth_query: str, predicted_query: str, file_path: str, file_name: str) -> None:
+def save_queries_comparison(target_endpoint: str, natural_language_question: str, ground_truth_query: str, predicted_query: str, file_path: str, file_name: str) -> None:
     """
     Creates a TTL file containing both the ground truth and predicted SPARQL queries for easy comparison.
     
@@ -304,6 +304,10 @@ def save_queries_comparison(natural_language_question: str, ground_truth_query: 
 # =======================
 {natural_language_question}
 
+# Target Endpoint
+# ===============
+{target_endpoint}
+
 # Ground Truth Query
 # =================
 {ground_truth_query}
@@ -318,3 +322,36 @@ def save_queries_comparison(natural_language_question: str, ground_truth_query: 
         f.write(content)
     
     print(f"Saved query comparison to: {full_path}")
+
+
+
+def extract_endpoint_from_comment_regex(query_text):
+    """
+    Extracts the endpoint URL from the first line using regex
+    if it's a comment like '# <endpoint_url>'.
+
+    Args:
+        query_text: The string containing the SPARQL query.
+
+    Returns:
+        The extracted endpoint URL string, or None if not found.
+    """
+    if not query_text:
+        return None
+
+    # Regex breakdown:
+    # ^       - Start of the string
+    # \s*     - Optional leading whitespace
+    # #       - Literal '#' character
+    # \s*     - Optional whitespace after '#'
+    # (\S+)   - Capture group 1: One or more non-whitespace characters (the URL)
+    # .*      - Match the rest of the first line (optional)
+    # $       - End of the line (using re.MULTILINE or implicitly matching first line)
+    # Using re.match ensures it only checks the beginning of the string
+    match = re.match(r"^\s*#\s*(\S+)", query_text)
+
+    if match:
+        # Return the captured group (the URL)
+        return match.group(1)
+    else:
+        return None
