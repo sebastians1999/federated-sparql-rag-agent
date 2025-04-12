@@ -9,14 +9,16 @@ from nltk.translate.meteor_score import single_meteor_score
 from collections import Counter
 import math
 import nltk
-
-# Download punkt tokenizer if not already downloaded
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
-
 from experiments.utilities.format import normalize
+
+required_resources = ['corpora/wordnet', 'tokenizers/punkt']
+for resource in required_resources:
+    try:
+        nltk.data.find(resource)
+    except LookupError:
+        resource_name = resource.split('/')[-1]
+        print(f"Downloading {resource_name} package...")
+        nltk.download(resource_name)
 
 
 
@@ -466,22 +468,22 @@ def normalized_vars(query):
 def eval_pairs(pairs: List[Tuple[str, str]]) -> Dict:
     # Same metric initialization as in evaluate function
     metrics = [
-        UnigramMetric(metric="recall"),
-        UnigramMetric(metric="precision"),
-        SPUnigramMetric(metric="recall"),
-        SPUnigramMetric(metric="precision"),
-        NGramDiversity(n=1),
-        NGramDiversity(n=2),
-        NGramDiversity(n=3),
-        NGramDiversity(n=4),
-        CorpusNGramDiversity(n=1),
-        CorpusNGramDiversity(n=2),
-        CorpusNGramDiversity(n=3),
-        CorpusNGramDiversity(n=4),
-        BLEU(),
+        #UnigramMetric(metric="recall"),
+        #UnigramMetric(metric="precision"),
+        #SPUnigramMetric(metric="recall"),
+        #SPUnigramMetric(metric="precision"),
+        #NGramDiversity(n=1),
+        #NGramDiversity(n=2),
+        #NGramDiversity(n=3),
+        #NGramDiversity(n=4),
+        #CorpusNGramDiversity(n=1),
+        #CorpusNGramDiversity(n=2),
+        #CorpusNGramDiversity(n=3),
+        #CorpusNGramDiversity(n=4),
+        #BLEU(),
         SPBLEU(),
         METEOR(),
-        ROUGE()
+        #ROUGE()
     ]
 
     do_evaluate = False

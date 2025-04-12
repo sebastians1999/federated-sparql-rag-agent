@@ -355,3 +355,16 @@ def extract_endpoint_from_comment_regex(query_text):
         return match.group(1)
     else:
         return None
+
+
+def clean_sparql_query(query):
+    """
+    Cleans the SPARQL query by removing comments and unnecessary whitespace.
+    """
+    # Remove comments
+    query = re.sub(r'#.*', '', query)
+    # Remove extra whitespace
+    query = ' '.join(query.split())
+    return query.strip()
+
+
