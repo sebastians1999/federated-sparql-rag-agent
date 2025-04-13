@@ -72,7 +72,7 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
             host=rag_config.host,
             grpc_port=rag_config.grpc_port,
             prefer_grpc=True,
-            timeout=60
+            timeout=rag_config.timeout
         )
         
         entities_list = []

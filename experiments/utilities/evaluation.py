@@ -32,6 +32,7 @@ class AgentEvaluator:
         self.project_name_langsmith = project_name_langsmith
         self.results = []
         self.evaluation_dataset_path = os.path.join(self.output_dir, 'evaluation_dataset.json')
+        self.metric_dataset_path = os.path.join(self.output_dir, 'metrics_dataset.json')
         self.test = test
 
         
@@ -181,15 +182,20 @@ class AgentEvaluator:
                 print(f"Error processing question {i+1}/{len(test_dataset)}: {str(e)}")
         
         self.updated_dataset = Dataset.from_list(updated_results)
+ 
 
-        # # Download punkt tokenizer if not already downloaded
-        # try:
-        #     nltk.data.find('tokenizers/punkt')
-        # except LookupError:
-        #     nltk.download('punkt')  
+        # Calculate metrics
+        evaluation_results = eval_pairs(zip(self.updated_dataset["ground_truth_query"], self.updated_dataset["predicted_query"]))
+        
+        self.results_dict = {
+            metric: value for metric, value in evaluation_results.items() 
+                if metric in ["SP-BLEU", "METEOR", "num_none_queries"]
+        }
+        self.results_dict["num_pairs_evaluated"] = len(self.updated_dataset)
 
-        # for item in self.updated_dataset:
-        #     item["metrics"] = eval_pairs(zip(item["ground_truth_query"], item["predicted_query"]))
+        with open(self.metric_dataset_path, 'w', encoding='utf-8') as f:
+            json.dump(self.results_dict, f, indent=2, ensure_ascii=False)
+
 
         with open(self.evaluation_dataset_path, 'w', encoding='utf-8') as f:
             json.dump(self.updated_dataset.to_list(), f, indent=2, ensure_ascii=False)

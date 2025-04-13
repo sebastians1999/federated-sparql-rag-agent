@@ -1,10 +1,11 @@
-import entities_collection
 import httpx
-import rdflib
 import time
 from typing import List, Dict, Any, Optional
-from entity_indexing_pipeline_v3 import EmbeddingPipeline
-import ray
+
+import logging 
+
+
+#logging.basicConfig(level=logging.INFO)
 
 def query_sparql(
     query: str,
@@ -13,7 +14,10 @@ def query_sparql(
     timeout: Optional[int] = None,
     client: Optional[httpx.Client] = None
 ) -> Any:
-    """Execute a SPARQL query on a SPARQL endpoint using httpx."""
+    """Execute a SPARQL query on a SPARQL endpoint using httpx.
+
+    Returns 'error' if an HTTPStatusError occurs during the request.
+    """
     should_close = False
     if client is None:
         client = httpx.Client(
@@ -28,14 +32,22 @@ def query_sparql(
                 data={"query": query},
             )
         else:
-            # NOTE: We prefer GET because in the past it seemed like some endpoints at the SIB were having issues with POST
-            # But not sure if this is still the case
             resp = client.get(
                 endpoint_url,
                 params={"query": query},
             )
-        resp.raise_for_status()
-        return resp.json()
+
+        try:
+            resp.raise_for_status() 
+            return resp.json()
+        except httpx.HTTPStatusError as e:
+            #logging.warning(f"HTTP Status Error executing SPARQL query: {e}\nURL: {e.request.url}\nQuery: {query}")
+            return "error" # Return "error" as requested when an HTTP error occurs
+
+    except httpx.RequestError as e:
+        #logging.error(f"HTTP Request Error executing SPARQL query: {e}\nURL: {e.request.url}\nQuery: {query}")
+        return "error" # Also return "error" for these request-level issues
+
     finally:
         if should_close:
             client.close()
