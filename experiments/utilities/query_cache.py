@@ -303,6 +303,7 @@ def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str]
             meta = get_sparql_question_meta(content)
             query = meta.get("query")
             endpoint_url = meta.get("target_endpoint")
+            print("Processing TTL file: " + meta.get("resource"))
             
             # If we found both query and endpoint, cache the result
             if query and endpoint_url:

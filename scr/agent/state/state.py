@@ -77,6 +77,9 @@ class State(BaseState):
     extracted_entities: List[str] = field(default_factory=list)
     """List of entities extracted and resolved from the question."""
 
+    extracted_classes: List[str] = field(default_factory=list)
+    """List of classes extracted from the question."""
+
     structured_output: str = field(default="")
     """The final structured output (e.g., SPARQL query)."""
 

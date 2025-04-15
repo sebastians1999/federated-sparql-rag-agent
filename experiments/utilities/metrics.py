@@ -17,7 +17,7 @@ for resource in required_resources:
         nltk.data.find(resource)
     except LookupError:
         resource_name = resource.split('/')[-1]
-        print(f"Downloading {resource_name} package...")
+        #print(f"Downloading {resource_name} package...")
         nltk.download(resource_name)
 
 
