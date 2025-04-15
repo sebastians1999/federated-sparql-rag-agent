@@ -1,9 +1,0 @@
-{
-  "SP-BLEU": 1.7054970862105847e-78,
-  "METEOR": 0.20083678813837544,
-  "num_none_queries": 0,
-  "num_pairs_evaluated": 1,
-  "avg_result_precision": 0.0,
-  "avg_result_recall": 0.0,
-  "avg_result_f1": 0.0
-}

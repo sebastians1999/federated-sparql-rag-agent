@@ -1,5 +1,6 @@
 import pandas as pd
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
+from typing import Optional
 from experiments.utilities.query_cache import cached_query_sparql
 from entity_indexing.endpoint_loader import query_sparql
 
@@ -8,12 +9,13 @@ def format_query_result_dataframe(
     ground_truth_query: str, 
     ground_truth_endpoint: str, 
     predicted_query: str, 
-    predicted_endpoint: str
+    predicted_endpoint: str,
+    timeout: Optional[int] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
-    ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint)
-    predicted = query_sparql(predicted_query, predicted_endpoint)
+    ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint, timeout=timeout)
+    predicted = query_sparql(predicted_query, predicted_endpoint, timeout=timeout)
 
     if ground_truth == 'error':
 

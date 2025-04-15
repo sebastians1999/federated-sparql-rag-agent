@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import Dict
+from typing import Dict, Any
 import rdflib
 import json
 import os
@@ -371,3 +371,5 @@ def clean_sparql_query(query):
     return query.strip()
 
 
+def normalize_url(url: str) -> str:
+    return url.rstrip('/') if url else url

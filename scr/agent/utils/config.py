@@ -81,7 +81,7 @@ class RAGConfig:
     grpc_port: int = 6334
     timeout: int = 60  
 
-    collection_name: Optional[str] = "biomedical_entity_collection_v3.0"
+    collection_name: Optional[str] = "biomedical_entity_collection_v4.0"
     dense_embedding_model: str = "BAAI/bge-small-en-v1.5"
     sparse_embedding_model: str = "Qdrant/bm25"
     embeddings_cache_dir: str = "./embeddings_model_cache"

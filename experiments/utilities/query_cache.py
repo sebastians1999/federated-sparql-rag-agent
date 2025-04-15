@@ -142,6 +142,7 @@ def cached_query_sparql(
     use_cache: bool = True,
     update_cache: bool = True,
     cache_dir: Optional[str] = None,
+    timeout: Optional[int] = None,
 ) -> Any:
     """
     Execute a SPARQL query with caching support.
@@ -152,6 +153,7 @@ def cached_query_sparql(
         use_cache: Whether to check the cache before querying
         update_cache: Whether to update the cache with new results
         cache_dir: The cache directory. If None, uses the default.
+        timeout: Timeout for the query in seconds
         
     Returns:
         Query result or error information
@@ -164,7 +166,7 @@ def cached_query_sparql(
             return cached_result
     print(f"  Querying endpoint: {endpoint_url}")
     # If not in cache or cache disabled, execute the query
-    result = query_sparql(query, endpoint_url)
+    result = query_sparql(query, endpoint_url, timeout=timeout)
 
     #print(f"  Query result: {result}")
     
@@ -293,7 +295,7 @@ def cache_dataset_queries(
     return stats
 
 
-def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str], stats: Dict[str, int], total_cached: int) -> None:
+def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str], stats: Dict[str, int], total_cached: int, timeout: Optional[int] = None) -> None:
     """Helper function to process a TTL file and extract/cache SPARQL queries."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -315,6 +317,7 @@ def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str]
                         endpoint_url,
                         use_cache=True,
                         update_cache=True,
+                        timeout=timeout,
                         cache_dir=cache_dir
                     )
                     

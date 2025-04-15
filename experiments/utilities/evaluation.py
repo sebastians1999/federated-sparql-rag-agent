@@ -16,11 +16,12 @@ import json
 from experiments.utilities.sparql_syntax_validation import validate_sparql_syntax
 from experiments.utilities.format import extract_endpoint_from_comment_regex
 from experiments.utilities.result_metric import format_query_result_dataframe, calculate_column_metrics
+from experiments.utilities.format import normalize_url
 
 
 
 class AgentEvaluator:
-    def __init__(self, dataset_path=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None):
+    def __init__(self, dataset_path=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None, timeout: int = 300):
         
         self.endpoint_sets = endpoint_sets
         self.experiment_dir = experiment_dir
@@ -34,7 +35,7 @@ class AgentEvaluator:
         self.evaluation_dataset_path = os.path.join(self.output_dir, 'evaluation_dataset.json')
         self.metric_dataset_path = os.path.join(self.output_dir, 'metrics_dataset.json')
         self.test = test
-
+        self.timeout = timeout # timeout after 300 seconds
         
     async def run_single_test(self, question: str) -> State:
         # Create initial state
@@ -45,16 +46,14 @@ class AgentEvaluator:
             )
             
             final_state = await self.graph.ainvoke(initial_state)
-            print(final_state)
+
         except Exception as e:
             print(f"Error processing question in agent: {str(e)}")
             return None
 
         runs = self.client.list_runs(project_name=self.project_name_langsmith, is_root=True)
         first_run = next(runs)
-        print("Got first run!")
 
-        # Handle None values for datetime fields
         execution_time = ""
         if first_run.end_time is not None and first_run.start_time is not None:
             execution_time = first_run.end_time - first_run.start_time
@@ -65,56 +64,44 @@ class AgentEvaluator:
         # Get child runs to find sparql_query_construction run
         child_runs = list(self.client.list_runs(project_name=self.project_name_langsmith, parent_run_id=first_run.id))
         
-        # Filter to find the sparql_query_construction run
-        sparql_construction_run = None
+        final_state_results = {
+            "final_state_response": final_state.get("structured_output", {}).get("query", ""),
+            "run_id_langsmith": str (first_run.id),
+            "execution_time": str(execution_time)
+        }
+        sparql_construction_results = {}
+        question_understanding_results = {}
+
+        #print("Number of child runs:")
+        #print(len(child_runs))
+
         for run in child_runs:
+            #print(run.name)
             if run.name == "sparql_query_construction":
-                sparql_construction_run = run
-                break
+                sparql_construction_results = {
+                    "sparql_query_construction": True,
+                    "sparql_construction_prompt_tokens": run.prompt_tokens or 0,
+                    "sparql_construction_completion_tokens": run.completion_tokens or 0,
+                    "sparql_construction_total_tokens": run.total_tokens or 0,
+                    #"sparql_construction_prompt_cost": run.prompt_cost or 0,
+                    #"sparql_construction_completion_cost": run.completion_cost or 0,
+                    #"sparql_construction_total_cost": run.total_cost or 0,
+                }
+            if run.name == "question_understanding":
+                question_understanding_results = {
+                    "question_understanding": True,
+                    "question_understanding_prompt_tokens": run.prompt_tokens or 0,
+                    "question_understanding_completion_tokens": run.completion_tokens or 0,
+                    "question_understanding_total_tokens": run.total_tokens or 0,
+                    #"question_understanding_prompt_cost": run.prompt_cost or 0,
+                    #"question_understanding_completion_cost": run.completion_cost or 0,
+                    #"question_understanding_total_cost": run.total_cost or 0,
+                }
+        
 
-        if sparql_construction_run:
-            result = {
-                "final_state_response": final_state.get("structured_output", {}).get("query", ""),
-                "run_id_langsmith": str(first_run.id),
-                "in_dataset": first_run.in_dataset,
-                "execution_time": str(execution_time),
+        summed_result = {**final_state_results, **sparql_construction_results, **question_understanding_results}
 
-                # Add the specific metrics for the sparql_query_construction run
-                "sparql_construction_prompt_tokens": sparql_construction_run.prompt_tokens or 0,
-                "sparql_construction_completion_tokens": sparql_construction_run.completion_tokens or 0,
-                "sparql_construction_total_tokens": sparql_construction_run.total_tokens or 0,
-                "sparql_construction_prompt_cost": sparql_construction_run.prompt_cost or 0,
-                "sparql_construction_completion_cost": sparql_construction_run.completion_cost or 0,
-                "sparql_construction_total_cost": sparql_construction_run.total_cost or 0,
-                
-
-                # Keep the original metrics too
-                "prompt_tokens": first_run.prompt_tokens or 0,
-                "completion_tokens": first_run.completion_tokens or 0,
-                "total_tokens": first_run.total_tokens or 0,
-                "prompt_cost": first_run.prompt_cost or 0,
-                "completion_cost": first_run.completion_cost or 0,
-                "total_cost": first_run.total_cost or 0,
-            }
-        else:
-            print("Warning: Could not find the sparql_query_construction run")
-            # Fall back to using the parent run metrics
-            result = {
-                "final_state_response": final_state.get("structured_output", {}).get("query", ""),
-                "run_id_langsmith": str(first_run.id),
-                "in_dataset": first_run.in_dataset,
-                "execution_time": str(execution_time),
-                "prompt_tokens": first_run.prompt_tokens or 0,
-                "completion_tokens": first_run.completion_tokens or 0,
-                "total_tokens": first_run.total_tokens or 0,
-                "prompt_cost": first_run.prompt_cost or 0,
-                "completion_cost": first_run.completion_cost or 0,
-                "total_cost": first_run.total_cost or 0,
-            }
-            
-        print("Result:", result)
-
-        return result
+        return summed_result
 
     async def run_all_tests(self):
 
@@ -143,7 +130,7 @@ class AgentEvaluator:
             try:
                 print(f"Sending question {i+1}/{len(test_dataset)} to agent...")
                 result = await self.run_single_test(question)
-                print("Got result")
+                print(f"Got result for question {i+1}/{len(test_dataset)}")
                 
                 updated_item = {
                     # Meta data - access fields directly
@@ -158,27 +145,29 @@ class AgentEvaluator:
                     # New data
                     "predicted_query": result["final_state_response"],
                     "predicted_endpoint": extract_endpoint_from_comment_regex(result["final_state_response"]),
-                    "predicted_endpoint_equal_to_target_endpoint": extract_endpoint_from_comment_regex(result["final_state_response"]) == item.get("target_endpoint", ""),
-                    "predicted_endpoint_in_federates_with": extract_endpoint_from_comment_regex(result["final_state_response"]) in item.get("federates_with", ""),
+                    "predicted_endpoint_equal_to_target_endpoint": normalize_url(extract_endpoint_from_comment_regex(result["final_state_response"])) == normalize_url(item.get("target_endpoint", "")),
+                    "predicted_endpoint_in_federates_with": normalize_url(extract_endpoint_from_comment_regex(result["final_state_response"])) in [normalize_url(endpoint) for endpoint in item.get("federates_with", [])],
                     "run_id_langsmith": str(result["run_id_langsmith"]),
-                    "in_dataset": result["in_dataset"],
-                    "execution_time": str(result["execution_time"]),
-                    "prompt_tokens": result["prompt_tokens"],
-                    "completion_tokens": result["completion_tokens"],
-                    "total_tokens": result["total_tokens"],
-                    "prompt_cost": result["prompt_cost"],
-                    "completion_cost": result["completion_cost"],
-                    "total_cost": result["total_cost"],
+                    #"in_dataset": result["in_dataset"],
+                    #"execution_time": str(result["execution_time"]),
+                    #"prompt_tokens": result["prompt_tokens"],
+                    #"completion_tokens": result["completion_tokens"],
+                    #"total_tokens": result["total_tokens"],
+                    #"prompt_cost": result["prompt_cost"],
+                    #"completion_cost": result["completion_cost"],
+                    #"total_cost": result["total_cost"],
                     "evaluation_timestamp": datetime.now().isoformat()
                 }
 
-                if "sparql_construction_prompt_tokens" in result:
-                    updated_item["sparql_construction_prompt_tokens"] = result["sparql_construction_prompt_tokens"]
-                    updated_item["sparql_construction_completion_tokens"] = result["sparql_construction_completion_tokens"]
-                    updated_item["sparql_construction_total_tokens"] = result["sparql_construction_total_tokens"]
-                    updated_item["sparql_construction_prompt_cost"] = result["sparql_construction_prompt_cost"]
-                    updated_item["sparql_construction_completion_cost"] = result["sparql_construction_completion_cost"]
-                    updated_item["sparql_construction_total_cost"] = result["sparql_construction_total_cost"]
+                if result.get("question_understanding"):
+                    updated_item["question_understanding_tokens"] = result.get("question_understanding_prompt_tokens")
+                    updated_item["question_understanding_completion_tokens"] = result.get("question_understanding_completion_tokens")
+                    updated_item["question_understanding_total_tokens"] = result.get("question_understanding_total_tokens")
+
+                if result.get("sparql_query_construction"):
+                    updated_item["sparql_construction_prompt_tokens"] = result.get("sparql_construction_prompt_tokens")
+                    updated_item["sparql_construction_completion_tokens"] = result.get("sparql_construction_completion_tokens")
+                    updated_item["sparql_construction_total_tokens"] = result.get("sparql_construction_total_tokens")
 
 
                 #########  Validate SPARQL syntax #########
@@ -193,7 +182,8 @@ class AgentEvaluator:
                     ground_truth_query=updated_item["ground_truth_query"],
                     ground_truth_endpoint=updated_item["target_endpoint"],
                     predicted_query=updated_item["predicted_query"],
-                    predicted_endpoint=updated_item["predicted_endpoint"]
+                    predicted_endpoint=updated_item["predicted_endpoint"],
+                    timeout=self.timeout
                 )
 
                 # In theory there should be no more test instances where the result of the query is empty because I filtered them out. 
@@ -207,11 +197,13 @@ class AgentEvaluator:
                         updated_item["result_eval_f1_score"] = 0.0
                         updated_item["result_eval_precision"] = 0.0
                         updated_item["result_eval_recall"] = 0.0
+                        updated_item["predicted_query_result_is_empty"] = True
                     else:
                         metrics = calculate_column_metrics(df_ground_truth, df_predicted)
                         updated_item["result_eval_precision"] = metrics["precision"]
                         updated_item["result_eval_recall"] = metrics["recall"]
                         updated_item["result_eval_f1_score"] = metrics["f1_score"]
+                        updated_item["predicted_query_result_is_empty"] = False
                         
                         # aggregate metrics
                         total_precision += metrics["precision"]
@@ -241,11 +233,12 @@ class AgentEvaluator:
             self.results_dict["avg_result_precision"] = total_precision / valid_metric_count
             self.results_dict["avg_result_recall"] = total_recall / valid_metric_count
             self.results_dict["avg_result_f1"] = total_f1 / valid_metric_count
+            self.results_dict["number_of_query_results_validated"] = valid_metric_count
         else:
             self.results_dict["avg_result_precision"] = 0.0
             self.results_dict["avg_result_recall"] = 0.0
             self.results_dict["avg_result_f1"] = 0.0
-
+            self.results_dict["number_of_query_results_validated"] = 0
 
         with open(self.metric_dataset_path, 'w', encoding='utf-8') as f:
             json.dump(self.results_dict, f, indent=2, ensure_ascii=False)
