@@ -33,6 +33,22 @@ def format_extracted_entities(entities_list):
             result += "No matches found.\n\n"
     return result
 
+def format_extracted_classes(classes_list):
+    """Format the extracted classes for display in the agent UI."""
+    result = ""
+    for class_data in classes_list:
+        result += f"**Class: {class_data['text']}**\n\n"
+        if class_data['matchs']:
+            result += "Matches:\n"
+            for i, doc in enumerate(class_data['matchs']):
+                score = doc.metadata.get("score", 0)
+                result += f"- [{score:.3f}] {doc.page_content}\n"
+                result += f"  URI: {doc.metadata.get('uri', 'N/A')}\n"
+                result += f"  Type: {doc.metadata.get('type', 'N/A')}\n\n"
+        else:
+            result += "No matches found.\n\n"
+    return result
+
 async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     """
     Retrieve documents for entity resolution using dense vector search.
@@ -76,97 +92,188 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
         )
         
         entities_list = []
+        classes_list = []
+        steps = []
         
         # Get all entities to process
         entities = state.structured_question.extracted_entities
         
-        if not entities:
-            logger.warning("No entities found in structured question")
-            return {
-                "extracted_entities": [],
-                "steps": [
-                    StepOutput(
-                        label="No entities to link",
-                        details="No entities were extracted from the question.",
-                    )
-                ],
-            }
+        # Get all classes to process
+        classes = state.structured_question.extracted_classes
         
-        # Generate embeddings for all entities in a single batch
-        logger.info(f"Generating batch embeddings for {len(entities)} entities")
-        entity_embeddings = embeddings.embed_documents(entities)
+        has_entities_or_classes = False
         
-        # Process each entity with its embedding
-        for i, potential_entity in enumerate(entities):
-            try:
-                dense_vector = entity_embeddings[i]
-                
-                if dense_vector is not None:
-                    # Use direct query_points method as requested
-                    logger.info(f"Querying Qdrant for entity: {potential_entity}")
-                    results = client.query_points(
-                        collection_name=collection_name,
-                        query=dense_vector,
-                        using="dense",
-                        with_payload=True,
-                        limit=top_k,
-                    )
+        # Process entities if they exist
+        if entities:
+            has_entities_or_classes = True
+            # Generate embeddings for all entities in a single batch
+            logger.info(f"Generating batch embeddings for {len(entities)} entities")
+            entity_embeddings = embeddings.embed_documents(entities)
+            
+            # Process each entity with its embedding
+            for i, potential_entity in enumerate(entities):
+                try:
+                    dense_vector = entity_embeddings[i]
                     
-                    # Process matches and remove duplicates
-                    matches = []
-                    for point in results.points:
-                        # Convert Qdrant point to Document
-                        doc = Document(
-                            page_content=point.payload.get("label", ""),
-                            metadata={
-                                "uri": point.payload.get("uri", ""),
-                                "type": point.payload.get("type", ""),
-                                "description": point.payload.get("description", ""),
-                                "score": point.score,
-                                "endpoint_url": point.payload.get("endpoint_url", ""),
-                            }
+                    if dense_vector is not None:
+                        # Use direct query_points method as requested
+                        logger.info(f"Querying Qdrant for entity: {potential_entity}")
+                        results = client.query_points(
+                            collection_name=collection_name,
+                            query=dense_vector,
+                            using="dense",
+                            with_payload=True,
+                            limit=top_k,
                         )
-                            
-                        # Check if this URI already exists in matches
-                        is_duplicate = False
-                        for m in matches: 
-                            if m.metadata["uri"] == doc.metadata["uri"]:
-                                is_duplicate = True
-                                break
-                            
-                        if not is_duplicate:
-                            matches.append(doc)
-                    
-                    logger.info(f"Found {len(matches)} unique matches for entity: {potential_entity}")
-                    entities_list.append({
-                        "matchs": matches,
-                        "text": potential_entity,
-                    })
-                else:
-                    # If embedding failed, add entity with no matches
-                    logger.warning(f"Empty embedding vector for entity: {potential_entity}")
+                        
+                        # Process matches and remove duplicates
+                        matches = []
+                        for point in results.points:
+                            # Convert Qdrant point to Document
+                            doc = Document(
+                                page_content=point.payload.get("label", ""),
+                                metadata={
+                                    "uri": point.payload.get("uri", ""),
+                                    "type": point.payload.get("type", ""),
+                                    "description": point.payload.get("description", ""),
+                                    "score": point.score,
+                                    "endpoint_url": point.payload.get("endpoint_url", ""),
+                                }
+                            )
+                                
+                            # Check if this URI already exists in matches
+                            is_duplicate = False
+                            for m in matches: 
+                                if m.metadata["uri"] == doc.metadata["uri"]:
+                                    is_duplicate = True
+                                    break
+                                
+                            if not is_duplicate:
+                                matches.append(doc)
+                        
+                        logger.info(f"Found {len(matches)} unique matches for entity: {potential_entity}")
+                        entities_list.append({
+                            "matchs": matches,
+                            "text": potential_entity,
+                        })
+                    else:
+                        # If embedding failed, add entity with no matches
+                        logger.warning(f"Empty embedding vector for entity: {potential_entity}")
+                        entities_list.append({
+                            "matchs": [],
+                            "text": potential_entity,
+                        })
+                except Exception as e:
+                    # Handle errors for individual entities
+                    logger.error(f"Error processing entity '{potential_entity}': {str(e)}")
+                    logger.debug(traceback.format_exc())
                     entities_list.append({
                         "matchs": [],
                         "text": potential_entity,
+                        "error": str(e)
                     })
-            except Exception as e:
-                # Handle errors for individual entities
-                logger.error(f"Error processing entity '{potential_entity}': {str(e)}")
-                logger.debug(traceback.format_exc())
-                entities_list.append({
-                    "matchs": [],
-                    "text": potential_entity,
-                    "error": str(e)
-                })
-        
-        return {
-            "extracted_entities": entities_list,
-            "steps": [
+            
+            steps.append(
                 StepOutput(
                     label=f"Linked {len(entities_list)} potential entities",
                     details=format_extracted_entities(entities_list),
                 )
-            ],
+            )
+        
+        # Process classes if they exist
+        if classes:
+            has_entities_or_classes = True
+            # Generate embeddings for all classes in a single batch
+            logger.info(f"Generating batch embeddings for {len(classes)} classes")
+            class_embeddings = embeddings.embed_documents(classes)
+            
+            # Process each class with its embedding
+            for i, potential_class in enumerate(classes):
+                try:
+                    dense_vector = class_embeddings[i]
+                    
+                    if dense_vector is not None:
+                        # Use direct query_points method
+                        logger.info(f"Querying Qdrant for class: {potential_class}")
+                        results = client.query_points(
+                            collection_name=collection_name,
+                            query=dense_vector,
+                            using="dense",
+                            with_payload=True,
+                            limit=top_k,
+                        )
+                        
+                        # Process matches and remove duplicates
+                        matches = []
+                        for point in results.points:
+                            # Convert Qdrant point to Document
+                            doc = Document(
+                                page_content=point.payload.get("label", ""),
+                                metadata={
+                                    "uri": point.payload.get("uri", ""),
+                                    "type": point.payload.get("type", ""),
+                                    "description": point.payload.get("description", ""),
+                                    "score": point.score,
+                                    "endpoint_url": point.payload.get("endpoint_url", ""),
+                                }
+                            )
+                                
+                            # Check if this URI already exists in matches
+                            is_duplicate = False
+                            for m in matches: 
+                                if m.metadata["uri"] == doc.metadata["uri"]:
+                                    is_duplicate = True
+                                    break
+                                
+                            if not is_duplicate:
+                                matches.append(doc)
+                        
+                        logger.info(f"Found {len(matches)} unique matches for class: {potential_class}")
+                        classes_list.append({
+                            "matchs": matches,
+                            "text": potential_class,
+                        })
+                    else:
+                        # If embedding failed, add class with no matches
+                        logger.warning(f"Empty embedding vector for class: {potential_class}")
+                        classes_list.append({
+                            "matchs": [],
+                            "text": potential_class,
+                        })
+                except Exception as e:
+                    # Handle errors for individual classes
+                    logger.error(f"Error processing class '{potential_class}': {str(e)}")
+                    logger.debug(traceback.format_exc())
+                    classes_list.append({
+                        "matchs": [],
+                        "text": potential_class,
+                        "error": str(e)
+                    })
+            
+            steps.append(
+                StepOutput(
+                    label=f"Linked {len(classes_list)} potential classes",
+                    details=format_extracted_classes(classes_list),
+                )
+            )
+        
+        if not has_entities_or_classes:
+            logger.warning("No entities or classes found in structured question")
+            return {
+                "extracted_entities": [],
+                "extracted_classes": [],
+                "steps": [
+                    StepOutput(
+                        label="No entities or classes to link",
+                        details="No entities or classes were extracted from the question.",
+                    )
+                ],
+            }
+        
+        return {
+            "extracted_entities": entities_list,
+            "extracted_classes": classes_list,
+            "steps": steps,
         }
     except Exception as e:
         # Handle errors during initialization
@@ -178,9 +285,11 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
         return {
             "extracted_entities": [{"text": entity, "matchs": [], "error": error_message} 
                                   for entity in state.structured_question.extracted_entities],
+            "extracted_classes": [{"text": cls, "matchs": [], "error": error_message} 
+                                 for cls in state.structured_question.extracted_classes],
             "steps": [
                 StepOutput(
-                    label="Entity linking failed",
+                    label="Entity and class linking failed",
                     details=f"Error: {error_message}\n\nPlease check that the embedding model and Qdrant server are accessible.",
                 )
             ],

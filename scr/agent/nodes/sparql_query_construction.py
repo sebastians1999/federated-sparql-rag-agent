@@ -32,7 +32,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("placeholder", "{question} {potential_entities} {retrieved_documents}"),
+                ("placeholder", "{question} {potential_entities} {potential_classes} {retrieved_documents}"),
             ]
         )
 
@@ -40,6 +40,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
             {
                 "question": state.structured_question.question_steps[0] if state.structured_question.question_steps else "Generate a SPARQL query",
                 "potential_entities": state.extracted_entities,
+                "potential_classes": state.extracted_classes,
                 "retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
             }
         )

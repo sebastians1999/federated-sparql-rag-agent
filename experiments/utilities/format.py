@@ -39,30 +39,33 @@ PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX schema: <https://schema.org/>
 PREFIX spex: <https://purl.expasy.org/sparql-examples/ontology#>
 
-SELECT ?s ?comment ?select ?target ?federatesWith
+SELECT ?s ?comment ?select ?target
 WHERE {
     ?s rdfs:comment ?comment ;
        sh:select ?select ;
-       schema:target ?target ;
-       spex:federatesWith ?federatesWith .
+       schema:target ?target .
 }
 """
 
 
-def get_sparql_question_meta(ttl_content: str) -> Dict[str, str]:
+def get_sparql_question_meta(ttl_content: str) -> Dict[str, Any]:
     g = rdflib.Graph()
     g.parse(data=ttl_content, format='turtle')
     results = g.query(sparql_query)
-
-    print()
-
+    
+    # Define the spex namespace for federatesWith
+    spex = rdflib.Namespace("https://purl.expasy.org/sparql-examples/ontology#")
+    
     for row in results:
+        # Get all federatesWith values for this subject
+        federates_with_list = [str(o) for o in g.objects(row.s, spex.federatesWith)]
+        
         return {
             "resource": str(row.s),
             "natural_language_question": str(row.comment),
             "query": str(row.select),
             "target_endpoint": str(row.target),
-            "federates_with": str(row.federatesWith),
+            "federates_with": federates_with_list,
         }
 
 

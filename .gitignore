@@ -6,3 +6,4 @@ __pycache__
 biomedical_entities_uploaded_ids.json
 entities_dataframe.pkl
 entities_dataframe.csv
+query_cache

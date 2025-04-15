@@ -158,7 +158,8 @@ class AgentEvaluator:
                     # New data
                     "predicted_query": result["final_state_response"],
                     "predicted_endpoint": extract_endpoint_from_comment_regex(result["final_state_response"]),
-                    
+                    "predicted_endpoint_equal_to_target_endpoint": extract_endpoint_from_comment_regex(result["final_state_response"]) == item.get("target_endpoint", ""),
+                    "predicted_endpoint_in_federates_with": extract_endpoint_from_comment_regex(result["final_state_response"]) in item.get("federates_with", ""),
                     "run_id_langsmith": str(result["run_id_langsmith"]),
                     "in_dataset": result["in_dataset"],
                     "execution_time": str(result["execution_time"]),
@@ -183,7 +184,9 @@ class AgentEvaluator:
                 #########  Validate SPARQL syntax #########
                 is_valid, error = validate_sparql_syntax(updated_item["predicted_query"])
                 updated_item["is_valid_sparql"] = is_valid
-                updated_item["sparql_syntax_error"] = error
+
+                if not is_valid:
+                    updated_item["sparql_syntax_error"] = error
 
                 #########  Result comparison metrics calculation #########
                 df_ground_truth, df_predicted = format_query_result_dataframe(
