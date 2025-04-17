@@ -31,18 +31,19 @@ async def question_understanding(state: State, config: RunnableConfig) -> Dict[s
 
     try:
         configuration = Configuration.from_runnable_config(config)
-        llm = get_llm(configuration, provider_key="provider_4", model_key="groq_model_1").with_structured_output(schema = StructuredQuestion)
+        # Use per-task LLM config for question understanding
+        llm = get_llm(configuration, task="question_understanding", provider_key="provider_question_understanding", model_key="question_understanding_model").with_structured_output(schema = StructuredQuestion)
         
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", EXTRACTION_PROMPT),
-                ("placeholder", "{messages}"),
+                ("human", "{message}")
             ]
         )
 
         message_value = await prompt_template.ainvoke(
             {
-                "messages": state.messages,
+                "message": state.messages,
             }
         )
 
@@ -53,22 +54,18 @@ async def question_understanding(state: State, config: RunnableConfig) -> Dict[s
             "steps": [
                 StepOutput(
                     label=f"Extracted {len(structured_question.question_steps)} steps and {len(structured_question.extracted_classes)} classes",
-                    details=f"""Intent: {structured_question.intent.replace("_", " ")}
+                    details=f"""Steps to answer the user question:{chr(10).join(f"- {step}" for step in structured_question.question_steps)}
+                                Potential classes:
 
-Steps to answer the user question:
+                                {chr(10).join(f"- {cls}" for cls in structured_question.extracted_classes)}
 
-{chr(10).join(f"- {step}" for step in structured_question.question_steps)}
+                                Potential entities:
 
-Potential classes:
-
-{chr(10).join(f"- {cls}" for cls in structured_question.extracted_classes)}
-
-Potential entities:
-
-{chr(10).join(f"- {entity}" for entity in structured_question.extracted_entities)}""",
-                    )
-                ],
-            }
+                                {chr(10).join(f"- {entity}" for entity in structured_question.extracted_entities)}""",
+                    type="context"
+                )
+            ],
+        }
     except Exception as e:
         return {
             "error": str(e),

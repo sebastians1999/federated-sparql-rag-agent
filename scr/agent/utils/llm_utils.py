@@ -44,43 +44,47 @@ except ImportError:
 from scr.agent.utils.config import Configuration, LLMConfig
 
 
-def get_llm(config: Optional[Configuration] = None, model_key: Optional[str] = None, provider_key: Optional[str] = None) -> BaseChatModel:
+def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, model_key: Optional[str] = None, provider_key: Optional[str] = None) -> BaseChatModel:
     """
-    Get an LLM instance based on the configuration.
-    
+    Get an LLM instance based on the configuration and task.
     Args:
         config: The configuration object. If None, a default config will be created.
+        task: The logical task (e.g., 'question_understanding', 'sparql_construction') to select per-task params.
         model_key: The model name to use. If None, model_1 will be used.
         provider_key: The provider key to use. If None, the default provider will be used.
-        
     Returns:
         An instance of a language model that implements the BaseChatModel interface.
-        
     Raises:
         ValueError: If the provider is not supported or the required package is not installed.
     """
     if config is None:
         config = Configuration()
-    
     llm_config = config.llm_config
-    
+
     if provider_key is not None:
         provider_name = getattr(llm_config, provider_key)
     else:
         print("Error, no provider key specified or key not found in config")
         return None
-    
+
     if model_key is not None:
         model_name = getattr(llm_config, model_key)
     else:
         print("Error, no model key specified or key not found in config")
         return None
-    
+
+    # Use per-task/model parameters if available
+    def get_param(param_dict, task, default=None):
+        if isinstance(param_dict, dict) and task is not None:
+            return param_dict.get(task, default)
+        return param_dict if param_dict is not None else default
+
     common_params = {
-        "temperature": llm_config.temperature,
-        "max_tokens": llm_config.max_tokens,
+        "temperature": get_param(llm_config.temperature, task, 0.2),
+        "max_tokens": get_param(llm_config.max_tokens, task, 4000),
+        "top_p": get_param(llm_config.top_p, task, 1.0),
     }
-    
+
     if provider_name.lower() == "together":
         if not TOGETHER_AVAILABLE:
             raise ImportError(
@@ -92,7 +96,6 @@ def get_llm(config: Optional[Configuration] = None, model_key: Optional[str] = N
             api_key=llm_config.together_api_key,
             **common_params
         )
-    
     elif provider_name.lower() == "openai":
         if not OPENAI_AVAILABLE:
             raise ImportError(
@@ -104,7 +107,6 @@ def get_llm(config: Optional[Configuration] = None, model_key: Optional[str] = N
             api_key=llm_config.openai_api_key,
             **common_params
         )
-    
     elif provider_name.lower() == "anthropic":
         if not ANTHROPIC_AVAILABLE:
             raise ImportError(
@@ -138,6 +140,5 @@ def get_llm(config: Optional[Configuration] = None, model_key: Optional[str] = N
             api_key=llm_config.google_genai_api_key,
             **common_params
         )
-    
     else:
         raise ValueError(f"Unsupported LLM provider: {provider_name}")

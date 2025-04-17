@@ -19,16 +19,36 @@ class LLMConfig:
     # meta-llama/Llama-3.3-70B-Instruct-Turbo
     # deepseek-ai/DeepSeek-V3
 
-    provider_1: str = "together"
-    provider_2: str = "openai"
-    provider_3: str = "anthropic"
-    provider_4: str = "groq"
-    provider_5: str = "google-genai"
-    
+
+    temperature: Dict[str, float] = field(default_factory=lambda: {
+        "question_understanding": 0.7,
+        "sparql_construction": 0.2,
+    })
+    max_tokens: Dict[str, int] = field(default_factory=lambda: {
+        "question_understanding": 4000,
+        "sparql_construction": 4000,
+    })
+    top_p: Dict[str, float] = field(default_factory=lambda: {
+        "question_understanding": 1.0,
+        "sparql_construction": 1.0,
+    })
+
+    # Model/provider selection
+    provider_question_understanding: str = "google-genai"
+    provider_sparql_construction: str = "google-genai"
+    question_understanding_model: str = "gemini-2.5-pro-exp-03-25"
+    sparql_construction_model: str = "gemini-2.5-pro-exp-03-25"
+
+    # provider_1: str = "together"
+    # provider_2: str = "openai"
+    # provider_3: str = "anthropic"
+    # provider_4: str = "groq"
+    # provider_5: str = "google-genai"
     # Model configurations for each provider
+
     # Together models
-    together_model_1: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
-    together_model_2: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
+    # together_model_1: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+    # together_model_2: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
     
     # # OpenAI models
     # openai_model_1: str = "gpt-3.5-turbo"
@@ -39,25 +59,17 @@ class LLMConfig:
     # anthropic_model_2: str = "claude-3-sonnet-20240229"
     
     # # Groq models
-    groq_model_1: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    #groq_model_1: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     # groq_model_2: str = "mixtral-8x7b-32768"
     
     # Google GenAI models
-    google_genai_model_1: str = "gemini-2.0-flash"
-    google_genai_model_2: str = "gemini-2.0-flash-thinking-exp-01-21"
+    # google_genai_model_1: str = "gemini-2.0-flash"
+    # google_genai_model_2: str = "gemini-2.0-flash-thinking-exp-01-21"
     # google_genai_model_2: str = "models/gemini-2.5.pro-exp-03-25"
     
     # # For backward compatibility
     # model_1: str = "meta-llama/Llama-3.3-3B-Instruct-Turbo"
     # model_2: str = "meta-llama/Llama-3.2-3B-Instruct-Turbo"
-    
-    # Common parameters
-    temperature: float = 1.0
-    max_tokens: Optional[int] = 4000
-    top_p: float = 1.0
-    frequency_penalty: float = 0.0
-    presence_penalty: float = 0.0
-    timeout: int = 60  # seconds
     
     # API keys for different providers
     together_api_key: Optional[str] = os.environ.get("TOGETHER_API_KEY")
@@ -70,6 +82,16 @@ class LLMConfig:
     provider: str = "together"
     api_key: Optional[str] = None
     api_base: Optional[str] = None
+
+    @property
+    def meta_data(self):
+        return {
+            "question_understanding_model": self.question_understanding_model,
+            "sparql_query_construction_model": self.sparql_construction_model,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "top_p": self.top_p,
+        }
 
 
 @dataclass

@@ -27,27 +27,32 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         configuration = Configuration.from_runnable_config(config)
 
 
-        llm = get_llm(configuration, provider_key="provider_1", model_key="together_model_1")
+        # Use per-task LLM config for SPARQL construction
+        llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
 
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("placeholder", "{question} {potential_entities} {potential_classes} {retrieved_documents}"),
+                ("human", "{input}")
             ]
         )
+        #retrieved_documents
+        #("human", "{input}")
+
 
         message = await prompt_template.ainvoke(
             {
-                "question": state.structured_question.question_steps[0] if state.structured_question.question_steps else "Generate a SPARQL query",
+                "input": state.messages[-1].content,
                 "potential_entities": state.extracted_entities,
                 "potential_classes": state.extracted_classes,
-                "retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
             }
         )
+        #"retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
         
         response_message = await llm.ainvoke(message)
 
-        extracted_queries = extract_sparql_queries(response_message)
+
+        extracted_queries = extract_sparql_queries(response_message.content)
     
 
         return {
@@ -55,7 +60,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
             "steps": [
                 StepOutput(
                     label="Generated SPARQL query",
-                    details=response_message,
+                    details=response_message.content,
                 )
             ]
         }

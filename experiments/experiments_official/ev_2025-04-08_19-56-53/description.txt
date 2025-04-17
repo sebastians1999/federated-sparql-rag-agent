@@ -1,0 +1,6 @@
+This was the first experiment I ever ran. It only focused on 6 sparql instances of the test set.
+These instances were selected manually by focusing on compareable easy questions.
+Furthermore the prompt was already somewhat advanced, since it already included a couple of steps how to build the query.
+So this experiment was not a true test of the agent's capabilities as a baseline. 
+However it already gave some indications what is going right and what is going wrong. 
+These results were taken into account when constructing the sparql query construction prompt.

@@ -17,7 +17,8 @@ from experiments.utilities.sparql_syntax_validation import validate_sparql_synta
 from experiments.utilities.format import extract_endpoint_from_comment_regex
 from experiments.utilities.result_metric import format_query_result_dataframe, calculate_column_metrics
 from experiments.utilities.format import normalize_url
-
+from experiments.utilities.experiment_metadata_writer import write_experiment_metadata
+from scr.agent.prompts.prompts import EXTRACTION_PROMPT, QUERY_GENERATION_PROMPT
 
 
 class AgentEvaluator:
@@ -36,6 +37,14 @@ class AgentEvaluator:
         self.metric_dataset_path = os.path.join(self.output_dir, 'metrics_dataset.json')
         self.test = test
         self.timeout = timeout # timeout after 300 seconds
+        
+        write_experiment_metadata(
+            self.output_dir,
+            getattr(self.graph, 'config_meta', None),
+            EXTRACTION_PROMPT,
+            QUERY_GENERATION_PROMPT,
+            self.timeout
+        )
         
     async def run_single_test(self, question: str) -> State:
         # Create initial state
@@ -113,6 +122,7 @@ class AgentEvaluator:
         total_recall = 0.0
         total_f1 = 0.0
         valid_metric_count = 0
+        error_at_endpoint = 0
         
         if self.test:
             test_dataset = self.test_dataset.select(range(1))
@@ -147,6 +157,7 @@ class AgentEvaluator:
                     "predicted_endpoint": extract_endpoint_from_comment_regex(result["final_state_response"]),
                     "predicted_endpoint_equal_to_target_endpoint": normalize_url(extract_endpoint_from_comment_regex(result["final_state_response"])) == normalize_url(item.get("target_endpoint", "")),
                     "predicted_endpoint_in_federates_with": normalize_url(extract_endpoint_from_comment_regex(result["final_state_response"])) in [normalize_url(endpoint) for endpoint in item.get("federates_with", [])],
+                    "predicted_endpoint_or_federated_endpoint": normalize_url(extract_endpoint_from_comment_regex(result["final_state_response"])) in [normalize_url(endpoint) for endpoint in item.get("federates_with", [])] or normalize_url(extract_endpoint_from_comment_regex(result["final_state_response"])) == normalize_url(item.get("target_endpoint", "")),
                     "run_id_langsmith": str(result["run_id_langsmith"]),
                     #"in_dataset": result["in_dataset"],
                     #"execution_time": str(result["execution_time"]),
@@ -193,16 +204,25 @@ class AgentEvaluator:
                 else: 
                     updated_item["ground_truth_query_result_is_empty"] = False
                 
-                    if df_predicted.empty:
+                    if isinstance(df_predicted, str) and df_predicted == 'error':
                         updated_item["result_eval_f1_score"] = 0.0
                         updated_item["result_eval_precision"] = 0.0
                         updated_item["result_eval_recall"] = 0.0
+                        updated_item["error_occured_at_endpoint"]= True
+                        updated_item["predicted_query_result_is_empty"] = True
+                        error_at_endpoint += 1
+                    elif hasattr(df_predicted, 'empty') and df_predicted.empty:
+                        updated_item["result_eval_f1_score"] = 0.0
+                        updated_item["result_eval_precision"] = 0.0
+                        updated_item["result_eval_recall"] = 0.0
+                        updated_item["error_occured_at_endpoint"]= False
                         updated_item["predicted_query_result_is_empty"] = True
                     else:
                         metrics = calculate_column_metrics(df_ground_truth, df_predicted)
                         updated_item["result_eval_precision"] = metrics["precision"]
                         updated_item["result_eval_recall"] = metrics["recall"]
                         updated_item["result_eval_f1_score"] = metrics["f1_score"]
+                        updated_item["error_occured_at_endpoint"] = False
                         updated_item["predicted_query_result_is_empty"] = False
                         
                         # aggregate metrics
@@ -215,6 +235,7 @@ class AgentEvaluator:
                 
             except Exception as e:
                 print(f"Error processing question {i+1}/{len(test_dataset)}: {str(e)}")
+                print("file_path:", item.get("file_path", ""))
         
         self.updated_dataset = Dataset.from_list(updated_results)
  
@@ -226,19 +247,20 @@ class AgentEvaluator:
             metric: value for metric, value in evaluation_results.items() 
                 if metric in ["SP-BLEU", "METEOR", "num_none_queries"]
         }
-        self.results_dict["num_pairs_evaluated"] = len(self.updated_dataset)
+        self.results_dict["num_pairs_evaluated(SP-BLEU,METEOR)"] = len(self.updated_dataset)
+        self.results_dict["error_at_endpoint"] = error_at_endpoint
         
         # Add aggregate result metrics to results_dict
         if valid_metric_count > 0:
             self.results_dict["avg_result_precision"] = total_precision / valid_metric_count
             self.results_dict["avg_result_recall"] = total_recall / valid_metric_count
             self.results_dict["avg_result_f1"] = total_f1 / valid_metric_count
-            self.results_dict["number_of_query_results_validated"] = valid_metric_count
+            self.results_dict["number_of_query_results_evaluated"] = valid_metric_count
         else:
             self.results_dict["avg_result_precision"] = 0.0
             self.results_dict["avg_result_recall"] = 0.0
             self.results_dict["avg_result_f1"] = 0.0
-            self.results_dict["number_of_query_results_validated"] = 0
+            self.results_dict["number_of_query_results_evaluated"] = 0
 
         with open(self.metric_dataset_path, 'w', encoding='utf-8') as f:
             json.dump(self.results_dict, f, indent=2, ensure_ascii=False)

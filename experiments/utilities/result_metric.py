@@ -15,6 +15,9 @@ def format_query_result_dataframe(
 
 
     ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint, timeout=timeout)
+
+    print("Querying ground truth endpoint...")
+    
     predicted = query_sparql(predicted_query, predicted_endpoint, timeout=timeout)
 
     if ground_truth == 'error':
@@ -34,7 +37,7 @@ def format_query_result_dataframe(
         df_ground_truth = pd.DataFrame(processed_data)
     
     if predicted == 'error':
-        df_predicted = pd.DataFrame()
+        df_predicted = 'error'
     else:
         processed_data = []
         bindings_predicted = predicted['results']['bindings']
