@@ -1,56 +1,43 @@
-import httpx
 import time
 from typing import List, Dict, Any, Optional
+from SPARQLWrapper import SPARQLWrapper, JSON
+from typing import Optional, Any
 
 import logging 
 
 
 #logging.basicConfig(level=logging.INFO)
 
-def query_sparql(
+def query_sparql_wrapper(
     query: str,
     endpoint_url: str,
     post: bool = False,
-    timeout: Optional[int] = None,
-    client: Optional[httpx.Client] = None
+    timeout: Optional[int] = None
 ) -> Any:
-    """Execute a SPARQL query on a SPARQL endpoint using httpx.
-
-    Returns 'error' if an HTTPStatusError occurs during the request.
     """
-    should_close = False
-    if client is None:
-        client = httpx.Client(
-            follow_redirects=True, headers={"Accept": "application/sparql-results+json"}, timeout=timeout
-        )
-        should_close = True
+    Execute a SPARQL query on a SPARQL endpoint using SPARQLWrapper.
 
+    Returns 'error' if an exception occurs during the request.
+    """
+    sparql = SPARQLWrapper(endpoint_url)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    
+    if post:
+        sparql.setMethod('POST')
+    else:
+        sparql.setMethod('GET')
+    
+    if timeout is not None:
+        sparql.setTimeout(timeout)
+    
     try:
-        if post:
-            resp = client.post(
-                endpoint_url,
-                data={"query": query},
-            )
-        else:
-            resp = client.get(
-                endpoint_url,
-                params={"query": query},
-            )
+        results = sparql.query().convert()
+        return results
+    except Exception as e:
+        return e
 
-        try:
-            resp.raise_for_status() 
-            return resp.json()
-        except httpx.HTTPStatusError as e:
-            #logging.warning(f"HTTP Status Error executing SPARQL query: {e}\nURL: {e.request.url}\nQuery: {query}")
-            return "error" # Return "error" as requested when an HTTP error occurs
 
-    except httpx.RequestError as e:
-        #logging.error(f"HTTP Request Error executing SPARQL query: {e}\nURL: {e.request.url}\nQuery: {query}")
-        return "error" # Also return "error" for these request-level issues
-
-    finally:
-        if should_close:
-            client.close()
 
 def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tuple = None) -> List[Dict]:
     """Retrieve entity data from SPARQL endpoint and format it as dictionaries for the indexing pipeline."""
@@ -60,7 +47,7 @@ def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tup
         else entity["query"]
     )
     try:
-        entities_res = query_sparql(query, entity["endpoint"])["results"]["bindings"]
+        entities_res = query_sparql_wrapper(query, entity["endpoint"])["results"]["bindings"]
     except Exception as e:
         print(f"Error querying endpoint {entity['endpoint']}: {str(e)}")
         return None
@@ -119,4 +106,3 @@ def load_entities_from_endpoints(entities_config: List[Dict] = None, max_results
     print(f"Done querying SPARQL endpoints in {elapsed_time:.2f} minutes, retrieved {len(entities_for_indexing)} entities")
     
     return entities_for_indexing
-

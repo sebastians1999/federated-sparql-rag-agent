@@ -84,14 +84,14 @@ Generate a federated SPARQL query to answer the user question, utilizing the pro
 
 2. **Endpoint Comment:** - The *very first line* inside the code block *must* be a comment containing the URL of the *primary* SPARQL endpoint through which the federated query should be initiated.
 						 - Include only this single primary endpoint URL comment at the start. No other text on this line or preceding it within the code block.
+
 """
 )
 
-#User question: {question}
 
 # QUERY_GENERATION_PROMPT = (
 #     INTRODUCTION_PROMPT
-#     + """User question {question}
+#     + """
 
 # Potential entities extracted from the user question {potential_entities}
 
@@ -132,10 +132,12 @@ Generate a federated SPARQL query to answer the user question, utilizing the pro
 # 5.**Output Format:** Provide the generated SPARQL query inside a single markdown code block with the "sparql" language tag (````sparql ... ````).
 
 # 6. **Endpoint Comment:** - The *very first line* inside the code block *must* be a comment containing the URL of the *primary* SPARQL endpoint (provided in the input context) through which the federated query should be initiated.
-# 												 - Include only this single primary endpoint URL comment at the start. No other text on this line or preceding it within the code block.
+												 
+#                          - Include only this single primary endpoint URL comment at the start. No other text on this line or preceding it within the code block.
 
 # 7. **Context Adherence:** - Always derive your answer from focusing on endpoint URLs and schema information provided in the input context. Do not try to create a query from nothing and do not provide a generic query.
-# 													- Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.
+
+# 						  - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.
 													
 
 # """

@@ -16,7 +16,7 @@ import httpx
 # Import the query_sparql function from endpoint_loader
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from entity_indexing.endpoint_loader import query_sparql
+from entity_indexing.endpoint_loader import query_sparql_wrapper
 from experiments.utilities.format import get_sparql_question_meta
 
 
@@ -166,12 +166,12 @@ def cached_query_sparql(
             return cached_result
     print(f"  Querying endpoint: {endpoint_url}")
     # If not in cache or cache disabled, execute the query
-    result = query_sparql(query, endpoint_url, timeout=timeout)
+    result = query_sparql_wrapper(query, endpoint_url, timeout=timeout)
 
     #print(f"  Query result: {result}")
     
     # Update cache if enabled and the result is not an error
-    if update_cache and (isinstance(result, dict) and result != "error"):
+    if update_cache and not isinstance(result, Exception):
         save_to_cache(query, endpoint_url, result, cache_dir)
     
     return result
@@ -227,8 +227,9 @@ def format_query_result_dataframe(
 def cache_dataset_queries(
     dataset_dir: Optional[str] = None,
     cache_dir: Optional[str] = None,
-    endpoint_files_map: Optional[Dict[str, List[str]]] = None
-) -> Dict[str, int]:
+    endpoint_files_map: Optional[Dict[str, List[str]]] = None,
+    timeout: Optional[int] = None
+) -> List[dict]:
     """
     Cache all ground truth queries from a dataset.
     
@@ -237,81 +238,65 @@ def cache_dataset_queries(
         cache_dir: Directory for the cache. If None, uses the default.
         endpoint_files_map: Dictionary mapping endpoint sets to lists of files to process.
                           e.g., {"Uniprot": ["48_glycosylation_sites_and_glycans.ttl"], "Rhea": []}
-                          If an empty list is provided for an endpoint, all files in that endpoint will be processed.
-                          If None, processes all files in all endpoints.
-        
+        timeout: Optional timeout for SPARQL queries
     Returns:
-        Dictionary with counts of cached queries per endpoint
+        List of error dicts for queries that failed to cache
     """
-    # Set defaults if not provided
+    error_queries = []
     if dataset_dir is None:
-        # Get the experiments directory
         experiments_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         dataset_dir = os.path.join(experiments_dir, "federated_sparql_dataset/examples_federated_02.04.2025")
-    
-    # Get all endpoint sets if not specified
+    if cache_dir is None:
+        cache_dir = get_cache_dir()
+
+    # Determine endpoint sets and files
     if endpoint_files_map is None:
-        endpoint_sets = [d for d in os.listdir(dataset_dir) 
-                         if os.path.isdir(os.path.join(dataset_dir, d))]
-        endpoint_files_map = {endpoint: [] for endpoint in endpoint_sets}  # Empty list means process all files
-    
-    # Initialize statistics
-    stats = {endpoint: 0 for endpoint in endpoint_files_map.keys()}
-    total_cached = 0
-    
+        endpoint_sets = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
+        endpoint_files_map = {endpoint: [] for endpoint in endpoint_sets}
+
     # Process each endpoint set
     for endpoint_set, file_list in endpoint_files_map.items():
-        print(f"Processing endpoint set: {endpoint_set}")
-        
-        # Find the directory for this endpoint set
         endpoint_dir = os.path.join(dataset_dir, endpoint_set)
         if not os.path.isdir(endpoint_dir):
+            print(endpoint_dir)
             print(f"Warning: Directory for endpoint set '{endpoint_set}' not found")
             continue
-        
-        # Process specified files or all files in this endpoint directory
-        if file_list:  # If specific files are provided
-            print(f"  Processing {len(file_list)} specified files")
+        # Process specified files or all files
+        if file_list:
             for filename in file_list:
                 file_path = os.path.join(endpoint_dir, filename)
                 if os.path.isfile(file_path) and file_path.endswith(".ttl"):
-                    print(f"  Processing TTL file: {filename}")
-                    process_ttl_file(file_path, endpoint_set, cache_dir, stats, total_cached)
+                    error = process_ttl_file(file_path, endpoint_set, cache_dir, timeout)
+                    if error:
+                        error_queries.append(error)
                 else:
                     print(f"  Warning: File not found or not a TTL file: {filename}")
-        else:  # Process all files
-            print(f"  Processing all files in {endpoint_set}")
+        else:
             for root, dirs, files in os.walk(endpoint_dir):
                 for file in files:
                     if file.endswith(".ttl"):
                         file_path = os.path.join(root, file)
-                        process_ttl_file(file_path, endpoint_set, cache_dir, stats, total_cached)
-    
-    # Print summary
-    print(f"\nCaching complete. Total queries cached: {sum(stats.values())}")
-    for endpoint, count in stats.items():
-        print(f"  {endpoint}: {count} queries")
-    
-    return stats
+                        error = process_ttl_file(file_path, endpoint_set, cache_dir, timeout)
+                        if error:
+                            error_queries.append(error)
+    return error_queries
 
 
-def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str], stats: Dict[str, int], total_cached: int, timeout: Optional[int] = None) -> None:
-    """Helper function to process a TTL file and extract/cache SPARQL queries."""
+def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str], timeout: Optional[int] = None) -> Optional[dict]:
+    """
+    Helper function to process a TTL file and extract/cache SPARQL queries.
+    Returns a dict with error info if an error occurs, otherwise None.
+    """
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        
         try:
             meta = get_sparql_question_meta(content)
             query = meta.get("query")
             endpoint_url = meta.get("target_endpoint")
             print("Processing TTL file: " + meta.get("resource"))
-            
-            # If we found both query and endpoint, cache the result
             if query and endpoint_url:
                 try:
-                    #print(f"  Caching query: {query}")
-                    # Query and cache the result
                     result = cached_query_sparql(
                         query, 
                         endpoint_url,
@@ -320,22 +305,16 @@ def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str]
                         timeout=timeout,
                         cache_dir=cache_dir
                     )
-                    
-                    # Update statistics
-                    if isinstance(result, dict) and result != "error":
-                        stats[endpoint_set] += 1
-                        #print(f"  Cached query from {os.path.basename(file_path)}")
-                    else:
-                        print(f"  Error executing query from {os.path.basename(file_path)}: {result}")
+                    if isinstance(result, Exception):
+                        return {"file_path": file_path, "error": str(result)}
                 except Exception as e:
-                    print(f"  Error processing {os.path.basename(file_path)}: {str(e)}")
+                    return {"file_path": file_path, "error": str(e)}
             else:
-                print(f"  Could not extract query or endpoint from {os.path.basename(file_path)}")
+                return {"file_path": file_path, "error": "Could not extract query or endpoint"}
         except Exception as e:
-            print(f"  Error parsing TTL with RDFLib in {os.path.basename(file_path)}: {str(e)} with function get_sparql_question_meta")
+            return {"file_path": file_path, "error": f"Error parsing TTL with RDFLib: {str(e)} with function get_sparql_question_meta"}
     except Exception as e:
-        print(f"  Error reading {os.path.basename(file_path)}: {str(e)}")
-
+        return {"file_path": file_path, "error": f"Error reading file: {str(e)}"}
 
 
 def list_cached_queries(cache_dir: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -352,7 +331,6 @@ def list_cached_queries(cache_dir: Optional[str] = None) -> List[Dict[str, Any]]
     
     cached_queries = []
     
-    # Iterate through all files in the cache directory
     for filename in os.listdir(cache_dir):
         if filename.endswith(".json"):
             file_path = os.path.join(cache_dir, filename)
@@ -369,8 +347,9 @@ def list_cached_queries(cache_dir: Optional[str] = None) -> List[Dict[str, Any]]
                     "cache_file": filename,
                     "has_results": "results" in cache_entry.get("result", {})
                 })
-            except (json.JSONDecodeError, KeyError):
-                # Skip invalid cache files
+            except (json.JSONDecodeError, KeyError)as e :
+                print(e)
+                print(f"Warning: Invalid cache file: {filename}")
                 continue
     
     return cached_queries

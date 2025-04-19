@@ -40,4 +40,6 @@ def write_experiment_metadata(output_dir, graph_config, extraction_prompt, query
         f.write(meta['extraction_prompt'])
         f.write("\n\n## Query Generation Prompt (SPARQL Construction)\n")
         f.write(meta['query_generation_prompt'])
+        f.write("\n\n## Timeout for result retrieval\n")
+        f.write(str(meta['timeout for result retrieval']))
         f.write("\n")

@@ -15,7 +15,7 @@ from experiments.utilities.metrics import eval_pairs
 import json
 from experiments.utilities.sparql_syntax_validation import validate_sparql_syntax
 from experiments.utilities.format import extract_endpoint_from_comment_regex
-from experiments.utilities.result_metric import format_query_result_dataframe, calculate_column_metrics
+from experiments.utilities.result_metric import format_query_result_dataframe, calculate_column_metrics_with_label_similarity
 from experiments.utilities.format import normalize_url
 from experiments.utilities.experiment_metadata_writer import write_experiment_metadata
 from scr.agent.prompts.prompts import EXTRACTION_PROMPT, QUERY_GENERATION_PROMPT
@@ -199,17 +199,18 @@ class AgentEvaluator:
 
                 # In theory there should be no more test instances where the result of the query is empty because I filtered them out. 
                 # So this is a sanity check to not corrupt the metric. 
-                if df_ground_truth.empty:
+                if isinstance(df_ground_truth, Exception):
                     updated_item["ground_truth_query_result_is_empty"] = True
                 else: 
                     updated_item["ground_truth_query_result_is_empty"] = False
                 
-                    if isinstance(df_predicted, str) and df_predicted == 'error':
+                    if isinstance(df_predicted, Exception):
                         updated_item["result_eval_f1_score"] = 0.0
                         updated_item["result_eval_precision"] = 0.0
                         updated_item["result_eval_recall"] = 0.0
                         updated_item["error_occured_at_endpoint"]= True
                         updated_item["predicted_query_result_is_empty"] = True
+                        updated_item["error_occured_at_endpoint_message"] = str(df_predicted)
                         error_at_endpoint += 1
                     elif hasattr(df_predicted, 'empty') and df_predicted.empty:
                         updated_item["result_eval_f1_score"] = 0.0
@@ -218,7 +219,7 @@ class AgentEvaluator:
                         updated_item["error_occured_at_endpoint"]= False
                         updated_item["predicted_query_result_is_empty"] = True
                     else:
-                        metrics = calculate_column_metrics(df_ground_truth, df_predicted)
+                        metrics = calculate_column_metrics_with_label_similarity(df_ground_truth, df_predicted)
                         updated_item["result_eval_precision"] = metrics["precision"]
                         updated_item["result_eval_recall"] = metrics["recall"]
                         updated_item["result_eval_f1_score"] = metrics["f1_score"]
@@ -247,7 +248,7 @@ class AgentEvaluator:
             metric: value for metric, value in evaluation_results.items() 
                 if metric in ["SP-BLEU", "METEOR", "num_none_queries"]
         }
-        self.results_dict["num_pairs_evaluated(SP-BLEU,METEOR)"] = len(self.updated_dataset)
+        self.results_dict["size_of_test_set"] = len(self.updated_dataset)
         self.results_dict["error_at_endpoint"] = error_at_endpoint
         
         # Add aggregate result metrics to results_dict
