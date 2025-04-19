@@ -99,7 +99,7 @@ def process_federated_dataset(endpoint_sets_to_test=None, dataset_dir=None, outp
     if dataset_dir is None:
         # Updated path to reflect new folder structure
         experiments_dir = os.path.dirname(os.path.dirname(__file__))
-        dataset_dir = os.path.join(experiments_dir, "federated_sparql_dataset/examples_federated_02.04.2025")
+        dataset_dir = os.path.join(experiments_dir, "federated_sparql_dataset/examples_federated_19.04.2025")
     
     # Set the correct output directory (experiments/eval)
     if output_dir is None:
