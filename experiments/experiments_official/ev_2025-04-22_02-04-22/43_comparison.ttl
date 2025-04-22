@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?uniprotAccession ?patentNumber ?grantDate
+WHERE {
+  # Find UniProt entries and their associated patent citations
+  ?uniprotEntry rdf:type up:Protein ;
+                up:accession ?uniprotAccession ;
+                up:citation ?patentCitation .
+
+  ?patentCitation rdf:type bibo:Patent ;
+                  bibo:number ?patentNumber .
+
+  # Federate to a hypothetical patent endpoint to get patent details by number
+  # NOTE: Replace <http://patent.data.org/sparql> with the actual patent database endpoint URI (e.g., for EPO data) if one is available and publicly accessible.
+  SERVICE <http://patent.data.org/sparql> {
+    # Find the patent record using the number obtained from UniProt
+    ?patentRecord bibo:number ?patentNumber ;
+                  # Assuming the patent endpoint uses dcterms:date for the grant date
+                  dcterms:date ?grantDate .
+
+    # Filter patents granted more than twenty years in the past
+    # This filter compares the year of the grant date with the year 20 years ago from the current date.
+    FILTER (xsd:integer(YEAR(?grantDate)) < (xsd:integer(YEAR(NOW())) - 20))
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "SP-BLEU": 0.01603183900210047,
+  "METEOR": 0.28754388250491486,
+  "num_none_queries": 0,
+  "size_of_test_set": 6,
+  "error_at_endpoints": 4,
+  "avg_result_precision": 0.0,
+  "avg_result_recall": 0.0,
+  "avg_result_f1": 0.0,
+  "number_of_query_results_evaluated": 1,
+  "list_evaluated_queries": [
+    "Rhea/112_Total_number_of_reaction_ec_protein_links.ttl"
+  ]
+}

@@ -79,11 +79,21 @@ def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, 
             return param_dict.get(task, default)
         return param_dict if param_dict is not None else default
 
+
+
     common_params = {
         "temperature": get_param(llm_config.temperature, task, 0.2),
         "max_tokens": get_param(llm_config.max_tokens, task, 4000),
         "top_p": get_param(llm_config.top_p, task, 1.0),
     }
+
+    extra_params = {}
+    if hasattr(llm_config, "extra_params"):
+        provider_params = llm_config.extra_params.get(provider_name.lower(), {})
+        model_params = provider_params.get(model_name, {})
+        extra_params = model_params.copy()
+
+    all_params = {**common_params, **extra_params}
 
     if provider_name.lower() == "together":
         if not TOGETHER_AVAILABLE:
@@ -94,7 +104,7 @@ def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, 
         return Together(
             model=model_name,
             api_key=llm_config.together_api_key,
-            **common_params
+            **all_params
         )
     elif provider_name.lower() == "openai":
         if not OPENAI_AVAILABLE:
@@ -105,7 +115,7 @@ def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, 
         return ChatOpenAI(
             model=model_name,
             api_key=llm_config.openai_api_key,
-            **common_params
+            **all_params
         )
     elif provider_name.lower() == "anthropic":
         if not ANTHROPIC_AVAILABLE:
@@ -116,7 +126,7 @@ def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, 
         return ChatAnthropic(
             model=model_name,
             api_key=llm_config.anthropic_api_key,
-            **common_params
+            **all_params
         )
     elif provider_name.lower() == "groq":
         if not GROQ_AVAILABLE:
@@ -127,7 +137,7 @@ def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, 
         return ChatGroq(
             model=model_name,
             api_key=llm_config.groq_api_key,
-            **common_params
+            **all_params
         )
     elif provider_name.lower() == "google-genai":
         if not GOOGLE_GENAI_AVAILABLE:
@@ -138,7 +148,7 @@ def get_llm(config: Optional[Configuration] = None, task: Optional[str] = None, 
         return ChatGoogleGenerativeAI(
             model=model_name,
             api_key=llm_config.google_genai_api_key,
-            **common_params
+            **all_params
         )
     else:
         raise ValueError(f"Unsupported LLM provider: {provider_name}")

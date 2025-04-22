@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?ecLevel1 (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Find all reactions in RHEA
+  ?reaction a rhea:Reaction .
+
+  # Find enzymes that catalyze these reactions
+  ?reaction rhea:catalyzedBy ?enzyme .
+
+  # Enzymes in RHEA often have cross-references to UniProt
+  ?enzyme rdfs:seeAlso ?uniprotUri .
+  FILTER regex(str(?uniprotUri), "^http://purl.uniprot.org/uniprot/") # Ensure the link is to UniProt
+
+  # Use SERVICE to query the UniProt endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # In UniProt, find the EC number for the protein
+    ?uniprotUri up:recommendedName/up:ecName ?ecName .
+  }
+
+  # Extract the first digit of the EC number string (e.g., "1" from "1.1.1.1")
+  BIND(SUBSTR(?ecName, 1, 1) AS ?ecLevel1)
+
+  # Ensure the extracted level 1 is a valid digit for EC classification (1 to 7)
+  FILTER regex(?ecLevel1, "^[1-7]$")
+
+}
+GROUP BY ?ecLevel1
+ORDER BY ?ecLevel1

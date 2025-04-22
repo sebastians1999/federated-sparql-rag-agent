@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to connect patents cited in UniProtKB with EPO patents via publication number and filter by grant date.
+
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+
+SELECT DISTINCT ?uniprot_patent ?epo_patent
+WHERE {
+  # Query UniProtKB for entries with patent citations
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein dcterms:references ?uniprot_patent . # patents cited in uniprot are references
+    ?uniprot_patent a bibo:Patent .
+  }
+  
+  # Attempt to link to EPO patents based on publication number.
+  # Assuming a SPARQL endpoint for EPO is available and can be queried by publication number.
+  # Since a direct EPO endpoint isn't provided, this part needs to be adapted to a specific EPO SPARQL endpoint if available.
+  # This example assumes a hypothetical EPO endpoint where patents can be looked up by publication number
+  
+  #BIND(STRBEFORE(STRAFTER(STR(?uniprot_patent), "https://data.epo.org/publication-server/rest/v1.1/publication/epodoc/"), "/epodoc") AS ?publicationNumber) # Extract the publication number from the uniprot patent URI
+  #SERVICE < hypothetical EPO endpoint > {
+  #  ?epo_patent <property linking to publication number> ?publicationNumber .
+  #  ?epo_patent <property for grant date> ?grantDate .
+  #  FILTER (YEAR(NOW()) - YEAR(?grantDate) > 20) # Filter to include only grants more than 20 years ago
+  #}
+
+  # Placeholder for demonstration.  Adapt the commented-out code above with a real EPO endpoint and appropriate properties when available.
+  BIND("No EPO endpoint provided; connection via publication number unavailable." AS ?epo_patent) # Returns "No EPO endpoint provided; connection via publication number unavailable."
+}

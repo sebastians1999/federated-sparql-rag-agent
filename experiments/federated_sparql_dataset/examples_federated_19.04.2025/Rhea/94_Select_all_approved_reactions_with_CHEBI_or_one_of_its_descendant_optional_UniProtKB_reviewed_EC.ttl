@@ -36,6 +36,7 @@ WHERE {
   ?chebi rdfs:subClassOf* CHEBI:17815 .
 }
 GROUP BY ?reaction ?enzyme
-ORDER BY ?reaction""";
+ORDER BY ?reaction
+LIMIT 985915""";
   spex:federatesWith <https://sparql.uniprot.org/sparql> ;
   schema:target <https://sparql.rhea-db.org/sparql> .

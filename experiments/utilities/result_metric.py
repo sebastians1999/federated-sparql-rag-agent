@@ -6,6 +6,8 @@ from entity_indexing.endpoint_loader import query_sparql_wrapper
 import numpy as np
 from fastembed import TextEmbedding
 from sklearn.metrics.pairwise import cosine_similarity
+import traceback
+import json
 
 
 def format_query_result_dataframe(
@@ -16,10 +18,11 @@ def format_query_result_dataframe(
     timeout: Optional[int] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
+    print("Querying ground truth endpoint...")
 
     ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint, timeout=timeout)
 
-    print("Querying ground truth endpoint...")
+    print("Querying predicted endpoint...")
     
     predicted = query_sparql_wrapper(predicted_query, predicted_endpoint, timeout=timeout)
 
@@ -27,11 +30,13 @@ def format_query_result_dataframe(
        return ground_truth, predicted
     else:
         columns = ground_truth["head"]["vars"] 
-        rows = [
-            {col: binding.get(col, {}).get("value")  # pull literal/URI value
-             for col in columns}
-            for binding in ground_truth["results"]["bindings"]
-        ]
+        rows = []
+        for binding in ground_truth["results"]["bindings"]:
+            if not isinstance(binding, dict):
+                print(f"[format_query_result_dataframe] Warning: Expected dict in ground_truth bindings, got {type(binding)}: {binding}")
+                continue
+            row = {col: binding.get(col, {}).get("value") for col in columns}
+            rows.append(row)
         df_ground_truth = pd.DataFrame(rows, columns=columns)
         
     
@@ -39,11 +44,13 @@ def format_query_result_dataframe(
         return ground_truth, predicted
     else:
         columns = predicted["head"]["vars"]
-        rows = [
-            {col: binding.get(col, {}).get("value")  # pull literal/URI value
-             for col in columns}
-            for binding in predicted["results"]["bindings"]
-        ]
+        rows = []
+        for binding in predicted["results"]["bindings"]:
+            if not isinstance(binding, dict):
+                print(f"[format_query_result_dataframe] Warning: Expected dict in predicted bindings, got {type(binding)}: {binding}")
+                continue
+            row = {col: binding.get(col, {}).get("value") for col in columns}
+            rows.append(row)
         df_predicted = pd.DataFrame(rows, columns=columns)
         
     return df_ground_truth, df_predicted
@@ -90,12 +97,15 @@ def format_query_result_dataframe(
 
 
 def calculate_column_metrics_with_label_similarity(
+    file_path,
     df_ground_truth: pd.DataFrame,
     df_predicted: pd.DataFrame,
     similarity_threshold: float = 0.7,
     embedding_cache_dir: str = "./embeddings_model_cache",
     embedding_model: str = "BAAI/bge-large-en-v1.5"   
 ) -> dict:
+
+    print("[calculate_column_metrics_with_label_similarity] Calculating metrics for file:", file_path)
 
     if df_ground_truth.empty or df_predicted.empty:
         return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}
@@ -118,6 +128,10 @@ def calculate_column_metrics_with_label_similarity(
 
     remaining_gt = [lbl for lbl in gt_labels if lbl not in matched_gt]
     remaining_pred = [lbl for lbl in pred_labels if lbl not in matched_pred]
+
+    print("exact pairs:", len(exact_pairs))
+    print("remaining gt:", len(remaining_gt))
+    
 
     sim_pairs = []
     if remaining_gt and remaining_pred:
@@ -148,6 +162,7 @@ def calculate_column_metrics_with_label_similarity(
     matches = exact_pairs + sim_pairs
     #print(matches)
     if not matches:
+        print("no matches found")
         return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}
 
     gt_matched_cols = [gt for gt, _ in matches]
@@ -160,8 +175,12 @@ def calculate_column_metrics_with_label_similarity(
     pred_tuples = set()
     for row in df_predicted[pred_matched_cols].astype(str).fillna("").values.tolist():
         pred_tuples.add(tuple(row))
-
+        
+    print("gt_tuples:", gt_tuples)
+    print("pred_tuples:", pred_tuples)
+    
     if not gt_tuples or not pred_tuples:
+        print("no tuples found")
         return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}
 
     tp = len(gt_tuples & pred_tuples)

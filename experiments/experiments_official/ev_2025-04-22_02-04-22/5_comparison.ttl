@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  # Find reactions in Rhea involving a participant linked to a ChEBI entity
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:hasParticipant ?participant .
+    ?participant rhea:hasChEBI ?chebiURI .
+    ?reaction skos:notation ?rheaID .
+    ?reaction rhea:equation ?equation .
+  }
+
+  # Check if the ChEBI entity is CHEBI:17761 (Ceramide) or one of its subclasses
+  # Use the EBI RDF endpoint which contains the ChEBI ontology
+  SERVICE <https://www.ebi.ac.uk/rdf/sparql> {
+    # Find ?chebiURI that is CHEBI:17761 or a subclass (more specific form)
+    ?chebiURI (rdfs:subClassOf|owl:equivalentClass)* chebi:17761 .
+    # Ensure the entity is a core ChEBI concept, excluding external links etc.
+    ?chebiURI oboInOwl:hasOBOScope oboInOwl:SCOPE_IAO .
+  }
+}

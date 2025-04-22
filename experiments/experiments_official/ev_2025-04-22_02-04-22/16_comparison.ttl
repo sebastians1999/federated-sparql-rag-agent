@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?protein ?proteinName
+WHERE {
+  # Find UniProtKB/Swiss-Prot proteins
+  ?protein a up:Protein ;
+           up:reviewed true ; # Filter for Swiss-Prot entries
+           up:catalyzedReaction ?reaction ; # Find reactions catalyzed by the protein
+           skos:prefLabel ?proteinName . # Get the protein's recommended name
+
+  # In the Rhea database, check if the reaction involves the specified lipid (Ceramide: CHEBI:17761)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:side ?side .
+    ?side rhea:contains ?role .
+    ?role rhea:chebi chebi:CHEBI_17761 .
+  }
+}

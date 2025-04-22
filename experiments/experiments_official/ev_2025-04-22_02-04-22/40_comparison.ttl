@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?protein ?name
+WHERE {
+  # Find human proteins
+  ?protein a up:Protein ;
+           rdfs:label ?name ;
+           up:organism <http://purl.uniprot.org/taxonomy/9606> . # Homo sapiens
+
+  # Filter for proteins annotated in ChEMBL
+  ?protein up:citation/up:dbReference ?chemblRef .
+  ?chemblRef up:db <http://purl.uniprot.org/database/ChEMBL> .
+
+  # Find RHEA reactions catalyzed by this protein
+  ?protein up:annotation ?annotation .
+  ?annotation a up:Catalytic_Activity_Annotation .
+  ?annotation up:catalyzedReaction ?rheaReaction .
+
+  # In the RHEA service, find reactions involving sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rhea:reactionParticipant ?participant .
+    ?participant rhea:compound ?compound .
+
+    # In the ChEBI service, check if the compound is a sphingolipid or subclass
+    SERVICE <https://www.ebi.ac.uk/rdf/sparql> {
+      # CHEBI:64583 is the ChEBI ID for Sphingolipids
+      ?compound rdfs:subClassOf* chebi:CHEBI_64583 .
+    }
+  }
+}

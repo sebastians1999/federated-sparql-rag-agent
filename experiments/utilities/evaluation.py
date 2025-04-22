@@ -19,14 +19,16 @@ from experiments.utilities.result_metric import format_query_result_dataframe, c
 from experiments.utilities.format import normalize_url
 from experiments.utilities.experiment_metadata_writer import write_experiment_metadata
 from scr.agent.prompts.prompts import EXTRACTION_PROMPT, QUERY_GENERATION_PROMPT
+import traceback
 
 
 class AgentEvaluator:
-    def __init__(self, dataset_path=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None, timeout: int = 300):
+    def __init__(self, dataset_dir=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None, timeout: int = 300):
         
         self.endpoint_sets = endpoint_sets
         self.experiment_dir = experiment_dir
-        self.output_dir = process_specific_datasets_and_files(self.endpoint_sets, output_dir=self.experiment_dir)
+        self.dataset_dir = dataset_dir
+        self.output_dir = process_specific_datasets_and_files(dataset_dir=self.dataset_dir, endpoint_files_map=self.endpoint_sets, output_dir=self.experiment_dir)
         self.test_dataset_path = os.path.join(self.output_dir, 'testset_meta_data.json')
         self.test_dataset = Dataset.from_dict(load_data_from_file(self.test_dataset_path))
         self.graph = create_graph()
@@ -73,9 +75,20 @@ class AgentEvaluator:
         # Get child runs to find sparql_query_construction run
         child_runs = list(self.client.list_runs(project_name=self.project_name_langsmith, parent_run_id=first_run.id))
         
+        if isinstance(final_state, dict):
+            structured_output = final_state.get("structured_output", {})
+            if isinstance(structured_output, dict):
+                query = structured_output.get("query", "")
+            else:
+                query = ""
+        else:
+            print(f"[run_single_test] Warning: final_state is not a dict. Type: {type(final_state)}, Value: {final_state}")
+            structured_output = {}
+            query = ""
+        
         final_state_results = {
-            "final_state_response": final_state.get("structured_output", {}).get("query", ""),
-            "run_id_langsmith": str (first_run.id),
+            "final_state_response": query,
+            "run_id_langsmith": str(first_run.id),
             "execution_time": str(execution_time)
         }
         sparql_construction_results = {}
@@ -115,6 +128,7 @@ class AgentEvaluator:
     async def run_all_tests(self):
 
         updated_results = []
+        list_evaluated_queries = []
         count_total_processed_result_eval = 0
         
 
@@ -170,12 +184,12 @@ class AgentEvaluator:
                     "evaluation_timestamp": datetime.now().isoformat()
                 }
 
-                if result.get("question_understanding"):
+                if  isinstance(result, dict) and result.get("question_understanding"):
                     updated_item["question_understanding_tokens"] = result.get("question_understanding_prompt_tokens")
                     updated_item["question_understanding_completion_tokens"] = result.get("question_understanding_completion_tokens")
                     updated_item["question_understanding_total_tokens"] = result.get("question_understanding_total_tokens")
 
-                if result.get("sparql_query_construction"):
+                if  isinstance(result, dict) and result.get("sparql_query_construction"):
                     updated_item["sparql_construction_prompt_tokens"] = result.get("sparql_construction_prompt_tokens")
                     updated_item["sparql_construction_completion_tokens"] = result.get("sparql_construction_completion_tokens")
                     updated_item["sparql_construction_total_tokens"] = result.get("sparql_construction_total_tokens")
@@ -187,56 +201,84 @@ class AgentEvaluator:
 
                 if not is_valid:
                     updated_item["sparql_syntax_error"] = error
+                    updated_item["result_eval_f1_score"] = 0.0
+                    updated_item["result_eval_precision"] = 0.0
+                    updated_item["result_eval_recall"] = 0.0
+                    updated_item["error_occured_at_endpoint"]= True
+                    updated_item["predicted_query_result_is_empty"] = True
+                    updated_item["error_occured_at_endpoint_message"] = error
+                    error_at_endpoint += 1
 
-                #########  Result comparison metrics calculation #########
-                df_ground_truth, df_predicted = format_query_result_dataframe(
+                else:
+
+                    updated_item["sparql_syntax_error"] = "syntactically correct"
+
+                    #########  Result comparison metrics calculation #########
+                    df_ground_truth, df_predicted = format_query_result_dataframe(
                     ground_truth_query=updated_item["ground_truth_query"],
                     ground_truth_endpoint=updated_item["target_endpoint"],
                     predicted_query=updated_item["predicted_query"],
                     predicted_endpoint=updated_item["predicted_endpoint"],
                     timeout=self.timeout
-                )
+                    )
 
-                # In theory there should be no more test instances where the result of the query is empty because I filtered them out. 
-                # So this is a sanity check to not corrupt the metric. 
-                if isinstance(df_ground_truth, Exception):
-                    updated_item["ground_truth_query_result_is_empty"] = True
-                else: 
-                    updated_item["ground_truth_query_result_is_empty"] = False
-                
-                    if isinstance(df_predicted, Exception):
-                        updated_item["result_eval_f1_score"] = 0.0
-                        updated_item["result_eval_precision"] = 0.0
-                        updated_item["result_eval_recall"] = 0.0
-                        updated_item["error_occured_at_endpoint"]= True
-                        updated_item["predicted_query_result_is_empty"] = True
-                        updated_item["error_occured_at_endpoint_message"] = str(df_predicted)
-                        error_at_endpoint += 1
-                    elif hasattr(df_predicted, 'empty') and df_predicted.empty:
-                        updated_item["result_eval_f1_score"] = 0.0
-                        updated_item["result_eval_precision"] = 0.0
-                        updated_item["result_eval_recall"] = 0.0
-                        updated_item["error_occured_at_endpoint"]= False
-                        updated_item["predicted_query_result_is_empty"] = True
-                    else:
-                        metrics = calculate_column_metrics_with_label_similarity(df_ground_truth, df_predicted)
-                        updated_item["result_eval_precision"] = metrics["precision"]
-                        updated_item["result_eval_recall"] = metrics["recall"]
-                        updated_item["result_eval_f1_score"] = metrics["f1_score"]
-                        updated_item["error_occured_at_endpoint"] = False
-                        updated_item["predicted_query_result_is_empty"] = False
-                        
-                        # aggregate metrics
-                        total_precision += metrics["precision"]
-                        total_recall += metrics["recall"]
-                        total_f1 += metrics["f1_score"]
-                        valid_metric_count += 1
+                    # In theory there should be no more test instances where the result of the query is empty because I filtered them out. 
+                    # So this is a sanity check to not corrupt the metric. 
+                    if isinstance(df_ground_truth, Exception):
+                        updated_item["ground_truth_query_result_is_empty"] = True
+                    else: 
+                        updated_item["ground_truth_query_result_is_empty"] = False
+                    
+                        if isinstance(df_predicted, Exception):
+                            updated_item["result_eval_f1_score"] = 0.0
+                            updated_item["result_eval_precision"] = 0.0
+                            updated_item["result_eval_recall"] = 0.0
+                            updated_item["error_occured_at_endpoint"]= True
+                            updated_item["predicted_query_result_is_empty"] = True
+                            updated_item["error_occured_at_endpoint_message"] = str(df_predicted)
+                            error_at_endpoint += 1
+
+                        elif hasattr(df_predicted, 'empty') and df_predicted.empty:
+                            updated_item["result_eval_f1_score"] = 0.0
+                            updated_item["result_eval_precision"] = 0.0
+                            updated_item["result_eval_recall"] = 0.0
+                            updated_item["error_occured_at_endpoint"]= False
+                            updated_item["predicted_query_result_is_empty"] = True
+                            updated_item["error_occured_at_endpoint_message"] = "no error, but empty result"
+                        else:
+                            metrics = calculate_column_metrics_with_label_similarity(file_path= item.get("file_path", ""), df_ground_truth=df_ground_truth, df_predicted=df_predicted)
+                            updated_item["result_eval_precision"] = metrics["precision"]
+                            updated_item["result_eval_recall"] = metrics["recall"]
+                            updated_item["result_eval_f1_score"] = metrics["f1_score"]
+                            updated_item["error_occured_at_endpoint"] = False
+                            updated_item["predicted_query_result_is_empty"] = False
+                            updated_item["error_occured_at_endpoint_message"] = "no error"
+                            list_evaluated_queries.append(item.get("file_path", ""))
+                            
+                            # aggregate metrics
+                            total_precision += metrics["precision"]
+                            total_recall += metrics["recall"]
+                            total_f1 += metrics["f1_score"]
+                            valid_metric_count += 1
 
                 updated_results.append(updated_item)
                 
             except Exception as e:
                 print(f"Error processing question {i+1}/{len(test_dataset)}: {str(e)}")
                 print("file_path:", item.get("file_path", ""))
+                print("Offending item:", item)
+                print("Stack trace:")
+                traceback.print_exc()
+                # Save all local variables and context for post-mortem analysis
+                # with open("evaluation_error_context.log", "a") as f:
+                #     f.write(json.dumps({
+                #         "question_index": i+1,
+                #         "file_path": item.get("file_path", ""),
+                #         "item": item,
+                #         "exception": str(e),
+                #         "traceback": traceback.format_exc()
+                #     }, default=str) + "\n")
+                # continue
         
         self.updated_dataset = Dataset.from_list(updated_results)
  
@@ -249,7 +291,7 @@ class AgentEvaluator:
                 if metric in ["SP-BLEU", "METEOR", "num_none_queries"]
         }
         self.results_dict["size_of_test_set"] = len(self.updated_dataset)
-        self.results_dict["error_at_endpoint"] = error_at_endpoint
+        self.results_dict["error_at_endpoints"] = error_at_endpoint
         
         # Add aggregate result metrics to results_dict
         if valid_metric_count > 0:
@@ -257,6 +299,7 @@ class AgentEvaluator:
             self.results_dict["avg_result_recall"] = total_recall / valid_metric_count
             self.results_dict["avg_result_f1"] = total_f1 / valid_metric_count
             self.results_dict["number_of_query_results_evaluated"] = valid_metric_count
+            self.results_dict["list_evaluated_queries"] = list_evaluated_queries
         else:
             self.results_dict["avg_result_precision"] = 0.0
             self.results_dict["avg_result_recall"] = 0.0

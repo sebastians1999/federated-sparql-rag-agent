@@ -26,6 +26,8 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
 
         configuration = Configuration.from_runnable_config(config)
 
+        USER_PROMPT = "{input}\n\nThink step by step." 
+
 
         # Use per-task LLM config for SPARQL construction
         llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")

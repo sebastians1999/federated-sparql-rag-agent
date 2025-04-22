@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated query to find parent reactions and catalyzing enzymes for a metabolite not directly involved in a reaction.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?reaction ?reactionId ?enzyme ?enzymeName
+WHERE {
+  # Find reactions where CHEBI:83137 is a participant
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    VALUES ?chebi { chebi:83137 } # Define the CHEBI ID of interest
+
+    ?reaction rhea: Rhea_has_participant ?chebiParticipant .
+    ?chebiParticipant rhea:rheaParticipant ?chebi .
+
+    # Get the Rhea ID of the reaction
+    BIND(STRAFTER(STR(?reaction), "http://rdf.rhea-db.org/") AS ?reactionId)
+  }
+
+  # Find enzymes catalyzing the reaction
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme rdfs:seeAlso ?reaction . # Link enzyme to reaction via rdfs:seeAlso
+    FILTER CONTAINS(STR(?reaction), ?reactionId) # Ensure the reaction ID matches
+    ?enzyme rdfs:label ?enzymeName . # Get the enzyme name
+  }
+}

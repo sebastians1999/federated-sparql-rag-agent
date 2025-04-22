@@ -1,0 +1,83 @@
+
+# Natural Language Question
+# =======================
+Retrieve the set of metabolites involved in reactions catalyzed by human genes (HUMAN reference proteome)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?reaction
+  ?ecNumber
+  ?protein
+  ?ensemblTranscript
+  ?ensemblGene
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true .
+    ?protein up:organism taxon:9606 .
+    ?protein up:classifiedWith keywords:1185 .
+
+    ?protein rdfs:seeAlso ?ensemblTranscript .
+    ?ensemblTranscript a up:Transcript_Resource .
+    ?ensemblTranscript up:database <http://purl.uniprot.org/database/Ensembl> .
+    ?ensemblTranscript up:transcribedFrom ?ensemblGene .
+
+      {?protein up:enzyme ?ecNumber .}
+    UNION
+      {?protein up:domain/up:enzyme ?ecNumber .}
+    UNION
+      {?protein up:component/up:enzyme ?ecNumber .}
+  }
+
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi . # only considering small molecules participants
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Prefixes for necessary ontologies
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Query to retrieve metabolites involved in reactions catalyzed by human genes
+SELECT DISTINCT ?metaboliteName ?reaction ?gene
+WHERE {
+  # Find reactions in Rhea that involve metabolites
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    ?reaction rhea:has_participant ?participant .
+    ?participant rhea:chebi ?metabolite .
+    ?metabolite skos:prefLabel ?metaboliteName .
+  }
+  
+  # Find human genes in UniProt that catalyze these reactions
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?gene a uniprot:Protein .
+    ?gene up:organism <http://purl.uniprot.org/taxonomy/9606> .  # Filter for human proteins using taxonomy ID.
+    ?gene rhea:reaction ?reaction . # Link genes to reactions via rhea:reaction property.
+  }
+}

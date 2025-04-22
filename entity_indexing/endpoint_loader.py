@@ -3,10 +3,10 @@ from typing import List, Dict, Any, Optional
 from SPARQLWrapper import SPARQLWrapper, JSON
 from typing import Optional, Any
 
-import logging 
+# import logging 
 
 
-#logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 def query_sparql_wrapper(
     query: str,
