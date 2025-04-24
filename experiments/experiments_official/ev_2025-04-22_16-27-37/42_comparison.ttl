@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+# This query retrieves UniProt entries and the publication numbers of associated patents.
+# It focuses on extracting the patent information *cited within* UniProt.
+# As no SPARQL endpoint for the EPO database was provided in the context,
+# this query extracts the necessary patent publication numbers from UniProt data.
+# These numbers could then potentially be used to query an external patent database like EPO,
+# but direct federation with an EPO endpoint is not possible with the current context.
+SELECT ?uniprotEntry ?patentPublicationNumber
+WHERE {
+  # Query the UniProt SPARQL endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find UniProt entries (Proteins)
+    ?uniprotEntry a uniprot:Protein .
+
+    # Link UniProt entries to their associated citations (publications)
+    ?uniprotEntry uniprot:citation ?patentCitation .
+
+    # Filter these citations to identify those that are specifically patents (bibo:Patent)
+    ?patentCitation a bibo:Patent .
+
+    # Retrieve the patent publication number (identifier) for the found patents
+    ?patentCitation bibo:identifier ?patentPublicationNumber .
+  }
+}
+# Add a limit to restrict the number of results for demonstration purposes
+LIMIT 10

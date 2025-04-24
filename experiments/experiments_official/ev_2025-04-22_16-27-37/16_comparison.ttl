@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql/
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?uniprotEnzyme
+WHERE {
+  # Bind the URI for Ceramide (CHEBI:17761).
+  # The user specified 'SWISSLIPID:000399814, Ceramide'.
+  # The entity linking identified CHEBI:17761 for Ceramide.
+  # We assume the user's intent is to find enzymes for the lipid entity corresponding to Ceramide,
+  # and CHEBI:17761 is the standard identifier used in reaction databases like Rhea.
+  BIND(chebi:17761 AS ?ceramide)
+
+  # Query the Rhea endpoint to find reactions involving Ceramide and the catalyzing enzyme.
+  # Rhea reactions link chemical entities (via ChEBI URIs) to catalyzing enzymes (via UniProt URIs).
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+      # Find reactions that are catalyzed (enzymatic reactions)
+      ?reaction a rhea:Reaction ;         # Ensure the entity is a Rhea Reaction
+                rhea:side ?side ;           # Reactions have reaction sides (substrates/products)
+                rhea:catalyzedBy ?uniprotEnzyme . # Get the entity catalyzing the reaction (expected to be UniProt)
+
+      # Check if the Ceramide entity is a participant in this reaction side
+      ?side rhea:contains ?ceramide .
+  }
+
+  # Query the UniProt endpoint to verify that the catalyzing entity is a UniProt protein
+  # and filter specifically for proteins in UniProtKB/Swiss-Prot (reviewed entries).
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+      ?uniprotEnzyme a up:Protein ;     # Ensure the entity found in Rhea is a Protein in UniProt
+                     up:reviewed ?isReviewed . # Get the review status (true for Swiss-Prot, false for TrEMBL)
+      FILTER(?isReviewed = true)     # Keep only proteins marked as reviewed (Swiss-Prot)
+  }
+}

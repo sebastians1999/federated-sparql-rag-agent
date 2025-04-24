@@ -1,0 +1,43 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Count the number of reactions, proteins and EC number links.
+SELECT (COUNT(DISTINCT ?rhea_reaction) AS ?totalReactions)
+WHERE {
+  # Find Rhea reactions that have EC number annotations.
+  ?rhea_reaction rdfs:subClassOf* rhea:Reaction .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find proteins that have EC number annotations and link them to Rhea reactions via EC number.
+    ?protein rdfs:label ?ecNumber . # Assuming rdfs:label holds the EC number.  May need to adjust based on UniProt schema.
+    ?protein a up:Protein . # Ensure we are dealing with proteins.
+    FILTER (REGEX(?ecNumber, "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")) #EC numbers have this format
+  }
+  ?rhea_reaction rhea:ec ?ecNumber . # Link Rhea reactions to EC numbers.
+}

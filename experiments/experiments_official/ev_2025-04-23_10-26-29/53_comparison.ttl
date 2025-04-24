@@ -1,0 +1,93 @@
+
+# Natural Language Question
+# =======================
+Find mouse homologs in OMABrowser of human enzymes that catalyze reactions involving sterols (CHEBI:15889). Federating with Rhea and OMABrowser.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  DISTINCT
+    ?chebi
+    ?reaction
+    ?humanProtein
+    ?mouseProtein
+    ?cluster 
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction .
+    ?reaction rh:side/rh:contains/rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    ?chebi rdfs:subClassOf* CHEBI:15889
+  }
+
+  ?humanProtein up:organism taxon:9606 .
+  ?humanProtein up:annotation ?a .
+  ?a a up:Catalytic_Activity_Annotation .
+  ?a up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction .
+
+  SERVICE  <https://sparql.omabrowser.org/sparql> {
+    ?cluster a orth:ParalogsCluster .
+    ?cluster orth:hasHomologousMember ?node1 , ?node2 .
+    ?node1 orth:hasHomologousMember* ?orthoProtein1 .
+    ?node2 orth:hasHomologousMember* ?orthoProtein2 .
+    ?orthoProtein1 lscr:xrefUniprot ?mouseProtein .
+    ?orthoProtein2 lscr:xrefUniprot ?humanProtein .
+    # inTaxon mouse
+    ?orthoProtein1 orth:organism/<http://purl.obolibrary.org/obo/RO_0002162> taxon:10090 . 
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX omah: <http://omabrowser.org/ontology/omah#> # Assuming OMA Browser ontology prefix
+
+SELECT DISTINCT ?mouseHomolog ?humanEnzyme
+WHERE {
+  # Step 1: Find human enzymes in UniProt that catalyze reactions
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?humanEnzyme a uniprot:Protein ;
+                 uniprot:organism taxon:9606 ; # Filter for human proteins (Homo sapiens)
+                 uniprot:catalyticActivity ?rheaReaction . # Link to a Rhea reaction
+  }
+
+  # Step 2: Check if the Rhea reaction involves sterols (CHEBI:15889)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Use the Rhea reaction found in the UniProt service
+    ?rheaReaction rdf:type rhea:Reaction ;
+                  rhea:contains ?reactionParticipant . # Find participants of the reaction
+
+    ?reactionParticipant rhea:chibi chebi:15889 . # Check if a participant is sterol (CHEBI:15889)
+  }
+
+  # Step 3: Find mouse homologs of the human enzyme in OMABrowser
+  # Note: The OMABrowser SPARQL endpoint URL and schema are assumed based on common patterns for homology databases.
+  # The schema is assumed to link proteins (using UniProt URIs) to OMA groups and group members.
+  SERVICE <https://sparql.omabrowser.org/sparql> { # Hypothetical OMABrowser endpoint
+    # Find the OMA group that the human enzyme belongs to
+    ?humanEnzyme omah:inGroup ?omaGroup .
+
+    # Find a member of this group that is a mouse protein
+    ?omaGroup omah:hasMember ?mouseHomolog .
+    ?mouseHomolog omah:organism taxon:10090 . # Filter for mouse proteins (Mus musculus)
+    # Assuming OMABrowser uses UniProt taxon URIs
+  }
+}

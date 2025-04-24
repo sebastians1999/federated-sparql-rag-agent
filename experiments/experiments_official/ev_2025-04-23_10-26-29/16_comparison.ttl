@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX swl: <http://swisslipids.org/rdf/swl#>
+PREFIX swlres: <http://swisslipids.org/rdf/>
+PREFIX rhea: <http://rdf.rhea-db.org/rhea#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Step 1: Find reactions involving the specific lipid (SWISSLIPID:000399814) in SwissLipids
+  # The SWISSLIPID identifier is mapped to its resource URI in the swisslipids.org domain
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    swlres:SWL_000399814 swl:inRheaReaction ?reaction .
+  }
+
+  # Step 2: Find the enzyme(s) catalyzing these reactions in Rhea
+  # Rhea links reactions to their catalysts (enzymes) using the catalyzedBy property
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    ?reaction rhea:catalyzedBy ?enzyme .
+  }
+
+  # Step 3: Verify the enzyme is a reviewed (Swiss-Prot) entry in UniProt and get its name
+  # UniProt contains detailed protein information, including review status (Swiss-Prot) and name
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+    ?enzyme a up:Protein ; # Ensure the linked entity is a protein
+            up:reviewed 'true'^^xsd:boolean ; # Filter for Swiss-Prot entries only
+            up:recommendedName/up:fullName ?enzymeName . # Get the full recommended name of the enzyme
+  }
+}

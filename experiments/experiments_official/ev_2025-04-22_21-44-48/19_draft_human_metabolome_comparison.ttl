@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?protein ?proteinName ?gene ?metabolite ?reaction
+WHERE {
+  # Find human proteins
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein ;
+             up:organism taxon:9606 ; # Human
+             rdfs:label ?proteinName .
+    
+    # Optional: Get associated gene names
+    OPTIONAL { ?protein up:encodedBy ?gene . }
+    
+    # Try to find metabolic pathways/reactions associated with the protein
+    # This assumes a direct link, which might not exist.  The UniProt schema
+    # needs to be explored for the correct property.  This is a placeholder.
+    OPTIONAL { ?protein up:participatesIn ?reaction . }
+  }
+  
+  # Attempt to link to Rhea to get metabolite information about the reactions
+  # This assumes that ?reaction from UniProt is a Rhea reaction ID.
+  OPTIONAL {
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?rheaReaction rdfs:label ?reaction ;  # Assuming rdfs:label holds the Rhea ID
+                   rhea:equation ?equation .
+      
+      # Extract metabolites from the reaction equation (this is a simplification)
+      # The exact property to get metabolites from Rhea needs to be determined.
+      ?equation rdfs:seeAlso ?metabolite . # Placeholder
+    }
+  }
+  
+  # Consider SwissLipids if lipid metabolism is important
+  # This requires identifying a link between UniProt proteins and SwissLipids entries.
+  # This part would need further investigation of the SwissLipids schema.
+  # SERVICE <https://sparql.swisslipids.org/sparql/> {
+  #   ?lipid sl:enzyme ?protein . # Example placeholder property
+  #   ?lipid rdfs:label ?lipidName .
+  # }
+}

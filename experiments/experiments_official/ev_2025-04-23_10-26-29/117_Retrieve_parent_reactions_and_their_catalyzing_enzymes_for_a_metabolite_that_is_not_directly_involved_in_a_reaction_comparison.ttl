@@ -1,0 +1,96 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?reaction ?involvedMetabolite ?ec ?enzyme ?enzymeName
+WHERE {
+  # The question asks for "parent reactions" for a metabolite "not directly involved" (ex: CHEBI:83137).
+  # CHEBI:83137 (Ethyl (S)-2-acetoxy-3-phenylpropanoate) appears not to be directly involved
+  # in reactions in Rhea based on current data.
+  # A reasonable interpretation of "parent reactions" in this context, given the available data,
+  # is to find reactions involving a related metabolite, such as a functional parent or a
+  # precursor/product from a common transformation like hydrolysis.
+  # CHEBI:16134 ((S)-2-acetoxy-3-phenylpropanoic acid) is a functional parent of CHEBI:83137 in ChEBI.
+  # This query finds reactions involving CHEBI:16134.
+  VALUES ?involvedMetabolite { chebi:16134 }
+
+  # Find reactions in Rhea involving the defined related metabolite (?involvedMetabolite)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    # The related metabolite can be on the left or right side of the reaction
+    { ?reaction rhea:leftParticipantGroup ?partGroup . } UNION { ?reaction rhea:rightParticipantGroup ?partGroup . }
+    ?partGroup rhea:participant ?participant .
+    ?participant rhea:ChEBI ?involvedMetabolite .
+    # Get the EC number associated with the reaction
+    ?reaction rhea:ec ?ec .
+  }
+
+  # Find enzymes in UniProt associated with the found EC numbers from Rhea
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme a up:Protein .
+    ?enzyme up:enzyme ?ec .
+    # Retrieve a relevant name for the enzyme: first try recommended name, then submitted name, then UniProt ID
+    OPTIONAL {
+      ?enzyme up:recommendedName ?recommendedName .
+      ?recommendedName up:fullName ?recommendedEnzymeName .
+    }
+    OPTIONAL {
+      ?enzyme up:submittedName ?submittedName .
+      ?submittedName up:fullName ?submittedEnzymeName .
+    }
+    BIND(COALESCE(?recommendedEnzymeName, ?submittedEnzymeName, STRAFTER(STR(?enzyme), "http://purl.uniprot.org/uniprot/")) AS ?enzymeName)
+  }
+}

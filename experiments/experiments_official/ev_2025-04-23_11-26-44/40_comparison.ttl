@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to find human enzymes that metabolize sphingolipids, incorporating ChEMBL data.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?enzymeName ?enzymeUri
+WHERE {
+  # Find human enzymes in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzymeUri a up:Protein .
+    ?enzymeUri up:organism taxon:9606 .  # Filter for Homo sapiens (human)
+    ?enzymeUri rdfs:label ?enzymeName .
+    ?enzymeUri up:annotation ?annotation .
+    ?annotation a up:CatalyticActivity . #Ensures we are only selecting enzymes
+  }
+
+  # Find reactions in Rhea involving sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:comment ?reactionName .
+    {
+      ?reaction rdfs:comment ?x .
+      FILTER (CONTAINS(lcase(?x), "sphingolipid")) #filtering reactions that contains sphingolipids
+    }
+    ?reaction rdfs:comment ?x .
+  }
+
+  #Link UniProt enzymes to Rhea reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+   ?rhea_reaction <http://purl.uniprot.org/core/annotation> ?annotation .
+  }
+
+  #Attempt to incorporate ChEMBL data (not directly linkable without a ChEMBL endpoint query for enzyme targets)
+  #SERVICE <https://www.ebi.ac.uk/rdf/services/chembl/sparql> {
+  #  ?target a chembl:target .
+  #  ?target rdfs:label ?targetName .
+  #  FILTER (CONTAINS(lcase(?targetName), "enzyme")) #placeholder; needs actual ChEMBL-UniProt link
+  #}
+  #FILTER EXISTS {
+  #  SERVICE <https://www.ebi.ac.uk/rdf/services/chembl/sparql> {
+  #    ?target <http://www.w3.org/2000/01/rdf-schema#label> ?enzymeName .
+  #  }
+  #}
+}

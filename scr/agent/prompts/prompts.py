@@ -70,7 +70,6 @@ EXTRACTION_PROMPT = (
 QUERY_GENERATION_PROMPT = (
     INTRODUCTION_PROMPT
     + """
-
 Potential entities extracted from the user question {potential_entities}
 
 Potential classes extracted from te user question  {potential_classes}
@@ -97,13 +96,13 @@ A specialized endpoint containing lipid structures that provides detailed inform
 **Task:**
 Generate a **federated SPARQL query** to answer the user question, utilizing the provided inputs (question, classes, entities, endpoints).
 
-**Requiremens:**
+**Requirements:**
 
 1.**Answer Question:** The query must aim to retrieve information that directly answers the user's question.
 
-2.**Federated:** The query **must** use `SERVICE <endpoint_uri> { ... }` clauses to query the relevant endpoints from the provided context list as needed.
+2.**Federated:** The query **must** use `SERVICE <endpoint_uri>  ...` clauses to query the relevant endpoints from the provided context list as needed.
 
-3.**Prefixes:** To be syntactically correct query the query **must** contains prefixes.
+3.**Prefixes:** For better readability, the query **should** contain prefixes.
 
 4.**Computational Efficiency:** As a guideline, aim for computational efficiency by keeping the query structure as simple and direct as possible to answer the question.
 
@@ -117,7 +116,7 @@ Generate a **federated SPARQL query** to answer the user question, utilizing the
 
 8. **Context Adherence:** - Always derive your answer from focusing on endpoint URLs and schema information provided in the input context. Do not try to create a query from nothing and do not provide a generic query.
 
-                          - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.                                                 
+                          - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.                                              
 """
 )
 

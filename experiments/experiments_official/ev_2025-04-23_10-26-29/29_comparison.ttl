@@ -1,0 +1,92 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprotkb/>
+PREFIX rhea: <http://rdf.rhea-db.org/> # Prefix for Rhea
+
+# This query demonstrates how to query UniProt and federate with Rhea.
+# It simulates a "search" in UniProt based on a keyword (e.g., "Hydrolase")
+# and then finds related reactions in Rhea.
+#
+# IMPORTANT LIMITATION:
+# This SPARQL query cannot directly use the external ALLIE service (allie.dbcls.jp)
+# or process natural language input like Japanese.
+# Standard SPARQL queries operate on the structured data within the endpoints.
+# The "search" part below uses a simple text filter on protein labels as a proxy
+# for finding relevant entries, which is typically done by mapping user queries
+# (potentially via a service like ALLIE) to specific UniProt identifiers or English keywords/terms.
+
+SELECT ?accession ?recommendedName ?reaction
+WHERE {
+  # PART 1: Find proteins in UniProt (Simulating a search step)
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein rdf:type up:Protein ;
+             up:accession ?accession .
+
+    # Retrieve the recommended name if available
+    OPTIONAL {
+      ?protein up:recommendedName ?recName .
+      ?recName skos:prefLabel ?recommendedName .
+    }
+
+    # Simulate finding proteins based on a keyword.
+    # Replace "Hydrolase" with an English keyword that might correspond to the
+    # concept the user would search for in Japanese via ALLIE.
+    # A real application would translate the Japanese query via ALLIE to
+    # UniProt IDs or suitable English search terms/keywords.
+    ?protein rdfs:label ?label . # Search in primary label (often accession or name)
+    FILTER(CONTAINS(LCASE(?label), "hydrolase"))
+
+    # Limit the number of proteins found in UniProt for computational efficiency,
+    # as joining with Rhea can be extensive.
+    LIMIT 10
+  }
+
+  # PART 2: Find reactions in Rhea catalyzed by these proteins
+  # This step federates to the Rhea endpoint to find reactions associated
+  # with the proteins identified in the UniProt search step.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Link UniProt protein URIs to Rhea reactions catalyzed by them
+    ?reaction rhea:catalyzedBy ?protein .
+  }
+}

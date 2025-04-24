@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/> # Not strictly needed if using literal ECs from Rhea
+
+SELECT (COUNT(DISTINCT *) AS ?totalLinks)
+WHERE {
+  # Query UniProt to find proteins and the reactions they catalyze
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    BIND(IRI(CONCAT("http://purl.uniprot.org/uniprot/", ?uniprotAccession)) AS ?protein) # Construct protein URI
+    ?protein a up:Protein ;
+             # Link protein to the reaction it catalyzes.
+             # UniProt uses the rhea:catalyzedReaction property (defined in Rhea namespace).
+             rhea:catalyzedReaction ?reaction .
+  }
+
+  # Query Rhea to find the EC number associated with the reaction found in UniProt
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Link reaction to its EC number. Rhea uses rhea:ec property linking to a literal EC string.
+    ?reaction rhea:ec ?ec .
+  }
+
+  # The variable ?reaction acts as the link between the two services,
+  # ensuring we count protein-reaction-EC triplets where the protein catalyzes that specific reaction,
+  # and that reaction has that specific EC number.
+}

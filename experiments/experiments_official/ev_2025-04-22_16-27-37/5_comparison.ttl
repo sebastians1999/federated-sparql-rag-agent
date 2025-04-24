@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX swisslipids: <http://www.swisslipids.org/resource/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?reaction ?equation
+WHERE {
+    # Step 1: Find the corresponding ChEBI identifier for the given SwissLipids ID
+    SERVICE <https://sparql.swisslipids.org/sparql/> {
+        BIND(swisslipids:SWISSLIPID:000399814 AS ?swisslipidsId)
+        # Link from SwissLipids ID to external identifiers like ChEBI
+        # Assuming rdfs:seeAlso is used to link to external resources like ChEBI
+        ?swisslipidsId rdfs:seeAlso ?lipidCHEBI .
+        # Ensure the linked resource is a ChEBI URI
+        FILTER(STRSTARTS(STR(?lipidCHEBI), STR(chebi:)))
+    }
+
+    # Step 2: In Rhea, find all reactions involving the specified ChEBI lipid or its subclasses
+    SERVICE <https://sparql.rhea-db.org/sparql/> {
+        # Find the ChEBI lipid concept itself and all its subclasses
+        # obo:CHEBI_is_a* finds the concept itself (zero steps) and its direct/indirect subclasses (one or more steps)
+        ?subClassCHEBI obo:CHEBI_is_a* ?lipidCHEBI .
+
+        # Find reactions that contain any of these ChEBI concepts as participants
+        # rhea:containsParticipant links a reaction side to a chemical concept
+        # A reaction is linked to its sides via rhea:reactionSide
+        # We need to find reactions (?reaction) that have a side (?reactionSide) which contains the participant (?subClassCHEBI)
+        ?reaction rhea:reactionSide ?reactionSide .
+        ?reactionSide rhea:containsParticipant ?subClassCHEBI .
+
+        # Retrieve the reaction equation
+        ?reaction rhea:equation ?equation .
+    }
+}

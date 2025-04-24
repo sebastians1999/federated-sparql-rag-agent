@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxonomy: <http://purl.uniprot.org/taxonomy/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX obo: <http://purl.obolibrary.org/obo/> # For ChEBI terms
+PREFIX rhea: <http://rdf.rhea-db.org/> # For Rhea data
+
+SELECT DISTINCT ?protein ?recommendedName ?chemblXref
+WHERE {
+  # Find human proteins with ChEMBL cross-references in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein ;
+             up:organism taxonomy:9606 ; # Filter for human proteins
+             rdfs:seeAlso ?chemblXref . # Find cross-references
+
+    # Ensure the cross-reference is to ChEMBL
+    FILTER(contains(str(?chemblXref), "chembl"))
+
+    # Optional: Get the recommended name of the protein
+    OPTIONAL {
+      ?protein up:recommendedName ?recName .
+      ?recName up:fullName ?recommendedName .
+    }
+  }
+
+  # For the identified human proteins with ChEMBL xrefs,
+  # check in Rhea if they catalyze reactions involving sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions catalyzed by the protein found in UniProt
+    ?reaction rhea:catalyzedBy ?protein .
+
+    # Find compounds involved in the reaction (as reactants or products)
+    # Reactions can link compounds via sides (more complex) or directly (simpler)
+    { ?reaction rhea:reactant ?compound } UNION { ?reaction rhea:product ?compound }
+
+    # Check if the compound is a sphingolipid or a subclass of sphingolipid
+    # Sphingolipid class in ChEBI is CHEBI:16367
+    ?compound rdfs:subClassOf* obo:CHEBI_16367 .
+    # This uses a property path to check if ?compound is a descendant of obo:CHEBI_16367
+    # Assumes the Rhea endpoint allows traversal of the rdfs:subClassOf hierarchy for ChEBI terms.
+  }
+}

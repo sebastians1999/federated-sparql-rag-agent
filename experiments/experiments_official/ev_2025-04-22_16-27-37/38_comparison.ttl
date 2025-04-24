@@ -1,0 +1,86 @@
+
+# Natural Language Question
+# =======================
+For the human entry P05067 (Amyloid-beta precursor protein) find the gene start ends in WikiData
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+SELECT 
+	?protein 
+	?begin
+	?end
+	?chromosome
+	?assembly
+WHERE {
+    {
+        BIND(uniprotkb:P05067 AS ?proteinIRI)
+        BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+    }
+    SERVICE <https://query.wikidata.org/sparql> {
+        ?wp wdt:P352 ?protein ;
+            wdt:P702 ?wg . 
+        ?wg p:P644   ?wgss .
+        ?wgss ps:P644        ?begin ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        ?wg p:P645 ?wgse .
+        ?wgse ps:P645        ?end ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        FILTER(lang(?assembly) = "en")
+  } 
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?geneStart ?geneEnd
+WHERE {
+  # Use the UniProt endpoint to find the entry for P05067
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry up:accession "P05067" .
+    # Find the corresponding WikiData item linked from UniProt
+    # UniProt uses owl:sameAs to link to equivalent entities in other datasets like WikiData
+    ?uniprotEntry owl:sameAs ?wikidataProteinItem .
+  }
+
+  # Use the WikiData endpoint to get gene information
+  SERVICE <https://query.wikidata.org/sparql> {
+    # Find the gene item that encodes the protein item found in UniProt
+    # wdt:P688 (encodes) connects a gene item to a protein item in WikiData.
+    # We use the reverse property (^wdt:P688) to find the gene item from the protein item.
+    ?geneItem ^wdt:P688 ?wikidataProteinItem .
+
+    # Ensure the gene is from Homo sapiens (human).
+    # wd:Q15978631 is the WikiData item ID for Homo sapiens (Taxon ID 9606).
+    ?geneItem wdt:P703 wd:Q15978631 .
+
+    # Retrieve the gene start and end positions from the gene item
+    # wdt:P644 is the property for 'gene start position'
+    # wdt:P645 is the property for 'gene end position'
+    ?geneItem wdt:P644 ?geneStart ;
+              wdt:P645 ?geneEnd .
+
+    # Ensure the retrieved values are numeric literals representing positions
+    FILTER(isLiteral(?geneStart) && datatype(?geneStart) IN (xsd:integer, xsd:decimal, xsd:nonNegativeInteger))
+    FILTER(isLiteral(?geneEnd) && datatype(?geneEnd) IN (xsd:integer, xsd:decimal, xsd:nonNegativeInteger))
+  }
+}

@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?metabolite ?reaction ?protein
+WHERE {
+  # Find human proteins in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    SELECT DISTINCT ?protein WHERE {
+      ?protein a up:Protein .
+      ?protein up:organism taxon:9606 .  # Homo sapiens
+    }
+  }
+
+  # Find reactions associated with these proteins in UniProt - Not all proteins are linked to reactions in UniProt directly
+  #SERVICE <https://sparql.uniprot.org/sparql> {
+  #  ?protein rdfs:seeAlso ?reaction . # Assuming rdfs:seeAlso links to reaction databases.  Needs verification.
+  #  FILTER CONTAINS(str(?reaction), "rhea-db.org") # Filter to Rhea reactions.  Needs verification.
+  #  BIND(STR(?reaction) AS ?reactionString)
+  #}
+
+  # Find reactions in RheaDB that might involve human proteins (This requires external knowledge as UniProt doesn't directly link)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     ?reaction rdfs:comment ?comment . #Trying to find a relationship or link with human
+     FILTER CONTAINS(lcase(str(?comment)), "human") #looking for human related reactions
+
+     OPTIONAL {
+       ?reaction rdfs:label ?metabolite .
+     }
+  }
+  
+  # Find lipids in SwissLipids related to human - There's probably no direct link, so broader search
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?lipid rdfs:label ?metabolite .
+    FILTER CONTAINS(lcase(str(?metabolite)), "human") # Very broad, likely needs refinement if possible
+  }
+}

@@ -1,0 +1,50 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated SPARQL query to search for chemical names starting with "Japanese" and translate them to English using Allie.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chemicalName ?englishTranslation
+WHERE {
+  # Query ChEBI for chemical entities with names starting with "Japanese"
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?chemical a chebi:CHEBI_24431 . # CHEBI_24431 represents chemical entity
+    ?chemical rdfs:label ?chemicalName .
+    FILTER STRSTARTS(LCASE(?chemicalName), "japanese")
+  }
+  
+  # Use Allie to translate the chemical name to English (example translation, might not be applicable)
+  # The following line is a placeholder as there is no direct SPARQL service
+  # for translation.  A separate API call to Allie would be needed to achieve
+  # the translation.  This federated query focuses on retrieving the relevant
+  # chemical names, and the translation step would need to be handled
+  # programmatically outside of SPARQL.
+  BIND (IF(LANG(?chemicalName) = 'en', ?chemicalName, "Translation Needed") AS ?englishTranslation) #Dummy translation
+}

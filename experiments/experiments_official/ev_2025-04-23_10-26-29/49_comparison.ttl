@@ -1,0 +1,96 @@
+
+# Natural Language Question
+# =======================
+Retrieve the UniProtKB proteins, their catalyzed Rhea reactions, their encoding genes (Ensembl) and the anatomic entities where the genes are expressed (UBERON anatomic entites from Bgee expression data resource).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?ensemblGene ?reaction ?anatomicEntityLabel ?anatomicEntity
+WHERE {
+  # federated query to Rhea enadpoint
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      SERVICE <https://sparql.rhea-db.org/sparql> {
+        ?reaction rdfs:subClassOf rh:Reaction ;
+          rh:equation ?reactionEquation ;
+          rh:side ?reactionSide .
+        ?reactionSide rh:contains ?participant .
+        ?participant rh:compound ?compound .
+        # compound constraint (CHEBI:16113 == cholesterol)
+        ?compound rh:chebi CHEBI:16113 .
+      }
+    }
+  }
+  # taxonomy constraint (taxon:9606 == Homo sapiens)
+  ?protein up:organism taxon:9606 ;
+    up:annotation ?a ;
+    rdfs:seeAlso / up:transcribedFrom ?ensemblGene .
+  ?a a up:Catalytic_Activity_Annotation ;
+    up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction .
+  # federated query to Bgee (expression data)
+  BIND(IRI(REPLACE(STR(?ensemblGene), "\\.[0-9]+$", "")) AS ?ensemblGeneNoVersion)
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene lscr:xrefEnsemblGene ?ensemblGeneNoVersion ;
+      genex:isExpressedIn ?anatomicEntity .
+    ?anatomicEntity rdfs:label ?anatomicEntityLabel .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX bgee: <http://purl.org/bgee/ont/bgee#>
+PREFIX uberon: <http://purl.obolibrary.org/obo/UBERON_>
+
+SELECT ?protein ?reaction ?gene_ensembl_id ?anatomic_entity
+WHERE {
+  # Query UniProt for proteins (?protein), their catalyzed Rhea reactions (?reaction),
+  # and cross-references to Ensembl genes (?gene_ensembl_id).
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    # Link UniProt protein to catalyzed Rhea reaction
+    ?protein up:catalyzedReaction ?reaction .
+    # Link UniProt protein to Ensembl gene cross-reference
+    ?protein rdfs:seeAlso ?ensembl_id_uri .
+    # Filter for identifiers.org/ensembl URIs and extract the Ensembl ID
+    FILTER(STRSTARTS(STR(?ensembl_id_uri), "http://identifiers.org/ensembl/"))
+    BIND(STRAFTER(STR(?ensembl_id_uri), "http://identifiers.org/ensembl/") AS ?gene_ensembl_id)
+  }
+
+  # Federate to Bgee SPARQL endpoint to find anatomical expression locations
+  # using the Ensembl gene ID obtained from UniProt.
+  # Note: The Bgee endpoint is used based on the user's request for "Bgee expression data"
+  # and "UBERON anatomic entities", as this information is not available in the
+  # provided UniProt or Rhea endpoints, and requires querying Bgee.
+  SERVICE <https://sparql.bgee.org/sparql> {
+    # Find the Bgee gene resource using the Ensembl ID
+    ?bgee_gene a bgee:Gene ;
+               bgee:ensemblId ?gene_ensembl_id .
+
+    # Find expression evidence for this gene in Bgee
+    ?bgee_gene bgee:hasExpressionEvidence ?expression_evidence .
+
+    # Get the anatomical location (UBERON entity) from the expression evidence
+    ?expression_evidence bgee:hasAnatomicalLocation ?anatomic_entity .
+
+    # The anatomical entity resource in Bgee is typically the UBERON URI itself.
+    # We can optionally filter to explicitly ensure it's an UBERON URI,
+    # although bgee:hasAnatomicalLocation should point to UBERON resources.
+    # FILTER(STRSTARTS(STR(?anatomic_entity), "http://purl.obolibrary.org/obo/UBERON_"))
+  }
+}

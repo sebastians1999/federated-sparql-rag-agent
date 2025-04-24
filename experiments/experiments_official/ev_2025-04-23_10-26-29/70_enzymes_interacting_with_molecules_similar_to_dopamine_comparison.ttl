@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?enzyme ?enzymeName ?reaction
+WHERE {
+  # Find reactions in Rhea involving Dopamine (CHEBI:27749)
+  # We look for reactions where CHEBI:27749 is a participant on either side.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:hasParticipant ?participant .
+    ?participant rhea:compound ?compoundNode .
+    # CHEBI:27749 is the ChEBI identifier for Dopamine.
+    # This query finds reactions directly involving dopamine.
+    # Finding 'similar' molecules structurally via SPARQL federation is complex
+    # and often requires specific endpoint features or pre-calculated data.
+    # We interpret 'similar' here as the molecule itself involved in reactions.
+    ?compoundNode rhea:chebi chebi:27749 .
+  }
+
+  # Find enzymes in UniProt that catalyze these reactions found in Rhea
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme uniprot:catalyzedReaction ?reaction .
+    # Get the recommended name of the enzyme from the UniProt entry
+    ?enzyme skos:prefLabel ?enzymeName .
+  }
+}

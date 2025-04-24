@@ -1,0 +1,74 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?enzymeClass (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Get reaction IDs from Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+
+  # Link Rhea reaction IDs to UniProt enzyme annotations via Rhea to UniProt mappings if available.
+  OPTIONAL {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?enzyme rdfs:seeAlso ?reaction ; # Assuming rdfs:seeAlso links to Rhea
+              rdfs:label ?enzymeClass . # Assuming rdfs:label has enzyme class
+      FILTER (REGEX(?enzymeClass, "^[0-9]+\\.", "i")) # Filter to get the first level enzyme classifications
+    }
+  }
+  
+  # If no direct link, try to find enzymes associated with the reaction participants using Rhea
+  OPTIONAL {
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rhea: Rhea_has_participant ?participant .
+    }
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?enzyme rdfs:seeAlso ?participant ; # Assuming rdfs:seeAlso links to reaction participants
+              rdfs:label ?enzymeClass . # Assuming rdfs:label has enzyme class
+      FILTER (REGEX(?enzymeClass, "^[0-9]+\\.", "i")) # Filter to get the first level enzyme classifications
+    }     
+  }
+  
+  FILTER (BOUND(?enzymeClass)) # Only include results where enzyme class is found
+
+}
+GROUP BY ?enzymeClass
+ORDER BY DESC(?reactionCount)

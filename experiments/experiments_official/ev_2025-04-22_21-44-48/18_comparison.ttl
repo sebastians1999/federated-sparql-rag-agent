@@ -1,0 +1,52 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://idsm.elixir-czech.cz/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi_uri ?rhea_reaction
+WHERE {
+  # Query IDSM Sachem to find ChEBIs with a SMILES containing Cholestane
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    ?chebi_uri rdfs:subClassOf chebi:28047 .  # CHEBI:28047 is 5beta-cholestane-3alpha,7alpha-diol, assuming it represents cholestane skeleton.  Using rdfs:subClassOf for broader match.
+  }
+
+  # Use the found ChEBI URIs to query Rhea to find reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea_reaction rdfs:type <http://rdf.rhea-db.org/Reaction> .
+    {
+      ?rhea_reaction <http://purl.obolibrary.org/obo/rhea# Rhea_has_substrate> ?chebi_uri .
+    }
+    UNION
+    {
+      ?rhea_reaction <http://purl.obolibrary.org/obo/rhea# Rhea_has_product> ?chebi_uri .
+    }
+  }
+}

@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?patentTitle
+WHERE {
+  # Query UniProtKB for entries with patent citations
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein ;
+                  up:citation ?citation .
+    ?citation up:publicationNumber ?patentPublicationNumber .
+    FILTER (REGEX(?patentPublicationNumber, "^[A-Z]{2}[0-9]+")) # Filter for publication numbers (e.g., WO2023)
+  }
+
+  # Attempt to fetch patent titles from the EPO database (example, needs actual EPO endpoint if available)
+  # This part is speculative and requires a real EPO SPARQL endpoint and schema.  If no endpoint is publicly available, this SERVICE block would be omitted.
+  # SERVICE <https://example.epo.org/sparql> { # Replace with actual EPO endpoint
+  #   ?patent a <http://example.epo.org/ontology/Patent> ;  # Replace with actual EPO class
+  #           <http://example.epo.org/ontology/publicationNumber> ?patentPublicationNumber ; # Replace with actual EPO property
+  #           rdfs:label ?patentTitle . # Replace with actual EPO property for title
+  # }
+}
+# The query retrieves UniProt entries and their associated patent publication numbers from UniProtKB.
+# The commented-out SERVICE block shows how to potentially extend this by querying an EPO SPARQL endpoint (if one were available)
+# to retrieve additional patent details like the title.  The EPO part is currently speculative due to the lack of a known public EPO SPARQL endpoint.

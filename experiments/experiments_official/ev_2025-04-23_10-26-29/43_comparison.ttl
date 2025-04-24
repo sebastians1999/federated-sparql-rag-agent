@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX fn: <http://www.w3.org/2005/xpath-functions#>
+
+SELECT ?protein ?publicationNumber ?publicationDate
+WHERE {
+  # Query the UniProt SPARQL endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find UniProt entries (proteins)
+    ?protein rdf:type up:Protein .
+
+    # Find citations associated with the protein
+    ?protein up:citation ?citation .
+
+    # Filter for citations that are of type Patent
+    ?citation rdf:type up:Patent .
+
+    # Get the patent publication number
+    ?citation up:publicationNumber ?publicationNumber .
+
+    # Get the patent publication date
+    # Note: UniProt uses up:publicationDate for patent citations.
+    # There isn't a standard up:grantDate property for citations in UniProt.
+    ?citation up:publicationDate ?publicationDateString .
+
+    # Cast the publication date string to a date type for comparison
+    BIND(xsd:date(?publicationDateString) AS ?publicationDate)
+
+    # Calculate the date 20 years ago from today
+    # Using fn:adjust-dateTime-to-timezone to ensure NOW() is treated consistently before duration subtraction
+    BIND((fn:adjust-dateTime-to-timezone(NOW(), "PT0H") - "P20Y"^^xsd:duration) AS ?cutoffDate)
+
+    # Filter for patents whose publication date is more than twenty years in the past
+    FILTER(?publicationDate < ?cutoffDate)
+  }
+  # Note: The request asks to connect patents cited in UniProtKB with those in a "patent database at EPO".
+  # However, no SPARQL endpoint for a "patent database at EPO" was provided in the context.
+  # Therefore, this query retrieves patent information that UniProtKB *itself* holds for its entries
+  # and filters based on the date criteria, but cannot perform a federation step to an external EPO database as requested.
+}
+ORDER BY ?publicationDate

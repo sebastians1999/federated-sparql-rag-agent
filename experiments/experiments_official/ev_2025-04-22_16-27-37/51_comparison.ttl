@@ -1,0 +1,79 @@
+
+# Natural Language Question
+# =======================
+Find all proteins linked to arachidonate (CHEBI:32395)
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+
+SELECT 
+    DISTINCT
+        ?uniprot
+        ?uniprotID
+        ?recname
+        ?gene
+        ?chebi
+        ?uniprotName
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     VALUES (?chebi) { (CHEBI:32395) }
+     ?rhea rh:side/rh:contains/rh:compound ?compound .
+     ?compound rh:chebi ?chebi .
+     ?chebi up:name ?uniprotName .
+  }
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  ?uniprot up:mnemonic ?uniprotID .
+  ?uniprot up:recommendedName/up:fullName ?recname .
+  OPTIONAL {?uniprot up:encodedBy/skos:prefLabel ?gene .}
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#> # Often used for URI equivalence
+
+SELECT DISTINCT ?uniprotID ?proteinName
+WHERE {
+  # Query Rhea to find reactions involving arachidonate (CHEBI:32395)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions (?reaction) that have a participant (?participant)
+    ?reaction rhea:hasParticipant ?participant .
+
+    # The participant links to a chemical entity (?chemical)
+    # Assume the chemical entity URI in Rhea is the ChEBI URI itself
+    ?participant rhea:chemical chebi:32395 .
+
+    # Find the enzyme(s) (?enzyme) that catalyze this reaction
+    ?reaction rhea:catalyzedBy ?enzyme .
+
+    # Find the database cross-reference for the enzyme
+    ?enzyme rhea:databaseCrossReference ?dbxref .
+
+    # Filter for UniProtKB cross-references and get the accession ID
+    ?dbxref rhea:db "UniProtKB" ;
+            rhea:accession ?uniprotID .
+  }
+
+  # Use the UniProt accession ID found in Rhea to query the UniProt endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Construct the full UniProt protein URI from the protein accession ID
+    BIND(IRI(CONCAT("http://purl.uniprot.org/uniprot/", ?uniprotID)) AS ?proteinURI)
+
+    # Retrieve the preferred label (Recommended Name) for the protein
+    ?proteinURI a up:Protein ; # Ensure it's a protein entry
+                skos:prefLabel ?proteinName .
+  }
+}

@@ -26,7 +26,7 @@ class LLMConfig:
     })
     max_tokens: Dict[str, int] = field(default_factory=lambda: {
         "question_understanding": 4000,
-        "sparql_construction": 4000,
+        "sparql_construction": 15000,
     })
     top_p: Dict[str, float] = field(default_factory=lambda: {
         "question_understanding": 1.0,
@@ -37,8 +37,9 @@ class LLMConfig:
     provider_question_understanding: str = "google-genai"
     provider_sparql_construction: str = "google-genai"
     question_understanding_model: str = "gemini-2.0-flash"
-    sparql_construction_model: str = "gemini-2.5-flash-preview-04-17"
-    #sparql_construction_model: str = "gemini-2.5-pro-exp-03-25"
+    #sparql_construction_model: str = "gemini-2.0-flash"
+    #sparql_construction_model: str = "gemini-2.5-flash-preview-04-17"
+    sparql_construction_model: str = "gemini-2.5-pro-exp-03-25"
     #question_understanding_model: str = "gemini-2.0-flash-thinking-exp-01-21"
 
 
@@ -90,6 +91,7 @@ class LLMConfig:
     anthropic_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
     google_genai_api_key: Optional[str] = os.environ.get("GOOGLE_API_KEY")
+    
     
     # For backward compatibility
     provider: str = "together"

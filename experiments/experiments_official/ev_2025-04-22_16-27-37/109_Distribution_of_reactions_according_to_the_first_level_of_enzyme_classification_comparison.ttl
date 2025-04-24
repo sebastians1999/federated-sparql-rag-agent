@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?firstLevel (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Find reactions in Rhea that are catalyzed by a UniProt entry (enzyme)
+  ?reaction rhea:catalyzedBy ?uniprotEntry .
+
+  # Query UniProt to get the EC number(s) associated with the enzyme
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Use up:ecName to get the string representation of the EC number (e.g., "1.1.1.1")
+    ?uniprotEntry up:ecName ?ecLiteral .
+
+    # Extract the first level (the digit before the first dot) from the EC number string
+    BIND(STRBEFORE(?ecLiteral, ".") AS ?firstLevel)
+
+    # Filter to include only valid first-level EC numbers (1 through 7)
+    FILTER(REGEX(?firstLevel, "^[1-7]$"))
+  }
+  # Note: A reaction might be catalyzed by multiple enzymes with different EC numbers,
+  # or an enzyme might have multiple EC numbers. This query counts a reaction
+  # towards each unique first-level EC associated with any catalyzing enzyme.
+}
+GROUP BY ?firstLevel
+ORDER BY ?firstLevel

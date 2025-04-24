@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/chebi#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?chemical ?japaneseName ?englishName
+WHERE {
+  # Query the Rhea endpoint, which includes ChEBI data according to its description.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find entities that are likely ChEBI chemical entities based on their URI pattern.
+    ?chemical a ?type . # Match any type, then filter by URI
+    FILTER(STRSTARTS(STR(?chemical), STR(obo:CHEBI_)))
+
+    # Find names or synonyms for the chemical with a Japanese language tag.
+    {
+      # Check for the preferred ChEBI name in Japanese
+      ?chemical chebi:chebi_name ?japaneseName .
+      FILTER (lang(?japaneseName) = "ja")
+    } UNION {
+      # Check for other synonyms/aliases in Japanese
+      ?chemical chebi:has_synonym ?japaneseName .
+      FILTER (lang(?japaneseName) = "ja")
+    }
+    # Optional: Add other potential name properties if needed, e.g., rdfs:label, skos:altLabel
+    # UNION { ?chemical rdfs:label ?japaneseName . FILTER (lang(?japaneseName) = "ja") }
+    # UNION { ?chemical skos:altLabel ?japaneseName . FILTER (lang(?japaneseName) = "ja") }
+
+
+    # Find names or synonyms for the *same* chemical with an English language tag (serving as the "alias/translation").
+    {
+      # Check for the preferred ChEBI name in English
+      ?chemical chebi:chebi_name ?englishName .
+      FILTER (lang(?englishName) = "en")
+    } UNION {
+      # Check for other synonyms/aliases in English
+      ?chemical chebi:has_synonym ?englishName .
+      FILTER (lang(?englishName) = "en")
+    }
+    # Optional: Add other potential name properties if needed
+    # UNION { ?chemical rdfs:label ?englishName . FILTER (lang(?englishName) = "en") }
+    # UNION { ?chemical skos:altLabel ?englishName . FILTER (lang(?englishName) = "en") }
+
+    # The structure of the query ensures that both a Japanese name/synonym (?japaneseName)
+    # and an English name/synonym (?englishName) are found for the same chemical entity (?chemical).
+  }
+}
+# Limit the number of results for performance and readability
+LIMIT 100

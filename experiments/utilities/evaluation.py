@@ -204,9 +204,9 @@ class AgentEvaluator:
                     updated_item["result_eval_f1_score"] = 0.0
                     updated_item["result_eval_precision"] = 0.0
                     updated_item["result_eval_recall"] = 0.0
-                    updated_item["error_occured_at_endpoint"]= True
+                    updated_item["error_occured_at_endpoint"]= False
                     updated_item["predicted_query_result_is_empty"] = True
-                    updated_item["error_occured_at_endpoint_message"] = error
+                    updated_item["error_occured_at_endpoint_message"] = "syntactically not correct"
                     error_at_endpoint += 1
 
                 else:

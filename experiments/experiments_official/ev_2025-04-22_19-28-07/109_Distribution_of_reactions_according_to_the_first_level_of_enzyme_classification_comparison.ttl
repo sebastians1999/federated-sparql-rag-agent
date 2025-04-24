@@ -1,0 +1,80 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Querying Rhea DB to find reactions and link them to enzyme classifications, if available.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?reactionCount) ?enzymeClass
+WHERE {
+  # Query Rhea for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    ?reaction rhea:equation ?equation .
+  }
+  
+  # Attempt to link reactions to UniProt via Rhea's cross-references (if available)
+  OPTIONAL {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+       ?uniprot rdf:type <http://purl.uniprot.org/core/Protein> .
+       ?uniprot <http://purl.uniprot.org/core/enzymeClassification> ?enzymeClass .
+       # Use a FILTER to link UniProt entries to Rhea reactions (hypothetical link via CHEBI, needs verification)
+       #FILTER EXISTS { ?reaction rhea:hasChEBIEntity ?chebiEntity . ?chebiEntity chebi:is_conjugate_acid_of ?uniprot . }  
+    }
+  }
+
+  #If no direct link, try to find EnzymeClassification via Rhea participants and ChEBI
+  OPTIONAL{
+     SERVICE <https://sparql.uniprot.org/sparql>{
+        ?uniprot rdf:type <http://purl.uniprot.org/core/Protein> .
+        ?uniprot <http://purl.uniprot.org/core/enzymeClassification> ?enzymeClass .
+       
+        #Attempt 1
+        #FILTER EXISTS {?reaction rhea:hasChEBIEntity ?chebiEntity . ?chebiEntity chebi:is_a ?uniprot .}
+
+        #Attempt 2
+        #FILTER EXISTS {?reaction rhea:hasInvolved ?chebiEntity . ?chebiEntity chebi:is_a ?uniprot .}
+       
+     }
+  }
+  
+  FILTER (STRSTARTS(str(?enzymeClass), "http://purl.uniprot.org/enzyme/")) # Ensure the enzymeClass is from UniProt
+}
+GROUP BY ?enzymeClass
+ORDER BY DESC(?reactionCount)
