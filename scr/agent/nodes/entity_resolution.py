@@ -21,7 +21,7 @@ def format_extracted_entities(entities_list):
     """Format the extracted entities for display in the agent UI."""
     result = ""
     for entity_data in entities_list:
-        result += f"**Entity: {entity_data['original_question_phrase']}**\n\n"
+        result += f"**Entity: {entity_data['text']}**\n\n"
         if entity_data['matchs']:
             result += "Matches:\n"
             for i, doc in enumerate(entity_data['matchs']):
@@ -37,7 +37,7 @@ def format_extracted_classes(classes_list):
     """Format the extracted classes for display in the agent UI."""
     result = ""
     for class_data in classes_list:
-        result += f"**Class: {class_data['original_question_phrase']}**\n\n"
+        result += f"**Class: {class_data['text']}**\n\n"
         if class_data['matchs']:
             result += "Matches:\n"
             for i, doc in enumerate(class_data['matchs']):
@@ -154,14 +154,14 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
                         logger.info(f"Found {len(matches)} unique matches for entity: {potential_entity}")
                         entities_list.append({
                             "matchs": matches,
-                            "original_question_phrase": potential_entity,
+                            "text": potential_entity,
                         })
                     else:
                         # If embedding failed, add entity with no matches
                         logger.warning(f"Empty embedding vector for entity: {potential_entity}")
                         entities_list.append({
                             "matchs": [],
-                            "original_question_phrase": potential_entity,
+                            "text": potential_entity,
                         })
                 except Exception as e:
                     # Handle errors for individual entities
@@ -169,7 +169,7 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
                     logger.debug(traceback.format_exc())
                     entities_list.append({
                         "matchs": [],
-                        "original_question_phrase": potential_entity,
+                        "text": potential_entity,
                         "error": str(e)
                     })
             
@@ -231,14 +231,14 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
                         logger.info(f"Found {len(matches)} unique matches for class: {potential_class}")
                         classes_list.append({
                             "matchs": matches,
-                            "original_question_phrase": potential_class,
+                            "text": potential_class,
                         })
                     else:
                         # If embedding failed, add class with no matches
                         logger.warning(f"Empty embedding vector for class: {potential_class}")
                         classes_list.append({
                             "matchs": [],
-                            "original_question_phrase": potential_class,
+                            "text": potential_class,
                         })
                 except Exception as e:
                     # Handle errors for individual classes
@@ -246,7 +246,7 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
                     logger.debug(traceback.format_exc())
                     classes_list.append({
                         "matchs": [],
-                        "original_question_phrase": potential_class,
+                        "text": potential_class,
                         "error": str(e)
                     })
             
@@ -283,9 +283,9 @@ async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, 
         
         # Return empty results with error information
         return {
-            "extracted_entities": [{"original_question_phrase": entity, "matchs": [], "error": error_message} 
+            "extracted_entities": [{"text": entity, "matchs": [], "error": error_message} 
                                   for entity in state.structured_question.extracted_entities],
-            "extracted_classes": [{"original_question_phrase": cls, "matchs": [], "error": error_message} 
+            "extracted_classes": [{"text": cls, "matchs": [], "error": error_message} 
                                  for cls in state.structured_question.extracted_classes],
             "steps": [
                 StepOutput(
