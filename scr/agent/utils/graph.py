@@ -5,7 +5,7 @@ from langchain_core.runnables import RunnableConfig
 
 from scr.agent.nodes.question_understanding import question_understanding
 from scr.agent.nodes.entity_resolution import retrieve_documents
-from scr.agent.nodes.sparql_query_construction import query_generator
+from scr.agent.nodes.sparql_query_construction import query_generator, query_generator_few_shot_cot
 from scr.agent.state.state import State
 from scr.agent.utils.config import Configuration
 
@@ -29,7 +29,8 @@ def create_graph(config: Optional[Configuration] = None) -> Graph:
     # Add nodes with wrapper functions
     workflow.add_node("question_understanding", question_understanding)
     workflow.add_node("entity_resolution", retrieve_documents)
-    workflow.add_node("sparql_query_construction", query_generator)
+    #workflow.add_node("sparql_query_construction", query_generator)
+    workflow.add_node("sparql_query_construction", query_generator_few_shot_cot)
 
     # Define edges
     workflow.add_edge("question_understanding", "entity_resolution")
