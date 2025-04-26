@@ -93,7 +93,7 @@ It supports uses well-supported namespaces and ontologies such as UniProt, ChEBI
 #Jinja2 template
 QUERY_FORMAT_PROMPT = """Potential entities extracted from the user question {{ potential_entities }}
 
-Potential classes extracted from te user question {{ potential_classes }}
+Potential classes extracted from the user question {{ potential_classes }}
 """
     
     

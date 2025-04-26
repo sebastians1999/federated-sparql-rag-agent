@@ -118,26 +118,26 @@ async def query_generator_few_shot_cot(state: State, config: RunnableConfig) -> 
         example_template = PromptTemplate(
             template_format='jinja2',
             input_variables=["Input", "Context", "Endpoint_information", "Assistant"],
-            template="**User:**\n {{ Input }}\n\n**Context:**\n Potential {{ Context }}\n\n**Endpoint Information:**\n {{ Endpoint_information }}\n\n**Assistant:**\n {{ Assistant }}\n\n"
+            template="**User:**\n{{ Input }}\n\n**Context:**\n{{ Context }}\n\n**Endpoint Information:**\n{{ Endpoint_information }}\n\n**Assistant:**\n{{ Assistant }}\n\n"
         )
-
 
         few_shot_prompt = FewShotPromptTemplate(
             examples=examples_few_shot_federated_query_generation,
             example_prompt=example_template,
             input_variables=["Input", "Context", "Endpoint_information"],
             prefix=INTRODUCTION_PROMPT,
-            suffix="User: {{ Input }}\n\nContext: {{ Context }}\n\nEndpoint Information: {{ Endpoint_information }}\n\nAssistant:",
+            suffix="**User:**\n{{ Input }}\n\n**Context:**\n{{ Context }}\n\n**Endpoint Information:**\n{{ Endpoint_information }}\n\n**Assistant:**",
             template_format="jinja2" 
         )
 
 
         message = await few_shot_prompt.ainvoke({
             "Input": state.messages[-1].content,
-            "Context": formatted_context,
+            "Context": formatted_context.to_string(),
             "Endpoint_information": ENPOINT_INFORMATION_PROMPT,
         })
 
+        print(message.to_string())
 
         response_message = await llm.ainvoke(message)
 
