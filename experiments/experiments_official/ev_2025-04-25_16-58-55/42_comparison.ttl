@@ -1,0 +1,44 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+# Retrieve UniProtKB entries and their associated patent identifiers.
+SELECT DISTINCT ?uniprotEntry ?patentIdentifier
+WHERE {
+  ?uniprotEntry a up:Protein .  # Focus on UniProtKB entries that are proteins.
+  ?uniprotEntry up:citation ?citation . # Access the citation information.
+  ?citation up:publication ?publication . # Get the publication associated with the citation.
+  ?publication a up:Patent ; # Filter for publications that are patents.
+               rdfs:label ?patentIdentifier . # Retrieve the patent identifier (e.g., patent number).
+}
+# The query retrieves UniProt entries and their patent identifiers.
+# It assumes that patents are linked via the 'up:citation', 'up:publication' and 'rdfs:label' properties.

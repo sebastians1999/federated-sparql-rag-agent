@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# This query aims to find the distribution of reactions based on the first level of enzyme classification.
+# It assumes that there is a way to link reactions to enzyme classifications, possibly through Rhea's data model.
+# However, without specific details on how enzyme classifications are represented in Rhea, the query is based on general assumptions.
+
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT ?enzymeClass (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  #  SERVICE <SwissLipids SPARQL> {
+  #  }
+  #  SERVICE <UniProt SPARQL> {
+  #  }
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Assuming reactions are linked to some enzyme classification (EC) numbers.
+    # This is a placeholder; replace with the actual property linking reactions to EC numbers if available.
+    ?reaction rdf:type rhea:Reaction . # Assuming rhea:Reaction is the type for reactions.
+    ?reaction rhea:ec ?enzymeClass . # Assuming rhea:ec links to enzyme classification.  This is a guess.
+
+    # Further filtering or processing of enzymeClass to get the "first level" might be needed here,
+    # depending on how the EC numbers are structured.  For example, if EC numbers are strings like "1.2.3.4",
+    # you might need to extract the first digit.  This is not implemented here due to lack of specific schema information.
+  }
+}
+GROUP BY ?enzymeClass
+ORDER BY DESC(?reactionCount)

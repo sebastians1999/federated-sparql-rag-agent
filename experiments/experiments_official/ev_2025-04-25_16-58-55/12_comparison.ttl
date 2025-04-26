@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?rheaReaction
+WHERE {
+  # Query Rhea reactions from Rhea DB
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rdf:type rhea:Reaction .
+    # Assuming there's a property linking reactions to enzymes (proteins).  This might need adjustment based on the actual Rhea schema.
+    ?rheaReaction rhea:enzyme ?enzyme .
+  }
+
+  # Query UniProt for protein sequences linked to the enzymes
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a <http://purl.uniprot.org/core/Protein> . # Filter for protein sequences
+    # Assuming there's a way to link the Rhea enzyme identifier to a UniProt protein identifier. This is a crucial linking step.
+    # This might involve using a cross-reference property or a shared identifier.
+    # Example: FILTER (STR(?enzyme) = STR(?protein))  # Simple string comparison (adjust as needed)
+    FILTER (CONTAINS(STR(?protein), STR(?enzyme))) # Another possible filter
+  }
+}

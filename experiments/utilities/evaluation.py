@@ -23,7 +23,7 @@ import traceback
 
 
 class AgentEvaluator:
-    def __init__(self, dataset_dir=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None, timeout: int = 300):
+    def __init__(self, dataset_dir=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None, timeout: int = 300, tracked_token_nodes=None):
         
         self.endpoint_sets = endpoint_sets
         self.experiment_dir = experiment_dir
@@ -39,6 +39,7 @@ class AgentEvaluator:
         self.metric_dataset_path = os.path.join(self.output_dir, 'metrics_dataset.json')
         self.test = test
         self.timeout = timeout # timeout after 300 seconds
+        self.tracked_token_nodes = tracked_token_nodes
         
         write_experiment_metadata(
             self.output_dir,
@@ -91,37 +92,22 @@ class AgentEvaluator:
             "run_id_langsmith": str(first_run.id),
             "execution_time": str(execution_time)
         }
-        sparql_construction_results = {}
-        question_understanding_results = {}
-
-        #print("Number of child runs:")
-        #print(len(child_runs))
-
-        for run in child_runs:
-            #print(run.name)
-            if run.name == "sparql_query_construction":
-                sparql_construction_results = {
-                    "sparql_query_construction": True,
-                    "sparql_construction_prompt_tokens": run.prompt_tokens or 0,
-                    "sparql_construction_completion_tokens": run.completion_tokens or 0,
-                    "sparql_construction_total_tokens": run.total_tokens or 0,
-                    #"sparql_construction_prompt_cost": run.prompt_cost or 0,
-                    #"sparql_construction_completion_cost": run.completion_cost or 0,
-                    #"sparql_construction_total_cost": run.total_cost or 0,
-                }
-            if run.name == "question_understanding":
-                question_understanding_results = {
-                    "question_understanding": True,
-                    "question_understanding_prompt_tokens": run.prompt_tokens or 0,
-                    "question_understanding_completion_tokens": run.completion_tokens or 0,
-                    "question_understanding_total_tokens": run.total_tokens or 0,
-                    #"question_understanding_prompt_cost": run.prompt_cost or 0,
-                    #"question_understanding_completion_cost": run.completion_cost or 0,
-                    #"question_understanding_total_cost": run.total_cost or 0,
-                }
         
-
-        summed_result = {**final_state_results, **sparql_construction_results, **question_understanding_results}
+        # Dynamically collect token usage for tracked nodes
+        node_token_results = {}
+        for run in child_runs:
+            if run.name in self.tracked_token_nodes:
+                key_prefix = run.name
+                node_token_results[f"{key_prefix}"] = True
+                node_token_results[f"{key_prefix}_prompt_tokens"] = run.prompt_tokens or 0
+                node_token_results[f"{key_prefix}_completion_tokens"] = run.completion_tokens or 0
+                node_token_results[f"{key_prefix}_total_tokens"] = run.total_tokens or 0
+                # Optionally add cost metrics if needed
+                # node_token_results[f"{key_prefix}_prompt_cost"] = run.prompt_cost or 0
+                # node_token_results[f"{key_prefix}_completion_cost"] = run.completion_cost or 0
+                # node_token_results[f"{key_prefix}_total_cost"] = run.total_cost or 0
+        
+        summed_result = {**final_state_results, **node_token_results}
 
         return summed_result
 
@@ -184,16 +170,13 @@ class AgentEvaluator:
                     "evaluation_timestamp": datetime.now().isoformat()
                 }
 
-                if  isinstance(result, dict) and result.get("question_understanding"):
-                    updated_item["question_understanding_tokens"] = result.get("question_understanding_prompt_tokens")
-                    updated_item["question_understanding_completion_tokens"] = result.get("question_understanding_completion_tokens")
-                    updated_item["question_understanding_total_tokens"] = result.get("question_understanding_total_tokens")
-
-                if  isinstance(result, dict) and result.get("sparql_query_construction"):
-                    updated_item["sparql_construction_prompt_tokens"] = result.get("sparql_construction_prompt_tokens")
-                    updated_item["sparql_construction_completion_tokens"] = result.get("sparql_construction_completion_tokens")
-                    updated_item["sparql_construction_total_tokens"] = result.get("sparql_construction_total_tokens")
-
+                # Add token info for all tracked nodes dynamically
+                if isinstance(result, dict):
+                    for node in self.tracked_token_nodes:
+                        if result.get(node):
+                            updated_item[f"{node}_prompt_tokens"] = result.get(f"{node}_prompt_tokens")
+                            updated_item[f"{node}_completion_tokens"] = result.get(f"{node}_completion_tokens")
+                            updated_item[f"{node}_total_tokens"] = result.get(f"{node}_total_tokens")
 
                 #########  Validate SPARQL syntax #########
                 is_valid, error = validate_sparql_syntax(updated_item["predicted_query"])

@@ -1,0 +1,80 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Find enzymes catalyzing reactions involving molecules similar to dopamine.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzyme ?reaction
+WHERE {
+  # Find reactions in RheaDB that involve dopamine as a participant.
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      ?reaction rhea: Rhea_has_participant chebi:CHEBI_134058 .  # N-palmitoyl dopamine
+    }
+  }
+  UNION
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      ?reaction rhea: Rhea_has_participant chebi:CHEBI_189002 .  # dopaminechrome (keto form)
+    }
+  }
+  UNION
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      ?reaction rhea: Rhea_has_participant <http://rdf.rhea-db.org/73863> .  # dopamine(out) = dopamine(in)
+    }
+  }
+  UNION
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      ?reaction rhea: Rhea_has_participant <http://rdf.rhea-db.org/12272> .  # L-dopa + H(+) = dopamine + CO2
+    }
+  }
+  UNION
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      ?reaction rhea: Rhea_has_participant <http://rdf.rhea-db.org/73739> .  # dopamine(in) + 2 H(+)(out) = dopamine(out) + 2 H(+)(in)
+    }
+  }
+  # Find the enzyme that catalyzes the reaction from RheaDB.
+  ?reaction rhea:rheaId ?rheaId .
+  ?enzyme uniprot:catalyticActivity ?rheaId . # Assuming UniProt uses Rhea IDs for catalytic activity
+}

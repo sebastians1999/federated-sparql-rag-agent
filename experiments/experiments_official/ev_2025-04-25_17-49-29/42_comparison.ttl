@@ -1,0 +1,57 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated SPARQL query to connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?epoPatent
+WHERE {
+  # Query UniProtKB for entries with patent cross-references.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein ; # Assuming we are interested in protein entries.
+                  up:citation ?citation .
+    ?citation up:publicationNumber ?patentPublicationNumber .
+    FILTER (REGEX(STR(?patentPublicationNumber), "^[A-Z]{2}\\d+.*", "i")) # Filter to ensure it looks like a patent publication number
+  }
+  
+  # Attempt to find corresponding patent information in the EPO database (hypothetical).
+  # This part assumes there's an EPO SPARQL endpoint and schema where patents can be looked up by publication number.
+  # Since there is no EPO endpoint provided, this part is commented out.  If an EPO endpoint were available,
+  # the following SERVICE block would be uncommented and adapted to the EPO schema.
+  
+  # SERVICE <EPO_SPARQL_ENDPOINT> {  # Replace with the actual EPO SPARQL endpoint URL
+  #   ?epoPatent <EPO_PREDICATE_FOR_PUBLICATION_NUMBER> ?patentPublicationNumber . # Replace with the correct predicate
+  #   # Add other relevant triples to retrieve desired information from the EPO database.
+  # }
+  
+  # The query currently only retrieves the UniProtKB entry and the patent publication number.
+  # To link to EPO data, an actual EPO SPARQL endpoint and schema are needed.
+}
