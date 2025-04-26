@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+
+# This query retrieves patent identifiers cited within UniProt entries.
+# It is not possible to directly connect this information to an external
+# EPO patent database or filter by grant date based on the provided
+# endpoint context, as no such endpoint for patents was included.
+# The query below extracts the patent numbers available in UniProt.
+SELECT DISTINCT ?protein ?patentNumber
+WHERE {
+  # Query the UniProt endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find a protein entry
+    ?protein a up:Protein .
+
+    # Find citations associated with the protein
+    ?protein up:citation ?citation .
+
+    # Filter citations to find those that are patents
+    ?citation a up:Patent .
+
+    # Get the patent number (identifier) from the patent citation
+    # UniProt typically stores the patent number as dc:identifier on the citation resource
+    ?citation dc:identifier ?patentNumber .
+  }
+}
+LIMIT 100

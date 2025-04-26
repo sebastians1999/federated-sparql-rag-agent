@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+# This query searches for chemical entities in Rhea DB (which uses ChEBI)
+# It looks for entities whose primary label (rdfs:label) starts with "Japanese"
+# and retrieves their English alternative labels (skos:altLabel with language tag 'en').
+
+SELECT ?entity ?japaneseLabel ?englishLabel
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find entities that have a primary label
+    ?entity rdfs:label ?japaneseLabel .
+
+    # Filter the primary label to find those starting with "Japanese"
+    FILTER (STRSTARTS(?japaneseLabel, "Japanese"))
+
+    # Find an alternative label for the same entity
+    ?entity skos:altLabel ?englishLabel .
+
+    # Filter the alternative label to get the English translation
+    FILTER (lang(?englishLabel) = "en")
+  }
+}

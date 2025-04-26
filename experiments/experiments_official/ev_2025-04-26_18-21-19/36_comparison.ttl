@@ -1,0 +1,73 @@
+
+# Natural Language Question
+# =======================
+Find the orthologous proteins for UniProtKB entry P05067 using the <a href="http://www.orthod.org">OrthoDB database</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?orthoGroup
+  ?scientificName
+  ?functionComment
+  ?prefferedGeneName
+  ((STRLEN(?value) - ?medianLength) as ?deviationFromMedianLength)
+WHERE
+{
+  uniprotkb:P05067 a up:Protein ;
+        up:organism/up:scientificName ?scientificName ;
+        rdfs:seeAlso ?orthoGroup ;
+        up:encodedBy/skos:prefLabel ?prefferedGeneName ;
+          up:sequence/rdf:value ?value .
+  OPTIONAL {
+    ?protein up:annotation ?functionAnnotation .
+    ?functionAnnotation a up:Function_Annotation ;
+      rdfs:comment ?functionComment .
+  }
+  SERVICE <https://sparql.orthodb.org/sparql>{
+    ?orthoGroup orthodb:ogMedianProteinLength ?medianLength .
+    ?orthoGroup orthodb:hasMember ?xref .
+    ?xref orthodb:xref/orthodb:xrefResource uniprotkb:P05067 .
+  }
+}
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?orthologAccession
+WHERE {
+  # Specify the starting protein using its UniProt accession
+  BIND(<http://purl.uniprot.org/uniprot/P05067> AS ?protein)
+
+  # Find the orthology group(s) associated with the protein
+  # UniProt links to external orthology databases like OrthoDB via up:orthologGroup
+  ?protein up:orthologGroup ?orthoGroup .
+
+  # Find all other proteins that belong to the same orthology group
+  ?orthologProtein up:orthologGroup ?orthoGroup .
+
+  # Exclude the original protein from the results
+  FILTER (?orthologProtein != ?protein)
+
+  # Get the UniProt accession for the ortholog protein
+  ?orthologProtein up:accession ?orthologAccession .
+
+  # Optional: Filter by a specific orthology database if the URI structure allows (e.g., starts with an OrthoDB specific prefix)
+  # This step is often implicit in how UniProt links, but could be added if needed.
+  # Example (hypothetical prefix): FILTER(STRSTARTS(STR(?orthoGroup), "http://purl.orthodb.org/"))
+}

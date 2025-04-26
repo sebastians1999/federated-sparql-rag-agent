@@ -132,12 +132,14 @@ class AgentEvaluator:
         for i, item in enumerate(test_dataset):
             # Access the fields directly since we're using a Dataset object
             question = item["natural_language_question"]
+
             #print(question)
             if not question:
                 print(f"Skipping item {i+1}/{len(test_dataset)} - no natural language question found")
                 continue
             
             try:
+                print("Processing item: " + str(item.get("file_path", "")))
                 print(f"Sending question {i+1}/{len(test_dataset)} to agent...")
                 result = await self.run_single_test(question)
                 print(f"Got result for question {i+1}/{len(test_dataset)}")
@@ -190,7 +192,6 @@ class AgentEvaluator:
                     updated_item["error_occured_at_endpoint"]= False
                     updated_item["predicted_query_result_is_empty"] = True
                     updated_item["error_occured_at_endpoint_message"] = "syntactically not correct"
-                    error_at_endpoint += 1
 
                 else:
 

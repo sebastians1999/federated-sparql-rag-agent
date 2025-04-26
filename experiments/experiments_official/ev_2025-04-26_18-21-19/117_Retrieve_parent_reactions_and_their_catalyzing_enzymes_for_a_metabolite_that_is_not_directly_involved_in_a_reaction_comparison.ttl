@@ -1,0 +1,92 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#> # Common for labels
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> # Common for labels
+
+SELECT DISTINCT ?reaction ?reactionName ?metabolite ?metaboliteRole ?enzyme ?enzymeName
+WHERE {
+  # Query Rhea for reactions involving the specified metabolite (CHEBI:83137)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    # Find participants in the reaction
+    ?reaction rhea:participant ?participant .
+    # Link the participant to the specific metabolite URI
+    ?participant rhea:compound chebi:83137 . # CHEBI:83137 corresponds to 'butanoate'
+    # Get the role of the metabolite in this reaction (e.g., reactant, product, cofactor)
+    ?participant rhea:role ?metaboliteRole .
+
+    # Optional: Get the human-readable name of the reaction
+    OPTIONAL { ?reaction rhea:name ?reactionName . }
+
+    # Find the enzyme that catalyzes this reaction
+    ?reaction rhea:catalyzedBy ?enzyme .
+  }
+
+  # Bind the metabolite URI for the result set
+  BIND(chebi:83137 AS ?metabolite)
+
+  # Query UniProt to get details about the catalyzing enzyme
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Ensure the found entity is a protein in UniProt
+    ?enzyme a up:Protein .
+    # Get the recommended full name of the protein
+    OPTIONAL { ?enzyme up:recommendedName/up:fullName ?enzymeNameRec . }
+    # If recommended name is not available, get the protein name
+    OPTIONAL { ?enzyme up:proteinName ?enzymeNameProtein . }
+    # Use COALESCE to prefer the recommended name
+    BIND(COALESCE(?enzymeNameRec, ?enzymeNameProtein) AS ?enzymeName)
+  }
+}

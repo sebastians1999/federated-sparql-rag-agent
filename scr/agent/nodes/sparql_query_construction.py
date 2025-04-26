@@ -40,7 +40,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("human", "{input}")
+                ("human", USER_PROMPT)
             ]
         )
         #retrieved_documents
@@ -137,7 +137,9 @@ async def query_generator_few_shot_cot(state: State, config: RunnableConfig) -> 
             "Endpoint_information": ENPOINT_INFORMATION_PROMPT,
         })
 
-        print(message.to_string())
+        #print(formatted_context.to_string())
+
+        #print(message.to_string())
 
         response_message = await llm.ainvoke(message)
 

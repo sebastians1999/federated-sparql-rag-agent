@@ -1,0 +1,79 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxonomy: <http://purl.uniprot.org/taxonomy/>
+PREFIX sl: <https://swisslipids.org/rdf/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+# This query attempts to generate a "draft human metabolome" by listing:
+# 1. Metabolites participating in biochemical reactions in Rhea catalyzed by human enzymes.
+# 2. Lipids listed in SwissLipids as found in Homo sapiens.
+# The results are a union of chemical entities (mostly ChEBI URIs from Rhea) and lipid entities (SwissLipids URIs).
+
+SELECT DISTINCT ?metabolite WHERE {
+
+  # Part 1: Metabolites from human-catalyzed reactions in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions
+    ?reaction a rhea:Reaction .
+    # Link reaction to the enzyme (UniProt entry) that catalyzes it
+    ?reaction rhea:catalyzedBy ?uniprotEntry .
+    # Find the chemical participants in the reaction
+    ?reaction rhea:hasParticipant ?participant .
+    ?participant rhea:chemical ?metabolite . # Get the chemical entity (metabolite), typically a ChEBI URI
+  }
+
+  # Federate to UniProt to check the species of the enzyme
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry up:organism ?organism .
+    # Filter for Homo sapiens (Human) organism
+    ?organism up:scientificName "Homo sapiens" .
+    # Alternatively, could use the taxonomy URI directly: ?organism taxonomy:9606 .
+  }
+
+  UNION
+
+  # Part 2: Lipids found in Homo sapiens from SwissLipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    # Find entities that are classified as Lipids in SwissLipids
+    ?metabolite a sl:Lipid .
+    # Filter for lipids associated with Homo sapiens species
+    ?metabolite sl:species taxonomy:9606 . # Use the specific Homo sapiens taxonomy URI
+  }
+}

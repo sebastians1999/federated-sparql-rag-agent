@@ -176,8 +176,8 @@ def calculate_column_metrics_with_label_similarity(
     for row in df_predicted[pred_matched_cols].astype(str).fillna("").values.tolist():
         pred_tuples.add(tuple(row))
         
-    print("gt_tuples:", gt_tuples)
-    print("pred_tuples:", pred_tuples)
+    print("gt_tuples:", gt_tuples[0:1])
+    print("pred_tuples:", pred_tuples[0:1])
     
     if not gt_tuples or not pred_tuples:
         print("no tuples found")
