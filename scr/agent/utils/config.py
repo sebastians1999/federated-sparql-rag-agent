@@ -36,9 +36,11 @@ class LLMConfig:
     # Model/provider selection
     provider_question_understanding: str = "google-genai"
     provider_sparql_construction: str = "google-genai"
-    question_understanding_model: str = "gemini-2.0-flash"
+    #question_understanding_model: str = "gemini-2.0-flash"
+    question_understanding_model: str = "gemini-2.0-flash-lite"
     #sparql_construction_model: str = "gemini-2.0-flash"
-    sparql_construction_model: str = "gemini-2.5-flash-preview-04-17"
+    sparql_construction_model: str = "gemini-2.0-flash-lite"
+    #sparql_construction_model: str = "gemini-2.5-flash-preview-04-17"
     #sparql_construction_model: str = "gemini-2.5-pro-exp-03-25"
     #question_understanding_model: str = "gemini-2.0-flash-thinking-exp-01-21"
 

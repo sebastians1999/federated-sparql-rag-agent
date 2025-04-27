@@ -108,15 +108,23 @@ def calculate_column_metrics_with_label_similarity(
     print("[calculate_column_metrics_with_label_similarity] Calculating metrics for file:", file_path)
 
 
-    if (hasattr(df_predicted, 'empty') and df_predicted.empty) and (hasattr(df_ground_truth, 'empty') and df_ground_truth.empty):
-        return{"precision": 0.0, "recall": 0.0, "f1_score": 0.0, "predicted_query_result_is_empty": True, "ground_truth_query_result_is_empty": True}
+    gt_empty = getattr(df_ground_truth, "empty", True)
+    pred_empty = getattr(df_predicted, "empty", True)
+    
+    if gt_empty and pred_empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0,
+                "predicted_query_result_is_empty": True,
+                "ground_truth_query_result_is_empty": True}
+    elif gt_empty and not pred_empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0,
+                "predicted_query_result_is_empty": False,
+                "ground_truth_query_result_is_empty": True}
+    elif pred_empty and not gt_empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0,
+                "predicted_query_result_is_empty": True,
+                "ground_truth_query_result_is_empty": False}
 
-    if hasattr(df_ground_truth, 'empty') and df_ground_truth.empty and not hasattr(df_predicted, 'empty') and not df_predicted.empty:
-        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0, "predicted_query_result_is_empty": False, "ground_truth_query_result_is_empty": True}
-
-    if hasattr(df_predicted, 'empty') and df_predicted.empty and not hasattr(df_ground_truth, 'empty') and not df_ground_truth.empty:
-        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0, "predicted_query_result_is_empty": True, "ground_truth_query_result_is_empty": False}
-
+    
 
     gt_labels = list(df_ground_truth.columns)
     pred_labels = list(df_predicted.columns)
@@ -183,8 +191,8 @@ def calculate_column_metrics_with_label_similarity(
     for row in df_predicted[pred_matched_cols].astype(str).fillna("").values.tolist():
         pred_tuples.add(tuple(row))
         
-    print("gt_tuples:", gt_tuples[0:1])
-    print("pred_tuples:", pred_tuples[0:1])
+    print("gt_tuples:", list(gt_tuples)[:1])
+    print("pred_tuples:", list(pred_tuples)[:1])
     
     if not gt_tuples or not pred_tuples:
         print("no tuples found")
