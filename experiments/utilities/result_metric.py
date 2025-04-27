@@ -107,8 +107,15 @@ def calculate_column_metrics_with_label_similarity(
 
     print("[calculate_column_metrics_with_label_similarity] Calculating metrics for file:", file_path)
 
-    if df_ground_truth.empty or df_predicted.empty:
-        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}
+
+    if (hasattr(df_predicted, 'empty') and df_predicted.empty) and (hasattr(df_ground_truth, 'empty') and df_ground_truth.empty):
+        return{"precision": 0.0, "recall": 0.0, "f1_score": 0.0, "predicted_query_result_is_empty": True, "ground_truth_query_result_is_empty": True}
+
+    if hasattr(df_ground_truth, 'empty') and df_ground_truth.empty and not hasattr(df_predicted, 'empty') and not df_predicted.empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0, "predicted_query_result_is_empty": False, "ground_truth_query_result_is_empty": True}
+
+    if hasattr(df_predicted, 'empty') and df_predicted.empty and not hasattr(df_ground_truth, 'empty') and not df_ground_truth.empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0, "predicted_query_result_is_empty": True, "ground_truth_query_result_is_empty": False}
 
 
     gt_labels = list(df_ground_truth.columns)
@@ -188,4 +195,4 @@ def calculate_column_metrics_with_label_similarity(
     recall = tp / len(gt_tuples)
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
-    return {"precision": precision, "recall": recall, "f1_score": f1}
+    return {"precision": precision, "recall": recall, "f1_score": f1, "predicted_query_result_is_empty": False, "ground_truth_query_result_is_empty": False}

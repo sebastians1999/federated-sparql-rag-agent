@@ -4,6 +4,7 @@ import os
 import time
 from datetime import datetime
 import dotenv
+from scipy.special import elliprf
 from experiments.utilities.format import process_federated_dataset, load_data_from_file, process_specific_datasets_and_files, save_queries_comparison
 from datasets import Dataset
 from scr.agent.state.state import State
@@ -115,13 +116,15 @@ class AgentEvaluator:
 
         updated_results = []
         list_evaluated_queries = []
-        count_total_processed_result_eval = 0
+        list_evaluated_queries_with_empty_result = []
+        list_evaluated_queries_without_empty_result = []
         
 
         total_precision = 0.0
         total_recall = 0.0
         total_f1 = 0.0
-        valid_metric_count = 0
+        valid_metric_count_without_empty_result = 0
+        valid_metric_count_with_empty_result = 0
         error_at_endpoint = 0
         
         if self.test:
@@ -210,41 +213,69 @@ class AgentEvaluator:
                     # So this is a sanity check to not corrupt the metric. 
                     if isinstance(df_ground_truth, Exception):
                         updated_item["ground_truth_query_result_is_empty"] = True
+                        updated_item["error_at_ground_truth_endpoint"] = str(df_ground_truth)
+                        
                     else: 
-                        updated_item["ground_truth_query_result_is_empty"] = False
-                    
-                        if isinstance(df_predicted, Exception):
+                        if isinstance(df_predicted, Exception) and hasattr(df_ground_truth, 'empty') and not df_ground_truth.empty:
                             updated_item["result_eval_f1_score"] = 0.0
                             updated_item["result_eval_precision"] = 0.0
                             updated_item["result_eval_recall"] = 0.0
                             updated_item["error_occured_at_endpoint"]= True
+                            updated_item["ground_truth_query_result_is_empty"] = False
                             updated_item["predicted_query_result_is_empty"] = True
                             updated_item["error_occured_at_endpoint_message"] = str(df_predicted)
                             error_at_endpoint += 1
 
-                        elif hasattr(df_predicted, 'empty') and df_predicted.empty:
+                        elif isinstance(df_predicted, Exception) and hasattr(df_ground_truth, 'empty') and df_ground_truth.empty:
                             updated_item["result_eval_f1_score"] = 0.0
                             updated_item["result_eval_precision"] = 0.0
                             updated_item["result_eval_recall"] = 0.0
-                            updated_item["error_occured_at_endpoint"]= False
+                            updated_item["error_occured_at_endpoint"]= True
+                            updated_item["ground_truth_query_result_is_empty"] = True
                             updated_item["predicted_query_result_is_empty"] = True
-                            updated_item["error_occured_at_endpoint_message"] = "no error, but empty result"
+                            updated_item["error_occured_at_endpoint_message"] = str(df_predicted)
+                            error_at_endpoint += 1
+
                         else:
                             metrics = calculate_column_metrics_with_label_similarity(file_path= item.get("file_path", ""), df_ground_truth=df_ground_truth, df_predicted=df_predicted)
                             updated_item["result_eval_precision"] = metrics["precision"]
                             updated_item["result_eval_recall"] = metrics["recall"]
                             updated_item["result_eval_f1_score"] = metrics["f1_score"]
-                            updated_item["error_occured_at_endpoint"] = False
-                            updated_item["predicted_query_result_is_empty"] = False
-                            updated_item["error_occured_at_endpoint_message"] = "no error"
-                            list_evaluated_queries.append(item.get("file_path", ""))
+
+                            if(not metrics["ground_truth_query_result_is_empty"] and metrics["predicted_query_result_is_empty"]):
+                                updated_item["error_occured_at_endpoint"] = False
+                                updated_item["predicted_query_result_is_empty"] = True
+                                updated_item["ground_truth_query_result_is_empty"] = False
+                                updated_item["error_occured_at_endpoint_message"] = "no error, but empty result"
+                                valid_metric_count_with_empty_result += 1
+                                list_evaluated_queries_with_empty_result.append(item.get("file_path", ""))
+
+                            elif(not metrics["ground_truth_query_result_is_empty"]) and not metrics["predicted_query_result_is_empty"]:
+                                updated_item["error_occured_at_endpoint"] = False
+                                updated_item["predicted_query_result_is_empty"] = False
+                                updated_item["ground_truth_query_result_is_empty"] = False
+                                updated_item["error_occured_at_endpoint_message"] = "no error"
+                                list_evaluated_queries_without_empty_result.append(item.get("file_path", ""))
+                                valid_metric_count_with_empty_result += 1
+                                valid_metric_count_without_empty_result += 1
+
+                            elif(metrics["ground_truth_query_result_is_empty"] and not metrics["predicted_query_result_is_empty"]): 
+                                updated_item["error_occured_at_endpoint"] = False
+                                updated_item["predicted_query_result_is_empty"] = False
+                                updated_item["ground_truth_query_result_is_empty"] = True
+                                updated_item["error_occured_at_endpoint_message"] = "ground truth empty, predicted query not empty"
                             
+                            elif(metrics["ground_truth_query_result_is_empty"] and metrics["predicted_query_result_is_empty"]): 
+                                updated_item["error_occured_at_endpoint"] = False
+                                updated_item["predicted_query_result_is_empty"] = True
+                                updated_item["ground_truth_query_result_is_empty"] = True
+                                updated_item["error_occured_at_endpoint_message"] = "no error, but both ground truth and predicted query empty"
+        
                             # aggregate metrics
                             total_precision += metrics["precision"]
                             total_recall += metrics["recall"]
                             total_f1 += metrics["f1_score"]
-                            valid_metric_count += 1
-
+                            
                 updated_results.append(updated_item)
                 
             except Exception as e:
@@ -253,16 +284,7 @@ class AgentEvaluator:
                 print("Offending item:", item)
                 print("Stack trace:")
                 traceback.print_exc()
-                # Save all local variables and context for post-mortem analysis
-                # with open("evaluation_error_context.log", "a") as f:
-                #     f.write(json.dumps({
-                #         "question_index": i+1,
-                #         "file_path": item.get("file_path", ""),
-                #         "item": item,
-                #         "exception": str(e),
-                #         "traceback": traceback.format_exc()
-                #     }, default=str) + "\n")
-                # continue
+                
         
         self.updated_dataset = Dataset.from_list(updated_results)
  
@@ -278,17 +300,29 @@ class AgentEvaluator:
         self.results_dict["error_at_endpoints"] = error_at_endpoint
         
         # Add aggregate result metrics to results_dict
-        if valid_metric_count > 0:
-            self.results_dict["avg_result_precision"] = total_precision / valid_metric_count
-            self.results_dict["avg_result_recall"] = total_recall / valid_metric_count
-            self.results_dict["avg_result_f1"] = total_f1 / valid_metric_count
-            self.results_dict["number_of_query_results_evaluated"] = valid_metric_count
-            self.results_dict["list_evaluated_queries"] = list_evaluated_queries
+        if valid_metric_count_with_empty_result > 0:
+            self.results_dict["avg_result_precision_with_empty_result"] = total_precision / valid_metric_count_with_empty_result
+            self.results_dict["avg_result_recall_with_empty_result"] = total_recall / valid_metric_count_with_empty_result
+            self.results_dict["avg_result_f1_with_empty_result"] = total_f1 / valid_metric_count_with_empty_result
+            self.results_dict["number_of_query_results_evaluated_with_empty_result"] = valid_metric_count_with_empty_result
+            self.results_dict["list_evaluated_queries_with_empty_result"] = list_evaluated_queries_with_empty_result
         else:
-            self.results_dict["avg_result_precision"] = 0.0
-            self.results_dict["avg_result_recall"] = 0.0
-            self.results_dict["avg_result_f1"] = 0.0
-            self.results_dict["number_of_query_results_evaluated"] = 0
+            self.results_dict["avg_result_precision_with_empty_result"] = 0.0
+            self.results_dict["avg_result_recall_with_empty_result"] = 0.0
+            self.results_dict["avg_result_f1_with_empty_result"] = 0.0
+            self.results_dict["number_of_query_results_evaluated_with_empty_result"] = 0
+        
+        if valid_metric_count_without_empty_result > 0:
+            self.results_dict["avg_result_precision_without_empty_result"] = total_precision / valid_metric_count_without_empty_result
+            self.results_dict["avg_result_recall_without_empty_result"] = total_recall / valid_metric_count_without_empty_result
+            self.results_dict["avg_result_f1_without_empty_result"] = total_f1 / valid_metric_count_without_empty_result
+            self.results_dict["number_of_query_results_evaluated_without_empty_result"] = valid_metric_count_without_empty_result
+            self.results_dict["list_evaluated_queries_without_empty_result"] = list_evaluated_queries_without_empty_result
+        else:
+            self.results_dict["avg_result_precision_without_empty_result"] = 0.0
+            self.results_dict["avg_result_recall_without_empty_result"] = 0.0
+            self.results_dict["avg_result_f1_without_empty_result"] = 0.0
+            self.results_dict["number_of_query_results_evaluated_without_empty_result"] = 0
 
         with open(self.metric_dataset_path, 'w', encoding='utf-8') as f:
             json.dump(self.results_dict, f, indent=2, ensure_ascii=False)
