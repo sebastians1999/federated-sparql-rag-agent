@@ -152,17 +152,18 @@ class AgentEvaluator:
 
         updated_results = []
         list_evaluated_queries = []
-        list_evaluated_queries_with_empty_result = []
-        list_evaluated_queries_without_empty_result = []
+        list_evaluated_queries_including_empty_result = []
+        list_evaluated_queries_excluding_empty_result = []
         syntactically_valid_queries_count = 0
         
 
         total_precision = 0.0
         total_recall = 0.0
         total_f1 = 0.0
-        valid_metric_count_without_empty_result = 0
-        valid_metric_count_with_empty_result = 0
+        valid_metric_count_excluding_empty_result = 0
+        valid_metric_count_including_empty_result = 0
         error_at_endpoint = 0
+        empty_results_count = 0
         
         if self.test:
             test_dataset = self.test_dataset.select(range(1))
@@ -246,8 +247,8 @@ class AgentEvaluator:
                         timeout=self.timeout
                     )
 
-                    print("df_ground_truth:", df_ground_truth)
-                    print("df_predicted:", df_predicted)
+                    # print("df_ground_truth:", df_ground_truth)
+                    # print("df_predicted:", df_predicted)
 
                     # Initialize default values for all metrics and flags
                     updated_item["result_eval_f1_score"] = 0.0
@@ -299,16 +300,17 @@ class AgentEvaluator:
                         # Case: Valid results with empty predicted
                         if not gt_empty and pred_empty:
                             updated_item["error_occured_at_endpoint_message"] = "no error, but empty result"
-                            valid_metric_count_with_empty_result += 1
-                            list_evaluated_queries_with_empty_result.append(item.get("file_path", ""))
+                            valid_metric_count_including_empty_result += 1
+                            empty_results_count += 1
+                            list_evaluated_queries_including_empty_result.append(item.get("file_path", ""))
                         
                         # Case: Valid results with non-empty predictions
                         elif not gt_empty and not pred_empty:
                             updated_item["error_occured_at_endpoint_message"] = "no error"
                             # Increment counters correctly - this query has results
-                            valid_metric_count_without_empty_result += 1
-                            valid_metric_count_with_empty_result += 1
-                            list_evaluated_queries_without_empty_result.append(item.get("file_path", ""))
+                            valid_metric_count_excluding_empty_result += 1
+                            valid_metric_count_including_empty_result += 1
+                            list_evaluated_queries_excluding_empty_result.append(item.get("file_path", ""))
                         
                         # Case: Empty ground truth but non-empty predicted 
                         elif gt_empty and not pred_empty:
@@ -347,27 +349,28 @@ class AgentEvaluator:
         # Add test metadata
         self.results_dict["size_of_test_set"] = len(self.updated_dataset)
         self.results_dict["error_at_endpoints"] = error_at_endpoint
+        self.results_dict["empty_results_count"] = empty_results_count
         self.results_dict["syntactically_valid_queries_count"] = syntactically_valid_queries_count
         
         # Calculate and add metrics for both with and without empty results
         self.set_avg_metrics(
             self.results_dict, 
-            "with_empty_result", 
+            "including_empty_result", 
             total_precision, 
             total_recall,
             total_f1,
-            valid_metric_count_with_empty_result,
-            list_evaluated_queries_with_empty_result
+            valid_metric_count_including_empty_result,
+            list_evaluated_queries_including_empty_result
         )
         
         self.set_avg_metrics(
             self.results_dict, 
-            "without_empty_result", 
+            "excluding_empty_result", 
             total_precision, 
             total_recall,
             total_f1,
-            valid_metric_count_without_empty_result,
-            list_evaluated_queries_without_empty_result
+            valid_metric_count_excluding_empty_result,
+            list_evaluated_queries_excluding_empty_result
         )
 
         self.set_avg_metrics(

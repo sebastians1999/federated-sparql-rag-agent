@@ -29,8 +29,8 @@ def create_graph(config: Optional[Configuration] = None) -> Graph:
     # Add nodes with wrapper functions
     workflow.add_node("question_understanding", question_understanding)
     workflow.add_node("entity_resolution", retrieve_documents)
-    workflow.add_node("sparql_query_construction", query_generator)
-    #workflow.add_node("sparql_query_construction", query_generator_few_shot_cot)
+    #workflow.add_node("sparql_query_construction", query_generator)
+    workflow.add_node("sparql_query_construction", query_generator_few_shot_cot)
 
     # Define edges
     workflow.add_edge("question_understanding", "entity_resolution")
