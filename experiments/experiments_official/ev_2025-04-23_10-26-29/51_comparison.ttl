@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Find all proteins linked to arachidonate (CHEBI:32395)
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+
+SELECT 
+    DISTINCT
+        ?uniprot
+        ?uniprotID
+        ?recname
+        ?gene
+        ?chebi
+        ?uniprotName
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     VALUES (?chebi) { (CHEBI:32395) }
+     ?rhea rh:side/rh:contains/rh:compound ?compound .
+     ?compound rh:chebi ?chebi .
+     ?chebi up:name ?uniprotName .
+  }
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  ?uniprot up:mnemonic ?uniprotID .
+  ?uniprot up:recommendedName/up:fullName ?recname .
+  OPTIONAL {?uniprot up:encodedBy/skos:prefLabel ?gene .}
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+# We expect the protein URI from Rhea to be a UniProt URI
+
+SELECT DISTINCT ?protein
+WHERE {
+  # Query the Rhea endpoint to find reactions involving arachidonate (CHEBI:32395)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions where a participant role (reactant, product, etc.) contains CHEBI:32395
+    ?reaction rhea:hasParticipant ?participantRole .
+    ?participantRole rhea:contains chebi:32395 .
+
+    # Find the protein (enzyme) that catalyzes this reaction
+    # Rhea uses rhea:catalyzedBy to link reactions to enzymes, typically represented by UniProt URIs
+    ?reaction rhea:catalyzedBy ?protein .
+  }
+  # The ?protein variable now holds the URI of the protein (enzyme) from UniProt
+  # linked to the reaction in Rhea involving arachidonate.
+}

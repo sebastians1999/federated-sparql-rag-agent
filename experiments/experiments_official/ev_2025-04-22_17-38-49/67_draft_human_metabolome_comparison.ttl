@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# Endpoint: The primary endpoint will depend on where you want to start your search. For example, you can use the SPARQL endpoint of Wikidata (https://query.wikidata.org/sparql) or UniProt (https://sparql.uniprot.org/sparql). In this example, we will use the Wikidata endpoint.
+# Federate the query with other endpoints that contain metabolome information
+SELECT DISTINCT ?metabolite ?metaboliteLabel ?description
+WHERE {
+  # Find human metabolites using Wikidata
+  SERVICE <https://query.wikidata.org/sparql> {
+    VALUES ?human { wd:Q15978631 wd:Q5 }  #Human subtypes
+    ?metabolite wdt:P31 wd:Q41710 ; # instance of metabolite
+               wdt:P703 ?human . # found in taxon
+
+    OPTIONAL { ?metabolite schema:description ?description FILTER (LANG(?description) = "en") }
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+    BIND(wd:Q41710 AS ?metaboliteClass) #binding metabolite
+  }
+
+  #Potentially federate with other metabolite databases (e.g., ChEBI, HMDB) if needed. Example:
+  #SERVICE <https://example.org/chebi/sparql> {
+  #  ?chebiEntity rdfs:seeAlso ?metabolite . # Assuming a link via rdfs:seeAlso
+  #  ?chebiEntity rdfs:label ?chebiLabel .
+  #}
+
+  # Further filtering or property retrieval can be added here based on specific data requirements
+  # e.g., filtering by specific chemical properties or pathways
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+  ?metabolite rdfs:label ?metaboliteLabel.
+}
+LIMIT 100

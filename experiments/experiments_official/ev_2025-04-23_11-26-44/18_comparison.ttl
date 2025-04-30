@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Find ChEBIs with a Cholestane skeleton and then match returned ChEBIs to Rhea undirected reactions.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?reaction
+WHERE {
+  # Subquery to find ChEBIs with a Cholestane skeleton using the IDSM Sachem service.
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    SELECT DISTINCT ?chebiID WHERE {
+      ?compound a <http://bioinfo.uochb.cas.cz/rdf/sachem#Compound> .
+      ?compound <http://bioinfo.uochb.cas.cz/rdf/sachem#hasSmiles> ?smiles .
+      FILTER (CONTAINS(?smiles, "C[C@H]1")) # Basic SMILES pattern for cholestane.  More robust SMILES matching is possible but omitted for simplicity.
+      BIND(STRAFTER(str(?compound), "http://bioinfo.uochb.cas.cz/compound/") AS ?chebiID) # extract chebi ID from URI
+      FILTER (STRSTARTS(?chebiID, "CHEBI:")) # Ensure the extracted ID starts with "CHEBI:"
+    }
+  }
+
+  # Match the found ChEBI IDs to Rhea undirected reactions.
+  VALUES ?chebiID_binding {
+    (REPLACE(?chebiID, "CHEBI:", "CHEBI_")) # Convert CHEBI:ID to CHEBI_ID for Rhea
+  }
+  
+  ?reaction rhea:equation ?equation .
+  {
+     ?equation rhea: Left ?leftParticipant .
+     ?leftParticipant rhea:compound ?chebiID_binding .
+  }
+  UNION
+  {
+     ?equation rhea: Right ?rightParticipant .
+     ?rightParticipant rhea:compound ?chebiID_binding .
+  }
+}

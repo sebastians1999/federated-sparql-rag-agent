@@ -1,0 +1,70 @@
+
+# Natural Language Question
+# =======================
+For the human entry P05067 (Amyloid-beta precursor protein) find the gene start ends in WikiData
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+SELECT 
+	?protein 
+	?begin
+	?end
+	?chromosome
+	?assembly
+WHERE {
+    {
+        BIND(uniprotkb:P05067 AS ?proteinIRI)
+        BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+    }
+    SERVICE <https://query.wikidata.org/sparql> {
+        ?wp wdt:P352 ?protein ;
+            wdt:P702 ?wg . 
+        ?wg p:P644   ?wgss .
+        ?wgss ps:P644        ?begin ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        ?wg p:P645 ?wgse .
+        ?wgse ps:P645        ?end ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        FILTER(lang(?assembly) = "en")
+  } 
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wikidata: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT ?start ?end
+WHERE {
+  # Find the UniProt entry for P05067
+  <http://purl.uniprot.org/uniprot/P05067> rdfs:seeAlso ?wikidataLink .
+
+  # Filter for the wikidata link and extract the QID
+  FILTER(STRSTARTS(STR(?wikidataLink), "http://identifiers.org/wikidata/"))
+  BIND(URI(REPLACE(STR(?wikidataLink), "http://identifiers.org/wikidata/", "http://www.wikidata.org/entity/")) AS ?wikidataId)
+
+  # Query WikiData for the gene start and end positions
+  SERVICE <https://query.wikidata.org/sparql> {
+    # In WikiData, find the item with the extracted QID
+    ?wikidataId wdt:P644 ?start ; # genomic start position
+                wdt:P645 ?end ;   # genomic end position
+                wdt:P703 wikidata:Q1597863 . # Ensure it's the human gene item
+  }
+}

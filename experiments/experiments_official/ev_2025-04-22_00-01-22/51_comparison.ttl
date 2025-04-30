@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Find all proteins linked to arachidonate (CHEBI:32395)
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+
+SELECT 
+    DISTINCT
+        ?uniprot
+        ?uniprotID
+        ?recname
+        ?gene
+        ?chebi
+        ?uniprotName
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     VALUES (?chebi) { (CHEBI:32395) }
+     ?rhea rh:side/rh:contains/rh:compound ?compound .
+     ?compound rh:chebi ?chebi .
+     ?chebi up:name ?uniprotName .
+  }
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  ?uniprot up:mnemonic ?uniprotID .
+  ?uniprot up:recommendedName/up:fullName ?recname .
+  OPTIONAL {?uniprot up:encodedBy/skos:prefLabel ?gene .}
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Find all proteins linked to arachidonate (CHEBI:32395)
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?protein ?proteinName
+WHERE {
+  # Query Rhea for reactions involving arachidonate (CHEBI:32395)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea: Rhea_has_participant chebi:32395 . #arachidonate
+    ?reaction rdfs:label ?reactionLabel .
+  }
+  
+  # Query UniProt for proteins involved in these reactions
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein up:annotation ?reactionLabel . # Link to Rhea reaction label
+    ?protein rdfs:label ?proteinName .
+  }
+}

@@ -1,0 +1,49 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Hypothetical federated query connecting UniProtKB to EPO Patents (if an EPO endpoint were available)
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?uniprotEntry ?patentTitle ?patentNumber
+WHERE {
+  # Query UniProt for entries that mention patent numbers (hypothetical property)
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry rdfs:comment ?comment . # Assuming rdfs:comment might contain patent info
+    FILTER (CONTAINS(lcase(?comment), "patent")) # Filter for comments containing "patent"
+    BIND( SUBSTR( ?comment, REGEX( ?comment, "patent[\\s]*([A-Z0-9]+)", 1)) AS ?patentNumber ) #extract patent number. Regex might need tuning.
+  }
+
+  # Hypothetical: Query the EPO Patents endpoint using the extracted patent number
+  SERVICE <http://example.org/epopatents/sparql> {  # Replace with actual EPO endpoint if available
+    ?patent a <http://example.org/epopatents/Patent> . # Hypothetical Patent class
+    ?patent <http://example.org/epopatents/patentNumber> ?patentNumber . # Hypothetical property for patent number
+    ?patent <http://example.org/epopatents/title> ?patentTitle . # Hypothetical property for patent title
+  }
+}

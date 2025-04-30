@@ -1,0 +1,65 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://purl.uniprot.org/rhea/>
+PREFIX taxid: <http://purl.uniprot.org/taxonomy/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_> # Prefix for ChEBI URIs
+
+SELECT DISTINCT ?chebi_uri WHERE {
+  # Query UniProt for human proteins that catalyze reactions
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+    # Find proteins belonging to Homo sapiens (taxid:9606)
+    ?protein a up:Protein ;
+             up:organism taxid:9606 ;
+             # Link to Rhea reactions catalyzed by this protein
+             up:catalyzedReaction ?reaction .
+  }
+
+  # Query Rhea to find metabolite participants in these reactions
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    # Find the sides (left/right) of the reaction
+    ?reaction rhea:side ?side .
+    # Find the participants (physical entities) on each side
+    ?side rhea:contains ?participant .
+    # Find the chemical compound associated with the participant
+    ?participant rhea:compound ?compound .
+    # Get the ChEBI URI for the compound
+    ?compound rhea:chebi ?chebi_uri .
+  }
+}
+# This query retrieves a list of distinct ChEBI URIs representing metabolites
+# involved in biochemical reactions catalyzed by human proteins, based on
+# data in UniProt and Rhea. This serves as a draft list of metabolites
+# potentially part of the human metabolome within the scope of known enzymatic reactions.

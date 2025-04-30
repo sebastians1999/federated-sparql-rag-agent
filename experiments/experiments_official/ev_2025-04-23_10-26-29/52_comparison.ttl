@@ -1,0 +1,155 @@
+
+# Natural Language Question
+# =======================
+Retrieve drugs that target human enzymes involved in sterol metabolism (federated query with Rhea and ChEMBL via IDSM/Elixir czech republic).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX cco: <http://rdf.ebi.ac.uk/terms/chembl#>
+PREFIX chebihash: <http://purl.obolibrary.org/obo/chebi#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+        DISTINCT
+            ?protein
+            ?proteinFullName
+            ?activityType
+            ?standardActivityValue
+            ?standardActivityUnit
+            ?chemblMolecule
+            ?chemlbMoleculePrefLabel
+WHERE
+  {
+  # ChEBI: retrieve members of the ChEBI class ChEBI:15889 (sterol)
+  # Rhea: retrieve the reactions involving these ChEBI as participants
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf  rh:Reaction ;
+	      rh:status        rh:Approved ;
+	      rh:side          ?reactionSide .
+    ?reactionSide
+	      rh:contains      ?participant .
+    ?participant rh:compound  ?compound
+    {
+      ?compound  rh:chebi  ?chebi .
+      ?chebi (rdfs:subClassOf)+ CHEBI:15889
+    } UNION {
+      ?compound  rh:chebi           ?chebi .
+      ?chebi2   rdfs:subClassOf     ?chebiRestriction .
+      ?chebiRestriction
+		a           owl:Restriction ;
+		owl:onProperty      chebihash:has_major_microspecies_at_pH_7_3 ;
+		owl:someValuesFrom  ?chebi .
+      ?chebi2 (rdfs:subClassOf)+ CHEBI:15889
+    }
+  }
+  # UniProt: retrieve the human (taxid:9606) enzymes catalyzing these Rhea reactions
+  ?ca       up:catalyzedReaction  ?reaction .
+  ?a        up:catalyticActivity  ?ca .
+  ?protein  up:annotation         ?a ;
+	    up:organism           taxon:9606 ;
+	    up:recommendedName    ?proteinRecName .
+  ?proteinRecName
+	    up:fullName           ?proteinFullName .
+  # Find drugs in wikidata that interact with the UniProt Proteins
+  # ChEMBL: retrieve the corresponding targets and with drugs in clinical phase 4
+  # Via https://idsm.elixir-czech.cz/sparql/
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/idsm> {
+    ?activity a cco:Activity ;
+      cco:hasMolecule ?chemblMolecule ;
+      cco:hasAssay ?assay ;
+      cco:standardType ?activityType ;
+      cco:standardValue ?standardActivityValue ;
+      cco:standardUnits ?standardActivityUnit .
+    ?chemblMolecule cco:highestDevelopmentPhase ?highestDevelopmentPhase ;
+      rdfs:label ?chemblMoleculeLabel ;
+      skos:prefLabel ?chemlbMoleculePrefLabel .
+    FILTER (?highestDevelopmentPhase > 3)
+    ?assay cco:hasTarget ?target .
+    ?target cco:hasTargetComponent/cco:targetCmptXref ?protein .
+    ?protein a cco:UniprotRef .
+  }
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+# Assuming a ChEMBL endpoint and prefixes based on user request
+# NOTE: The ChEMBL endpoint (https://www.ebi.ac.uk/rdf/services/sparql)
+# and specific predicates (like chembl:*, dcterms:title) are assumed
+# based on common ChEMBL RDF schema structure, as ChEMBL was not in the
+# provided list of endpoints but explicitly requested by the user.
+PREFIX chembl: <http://rdf.ebi.ac.uk/schema/chembl/>
+
+SELECT DISTINCT ?drug ?drugName ?enzyme ?enzymeName
+WHERE {
+  # Step 1 & 2: Find human enzymes and their catalyzed reactions using UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Select proteins that are enzymes (often implied by having a catalyzed reaction)
+    ?enzyme a up:Protein .
+    # Filter for human proteins (Taxonomy ID 9606)
+    ?enzyme up:organism taxon:9606 .
+    OPTIONAL { ?enzyme rdfs:label ?enzymeName } # Get enzyme name from UniProt
+
+    # Find reactions catalyzed by these human enzymes
+    # The object ?reaction is expected to be a Rhea reaction URI
+    ?enzyme up:catalyzedReaction ?reaction .
+  }
+
+  # Step 3: In Rhea, check if these reactions are related to sterol metabolism
+  # We link back to the reaction URI found in the UniProt service call.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Check if the reaction involves a sterol (CHEBI:15889) as a participant.
+    # CHEBI:15889 is the ChEBI identifier for 'sterol'.
+    # Rhea schema links reactions to participant roles, which link to chemicals.
+    ?reaction rhea:reactionParticipant ?part .
+    ?part rhea:participant chebi:15889 .
+    # This finds reactions where 'sterol' is *any* participant (input or output),
+    # which is a common way to identify reactions involved in the metabolism of a compound class.
+  }
+
+  # Step 4: In ChEMBL, find drugs that target these specific human enzymes (?enzyme)
+  # NOTE: This SERVICE call uses a placeholder ChEMBL endpoint and assumes its schema.
+  SERVICE <https://www.ebi.ac.uk/rdf/services/sparql> {
+     # Find activities linking drugs (molecules) to targets
+     ?activity a chembl:Activity ;
+               chembl:hasTarget ?target ;
+               chembl:hasMolecule ?drug .
+
+     # Link the ChEMBL target to its protein component, which links to UniProt
+     # ChEMBL targets, especially single proteins, link to UniProt accession via xRef.
+     ?target chembl:targetComponents ?targetComponent .
+     ?targetComponent chembl:targetComponentProtein ?proteinComponent .
+     ?proteinComponent chembl:xRef ?uniprotXref . # Cross-reference resource
+     # The identifier property holds the actual UniProt accession (e.g., P12345)
+     ?uniprotXref dcterms:identifier ?uniprotAccession .
+
+     # Construct the UniProt URI from the accession found in ChEMBL
+     # UniProt URIs follow the pattern: http://purl.uniprot.org/uniprot/ACCESSION
+     BIND(IRI(CONCAT("http://purl.uniprot.org/uniprot/", ?uniprotAccession)) AS ?enzymeUriFromChembl)
+
+     # Match the UniProt enzyme URI found in the initial UniProt service call
+     # with the UniProt URI reconstructed from the ChEMBL data.
+     FILTER(?enzyme = ?enzymeUriFromChembl)
+
+     # Get the drug name from ChEMBL
+     OPTIONAL { ?drug dcterms:title ?drugName } # Common property for drug name/title in ChEMBL RDF
+     OPTIONAL { ?drug rdfs:label ?drugName }    # Another possible property for label
+
+  }
+}

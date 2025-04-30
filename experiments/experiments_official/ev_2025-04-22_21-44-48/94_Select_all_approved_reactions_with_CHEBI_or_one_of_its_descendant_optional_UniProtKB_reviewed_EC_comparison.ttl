@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Select all approved reactions with CHEBI:17815 (a 1,2-diacyl-sn-glycerol) or one of its descendant. Display links to UniProtKB/Swiss-Prot entries via EC numbers if the link rhea-ec exists.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX CHEBI:<http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  distinct
+    ?reaction
+    ?enzyme
+    (count(distinct ?protein) as ?proteinCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+
+  OPTIONAL {?reaction rh:ec ?enzyme .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein up:reviewed true .
+      ?protein up:enzyme ?enzyme.
+    }
+  } .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+}
+GROUP BY ?reaction ?enzyme
+ORDER BY ?reaction
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?reaction ?reactionName ?uniprotEntry
+WHERE {
+  # Find reactions that have CHEBI:17815 or its descendants as a participant
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      ?chebiEntity obo:RO_0000052 chebi:17815 . #Consider CHEBI:17815 descendants
+      ?reaction rhea: Rhea_has_participant ?chebiEntity .
+    }
+  }
+
+  # Get the reaction name
+  ?reaction rdf:type rhea:Reaction .
+  ?reaction rdfs:label ?reactionName .
+  FILTER(CONTAINS(STR(?reaction), "RHEA:")) # Filter for reactions
+  
+  # Filter for approved reactions (assuming approved reactions have a status indicating so - this might need adjustment based on Rhea's specific properties)
+  ?reaction rhea:status "approved" . # This is a placeholder and might need the correct property
+
+  # Find EC numbers associated with the reaction
+  OPTIONAL {
+    ?reaction rhea:rhea-ec ?ecNumber .
+
+    # Query UniProt for UniProtKB/Swiss-Prot entries associated with the EC number
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?uniprotEntry <http://purl.uniprot.org/core/api/keyword#keyword> ?ecNumber . #Adjust property accordingly
+    }
+  }
+}

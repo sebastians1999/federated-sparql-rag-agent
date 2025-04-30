@@ -31,49 +31,38 @@ async def question_understanding(state: State, config: RunnableConfig) -> Dict[s
 
     try:
         configuration = Configuration.from_runnable_config(config)
-        llm = get_llm(configuration)
-
+        # Use per-task LLM config for question understanding
+        llm = get_llm(configuration, task="question_understanding", provider_key="provider_question_understanding", model_key="question_understanding_model").with_structured_output(schema = StructuredQuestion)
+        
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", EXTRACTION_PROMPT),
-                ("placeholder", "{messages}"),
+                ("human", "{message}")
             ]
         )
 
         message_value = await prompt_template.ainvoke(
             {
-                "messages": state.messages,
-            },
+                "message": state.messages,
+            }
         )
 
-        response = await llm.invoke(message_value)
-
-        #ensure the response is a valid JSON
-        try:
-            structured_question = StructuredQuestion.model_validate_json(response.content)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse LLM response as JSON: {e}")
-        except ValidationError as e:
-            raise ValueError(f"Failed to validate structured question: {e}")
+        structured_question: StructuredQuestion = await llm.ainvoke(message_value)
 
         return {
             "structured_question": structured_question,
             "steps": [
                 StepOutput(
                     label=f"Extracted {len(structured_question.question_steps)} steps and {len(structured_question.extracted_classes)} classes",
-                    details=f"""Intent: {structured_question.intent.replace("_", " ")}
+                    details=f"""Steps to answer the user question:{chr(10).join(f"- {step}" for step in structured_question.question_steps)}
+                                Potential classes:
 
-    Steps to answer the user question:
+                                {chr(10).join(f"- {cls}" for cls in structured_question.extracted_classes)}
 
-    {chr(10).join(f"- {step}" for step in structured_question.question_steps)}
+                                Potential entities:
 
-    Potential classes:
-
-    {chr(10).join(f"- {cls}" for cls in structured_question.extracted_classes)}
-
-    Potential entities:
-
-    {chr(10).join(f"- {entity}" for entity in structured_question.extracted_entities)}""",
+                                {chr(10).join(f"- {entity}" for entity in structured_question.extracted_entities)}""",
+                    type="context"
                 )
             ],
         }

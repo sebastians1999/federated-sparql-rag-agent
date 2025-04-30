@@ -1,0 +1,80 @@
+
+# Natural Language Question
+# =======================
+Select all approved reactions with CHEBI:17815 (a 1,2-diacyl-sn-glycerol) or one of its descendant. Display links to UniProtKB/Swiss-Prot entries via EC numbers if the link rhea-ec exists.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX CHEBI:<http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  distinct
+    ?reaction
+    ?enzyme
+    (count(distinct ?protein) as ?proteinCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+
+  OPTIONAL {?reaction rh:ec ?enzyme .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein up:reviewed true .
+      ?protein up:enzyme ?enzyme.
+    }
+  } .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+}
+GROUP BY ?reaction ?enzyme
+ORDER BY ?reaction
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#> # Used by RHEA participants
+
+SELECT DISTINCT ?reaction ?ecNumber ?uniprotEntry
+WHERE {
+  # Query the Rhea DB service to find reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find approved reactions
+    ?reaction rhea:status rhea:approved .
+
+    # Find participants (reactants or products) in the reaction
+    # and check if the associated ChEBI entity is CHEBI:17815 or one of its descendants
+    {
+      ?reaction rhea:reactant ?participant .
+      ?participant rhea:chebi ?chebiEntity .
+    } UNION {
+      ?reaction rhea:product ?participant .
+      ?participant rhea:chebi ?chebiEntity .
+    }
+
+    # Check if the ChEBI entity is CHEBI:17815 or a descendant using rdfs:subClassOf*
+    ?chebiEntity rdfs:subClassOf* chebi:17815 .
+
+    # Find the EC number associated with the reaction, if it exists
+    ?reaction rhea:ec ?ecNumber .
+  }
+
+  # Query the UniProt service to find UniProt entries linked to the EC number
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find UniProt entries that have the found EC number annotation
+    ?uniprotEntry up:ec ?ecNumber .
+  }
+}

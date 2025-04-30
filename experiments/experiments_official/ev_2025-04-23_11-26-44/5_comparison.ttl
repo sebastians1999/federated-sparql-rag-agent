@@ -1,0 +1,80 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+# Federated query to retrieve reactions (Rhea IDs and equations) for a given lipid (SWISSLIPID:000399814, Ceramide)
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX slterms: <http://swisslipids.org/rdf/terms/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  # Query SwissLipids for the lipid and its more specific forms (subclass)
+  {
+    # Find direct association via reaction
+    SERVICE <https://sparql.swisslipids.org/sparql/> {
+      VALUES ?lipid { <http://swisslipids.org/rdf/SwissLipids#SWISSLIPID:000399814> } # SWISSLIPID:000399814
+      ?reaction slterms:is_a_reaction_of ?lipid .
+      ?reaction rdfs:seeAlso ?rheaID .
+    }
+  }
+  UNION
+  {
+    # Find related lipids via subclass relations
+    SERVICE <https://sparql.swisslipids.org/sparql/> {
+      VALUES ?lipid { <http://swisslipids.org/rdf/SwissLipids#SWISSLIPID:000399814> } # SWISSLIPID:000399814
+      ?subclass rdfs:subClassOf ?lipid .
+      ?reaction slterms:is_a_reaction_of ?subclass .
+      ?reaction rdfs:seeAlso ?rheaID .
+    }
+  }
+  
+  # Query Rhea for the reaction equation
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    BIND(IRI(REPLACE(str(?rheaID), "http://rdf.rhea-db.org/", "rhea:")) AS ?rheaIRI)
+
+    ?rheaIRI dc:identifier ?rheaID .
+    ?rheaIRI rdfs:comment ?equation .
+  }
+}

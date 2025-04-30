@@ -1,0 +1,88 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX taxonomy: <http://purl.uniprot.org/taxonomy/>
+PREFIX rheakb: <http://rdf.rhea-db.org/reaction/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX sl: <https://swisslipids.org/rdf/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?chemicalURI ?lipid
+WHERE {
+  # --- Step 1: Find Rhea reactions associated with human proteins in UniProt ---
+  # Query the UniProt endpoint to find proteins from Homo sapiens (taxonomy:9606).
+  # Then find Rhea reactions cross-referenced from these human proteins.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein up:organism taxonomy:9606 . # Filter for human proteins
+    ?protein rdfs:seeAlso ?rheaReaction . # Find cross-references
+    # Ensure the cross-reference is a Rhea reaction URI
+    FILTER(STRSTARTS(STR(?rheaReaction), STR(rheakb:)))
+  }
+
+  # --- Step 2: Find general chemical entities involved in the identified Rhea reactions ---
+  # Query the Rhea endpoint using the reaction URIs found in Step 1.
+  # Find the participants of these reactions and the chemical entities involved.
+  # The chemical entity URI is typically a ChEBI ID or a Rhea chemical ID.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # ?rheaReaction is already bound from the UniProt service
+    ?rheaReaction rhea:hasParticipant ?participant .
+    ?participant rhea:contains ?chemicalDescription .
+    ?chemicalDescription rdf:resource ?chemicalURI . # Get the URI of the chemical entity
+  }
+
+  # --- Step 3: Find specific lipids involved in the identified Rhea reactions from SwissLipids ---
+  # Query the SwissLipids endpoint using the reaction URIs found in Step 1.
+  # Find lipids that are listed as participating in these reactions.
+  # Use OPTIONAL as not all Rhea reactions involve lipids listed in SwissLipids,
+  # or are relevant in the context of SwissLipids data.
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+     # ?rheaReaction is already bound from the UniProt service
+     OPTIONAL {
+        ?lipid sl:inRheaReaction ?rheaReaction .
+        # Ensure the result is a SwissLipids resource URI
+        FILTER(STRSTARTS(STR(?lipid), STR(sl:)))
+     }
+  }
+
+  # --- Filtering: Ensure at least one type of chemical/lipid was found ---
+  # This filter keeps results where either a general chemical URI from Rhea was found
+  # OR a lipid URI from SwissLipids was found for a given reaction.
+  FILTER(BOUND(?chemicalURI) || BOUND(?lipid))
+
+}
+# Limit the results for a draft metabolome, as the complete set can be very large
+LIMIT 500

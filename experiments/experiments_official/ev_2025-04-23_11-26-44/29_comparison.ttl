@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# The user is asking to use ALLIE, which is not a SPARQL endpoint and its contents are not available to query.
+# It is a service for Abbreviation / Long Form in Japanese and English.
+# The user wants to search in UniProt using Japanese.
+# Since we cannot directly use ALLIE, we will focus on searching UniProt for entries that might have Japanese descriptions or annotations.
+# However, UniProt SPARQL does not explicitly support querying based on language.
+# Therefore, this query will search for any UniProt entries that have "UniProt" in their description, assuming that the user wants to find information related to UniProt itself expressed in Japanese.
+# This is an approximation of the user's request, given the limitations of the available SPARQL endpoints and the inaccessibility of ALLIE.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?entry ?definition
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?entry a uniprot:Protein .
+    ?entry rdfs:comment ?definition .
+    FILTER (CONTAINS(str(?definition), "UniProt")) # Approximate search for Japanese descriptions by looking for "UniProt" in the comment.
+  }
+}
+LIMIT 10

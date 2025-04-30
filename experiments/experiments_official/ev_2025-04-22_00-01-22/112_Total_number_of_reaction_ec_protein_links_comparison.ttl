@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI:>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?count)
+WHERE {
+  # Query Rhea for reactions and their associated EC numbers
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    OPTIONAL { ?reaction rhea:ec ?ec . } # Reactions might not always have an EC number
+  }
+  
+  # Query UniProt for proteins and their associated EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a <http://purl.uniprot.org/core/Protein> .
+    OPTIONAL { ?protein <http://purl.uniprot.org/core/enzyme> ?ec . } # Proteins might not always have an EC number
+  }
+  
+  # Filter for reactions and proteins that share the same EC number, if available
+  FILTER (BOUND(?ec)) # Only consider cases where an EC number is present in both databases
+}

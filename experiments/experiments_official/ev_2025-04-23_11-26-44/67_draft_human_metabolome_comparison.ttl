@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# This query is a draft and may not return a complete human metabolome.
+# It aims to retrieve information related to the human metabolome from UniProt.
+# The definition of metabolome is broad, and this query may need refinement based on specific requirements.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?metabolite ?metaboliteName
+WHERE {
+  # Focus on Homo sapiens (Human)
+  VALUES ?taxon { taxon:9606 }
+
+  # Find proteins associated with Homo sapiens
+  ?protein a up:Protein ;
+           up:organism ?taxon .
+
+  # Find pathways associated with these proteins that might involve metabolites
+  ?protein up:annotation ?pathwayAnnotation .
+  ?pathwayAnnotation a up:Pathway_Annotation ;
+                     rdfs:label ?pathwayName .
+
+  # Attempt to find metabolites associated with these pathways.
+  # This is a simplified approach and may require more sophisticated pattern matching.
+  FILTER (CONTAINS(LCASE(?pathwayName), "metabol")) # Look for metabolism-related keywords, but be careful about false positives.
+
+  # This is a placeholder for actual metabolite retrieval.  It's unlikely UniProt directly links to all metabolites.
+  # In a real scenario, you'd need to query other databases (e.g., ChEBI via Rhea) based on reaction information.
+  # The assumption here is that pathway names might contain metabolite names.
+  BIND (STRBEFORE(STRAFTER(?pathwayName, "metabolism of "), " ") AS ?metabolite) # Extract potential metabolite name (very rough)
+  BIND (?metabolite AS ?metaboliteName) # Use the extracted name
+
+  FILTER (STRLEN(?metabolite) > 0) # Filter out empty or short strings
+
+  # OPTIONAL {  # Attempt to retrieve information from Rhea if there is a reaction
+  #   SERVICE <https://sparql.rhea-db.org/sparql> {
+  #     ?reaction rdfs:label ?pathwayName .
+  #   }
+  # }
+
+}
+LIMIT 100

@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Count the number of reactions, proteins, and "ec" entity links
+
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?reactionCount) (COUNT(DISTINCT ?protein) AS ?proteinCount) (COUNT(DISTINCT ?ecNumber) AS ?ecCount)
+WHERE {
+  # Find reactions in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+  }
+  
+  # Find proteins in UniProt and their associated EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein ;
+             uniprot:ecNumber ?ecNumber .
+    FILTER CONTAINS(LCASE(?ecNumber), "ec") # Filter EC numbers containing "ec"
+  }
+  
+  #Optional: Find links between Rhea reactions and UniProt proteins if such links exist.
+  #This part depends on whether a direct link exists between Rhea and UniProt.
+  #If a direct link doesn't exist, you might need to rely on shared identifiers (e.g., EC numbers, gene names).
+  #The following is an example using EC numbers as a potential link. Adapt if needed. 
+  
+ OPTIONAL {   
+   SERVICE <https://sparql.rhea-db.org/sparql> {
+     ?reaction rhea:equation ?equation .
+     FILTER CONTAINS(STR(?equation), ?ecNumber) #Check if ecNumber is in the reaction equation.
+   }
+  }
+}

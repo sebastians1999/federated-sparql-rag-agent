@@ -1,0 +1,50 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.swissbioportal.org/sparql
+SELECT (COUNT(DISTINCT *) AS ?count)
+WHERE {
+  {
+    ?reaction rdf:type rhea:Reaction .
+    ?reaction rdfs:seeAlso ?ec .
+    FILTER(STRSTARTS(STR(?ec), "http://purl.uniprot.org/enzyme/")) .
+    ?protein a ?proteinType .
+    VALUES ?proteinType {obo:PR_000000001}
+    ?reaction rhea:participant ?protein .
+  }
+  UNION
+  {
+    ?reaction rdf:type rhea:Reaction .
+    ?reaction rdfs:seeAlso ?ec .
+    FILTER(STRSTARTS(STR(?ec), "http://purl.uniprot.org/enzyme/")) .
+    ?protein a ?proteinType .
+    VALUES ?proteinType {obo:PR_000000001}
+    ?protein rhea:catalyst ?reaction .
+  }
+}

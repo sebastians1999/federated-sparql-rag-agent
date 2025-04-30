@@ -1,0 +1,57 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?reaction
+WHERE {
+  # Query the UniProt SPARQL endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find UniProt entries that are proteins
+    ?protein a up:Protein ;
+             # Find Rhea reactions catalyzed by these proteins.
+             # The up:catalyzedReaction property links a UniProt protein to a Rhea reaction URI.
+             # This property is typically used for enzymes.
+             # Note: Linking transporters directly to Rhea reactions via a standard property
+             # might not be as common unless the transport involves a chemical reaction
+             # captured in Rhea and linked via up:catalyzedReaction.
+             up:catalyzedReaction ?reaction .
+  }
+  # No need to query the Rhea service explicitly just to select the reaction URI,
+  # as the URI is already obtained from the UniProt service via up:catalyzedReaction.
+}

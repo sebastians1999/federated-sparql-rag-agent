@@ -1,0 +1,94 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?reaction ?reaction_name ?enzyme ?enzyme_name
+WHERE {
+  # Query Rhea for reactions involving the metabolite CHEBI:83137
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions that have an equation
+    ?reaction rhea:reactionEquation ?equation .
+    # Find the reaction name if available
+    OPTIONAL { ?reaction rdfs:label ?reaction_name . }
+
+    # Check if the metabolite CHEBI:83137 is present on either side of the equation
+    {
+      # Metabolite is on the left side (reactant)
+      ?equation rhea:hasLeft ?left_side .
+      ?left_side rhea:contains ?compound .
+      ?compound rhea:chebi chebi:83137 .
+    } UNION {
+      # Metabolite is on the right side (product)
+      ?equation rhea:hasRight ?right_side .
+      ?right_side rhea:contains ?compound .
+      ?compound rhea:chebi chebi:83137 .
+    }
+
+    # Find the enzyme(s) that catalyze this reaction
+    ?reaction rhea:catalyzedBy ?enzyme .
+  }
+
+  # Query UniProt for details about the catalyzing enzyme
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Get the preferred label (protein name) for the enzyme
+    ?enzyme skos:prefLabel ?enzyme_name .
+    # Fallback to rdfs:label if skos:prefLabel is not available (less likely for proteins)
+    OPTIONAL { ?enzyme rdfs:label ?enzyme_rdfs_label . }
+  }
+  # Use rdfs:label if enzyme_name wasn't found via skos:prefLabel
+  BIND(COALESCE(?enzyme_name, ?enzyme_rdfs_label) AS ?enzyme_name)
+}
+ORDER BY ?reaction

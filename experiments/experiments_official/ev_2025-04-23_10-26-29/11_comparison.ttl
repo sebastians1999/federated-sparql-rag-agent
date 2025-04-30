@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first class of the enzyme classification (federated query)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Query 11
+# Retrieve the count of reactions mapped to each level (main class) of the enzyme classification
+#
+# This query mimics the Filter section of the Rhea website (Browse all reactions)
+# https://www.rhea-db.org/rhea?query=
+SELECT ?ecClass (STR(?ecName) AS ?ecClassName) (COUNT(?rhea) AS ?rheaCount)
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-)}
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:ec ?ecNumber .
+} GROUP BY ?ecClass ?ecName
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+# Select the first class of the enzyme classification and the count of distinct reactions
+SELECT ?ecClass1 (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Find reactions in Rhea that are catalyzed by a protein
+  ?reaction rhea:catalyzedBy ?proteinNode .
+
+  # The protein node in Rhea links to the corresponding UniProt entry using rdfs:seeAlso
+  ?proteinNode rdfs:seeAlso ?uniprotEntry .
+
+  # Use SERVICE to query the UniProt SPARQL endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # In UniProt, find the EC number associated with the UniProt entry
+    # EC numbers are linked via rdfs:seeAlso to URIs in the http://purl.uniprot.org/enzyme/ namespace
+    ?uniprotEntry rdfs:seeAlso ?ecUri .
+
+    # Filter to ensure the linked resource is an EC number URI
+    FILTER(STRSTARTS(STR(?ecUri), STR(ec:)))
+
+    # Extract the first class of the EC number (the part before the first dot)
+    # The EC URI format is typically http://purl.uniprot.org/enzyme/X.Y.Z.W
+    # We use REGEX to capture 'X'
+    BIND(REPLACE(STR(?ecUri), "^http://purl.uniprot.org/enzyme/([^.]+).*", "$1") AS ?ecClass1)
+  }
+}
+# Group the results by the extracted first EC class
+GROUP BY ?ecClass1
+# Order the results by the first EC class number
+ORDER BY ?ecClass1

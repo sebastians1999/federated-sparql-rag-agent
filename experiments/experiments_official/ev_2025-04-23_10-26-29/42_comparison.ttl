@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?protein ?patentNumber
+WHERE {
+  # Query the UniProt SPARQL endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find proteins
+    ?protein a up:Protein .
+
+    # Find citations linked to the protein
+    ?protein up:citation ?citation .
+
+    # Filter citations to be of type Patent Citation
+    ?citation a up:Patent_Citation .
+
+    # Get the patent publication number from the citation
+    ?citation up:patentNumber ?patentNumber .
+
+    # Optional: Add filters or other conditions if needed, e.g., specific protein, organism, etc.
+    # BIND(STRAFTER(STR(?protein), "http://purl.uniprot.org/uniprot/") AS ?uniprotAccession) # To get accession number
+  }
+
+  # To connect this with a hypothetical SPARQL endpoint for the EPO patent
+  # database, you would add another SERVICE block like this (assuming the
+  # EPO endpoint URI and relevant properties are known):
+  #
+  # SERVICE <http://hypothetical.epo.sparql.endpoint/sparql> {
+  #   # Find patents in the EPO database
+  #   ?epoPatent a <http://some.epo.schema/Patent> . # Example class for a patent
+  #
+  #   # Get the publication number from the EPO patent record
+  #   ?epoPatent <http://some.epo.schema/patentPublicationNumber> ?epoPatentNumber . # Example property
+  #
+  #   # Join by matching the patent numbers from both services
+  #   FILTER (?patentNumber = ?epoPatentNumber) .
+  #
+  #   # Select additional information from the EPO patent if needed
+  #   # ?epoPatent <http://some.epo.schema/title> ?patentTitle .
+  #   # ?epoPatent <http://some.epo.schema/inventor> ?inventor .
+  # }
+
+  # Since the SPARQL endpoint for the "patent database at EPO" is not
+  # provided, the query below only extracts patent numbers from UniProtKB.
+  # The second SERVICE block is commented out as it cannot be executed
+  # without a valid endpoint and schema information.
+}

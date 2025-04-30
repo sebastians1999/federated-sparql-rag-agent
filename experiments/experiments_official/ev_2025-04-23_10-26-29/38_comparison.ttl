@@ -1,0 +1,95 @@
+
+# Natural Language Question
+# =======================
+For the human entry P05067 (Amyloid-beta precursor protein) find the gene start ends in WikiData
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+SELECT 
+	?protein 
+	?begin
+	?end
+	?chromosome
+	?assembly
+WHERE {
+    {
+        BIND(uniprotkb:P05067 AS ?proteinIRI)
+        BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+    }
+    SERVICE <https://query.wikidata.org/sparql> {
+        ?wp wdt:P352 ?protein ;
+            wdt:P702 ?wg . 
+        ?wg p:P644   ?wgss .
+        ?wgss ps:P644        ?begin ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        ?wg p:P645 ?wgse .
+        ?wgse ps:P645        ?end ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        FILTER(lang(?assembly) = "en")
+  } 
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX identifiers: <http://identifiers.org/>
+
+SELECT ?gene_start ?gene_end
+WHERE {
+  # Step 1: Find the human protein P05067 in UniProt and get its gene cross-references.
+  # We start the query execution at the UniProt endpoint.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    <http://purl.uniprot.org/uniprot/P05067>
+      up:organism taxon:9606 ; # Ensure we are looking at the human entry
+      rdfs:seeAlso ?geneURI .   # Get external cross-references, which include gene identifiers
+
+    # Filter for specific gene identifier URIs that are commonly used in WikiData
+    # (e.g., Entrez Gene or Ensembl Gene)
+    FILTER(STRSTARTS(STR(?geneURI), STR(identifiers:ncbigene/)) || STRSTARTS(STR(?geneURI), STR(identifiers:ensembl/)))
+
+    # Extract the identifier value (the number or string after the last slash) from the URI
+    BIND(IF(STRSTARTS(STR(?geneURI), STR(identifiers:ncbigene/)), STRAFTER(STR(?geneURI), STR(identifiers:ncbigene/)), "") AS ?entrezId)
+    BIND(IF(STRSTARTS(STR(?geneURI), STR(identifiers:ensembl/)), STRAFTER(STR(?geneURI), STR(identifiers:ensembl/)), "") AS ?ensemblId)
+  }
+
+  # Step 2: Use the gene identifier(s) found in UniProt to query WikiData for gene coordinates.
+  # We switch service to the WikiData SPARQL endpoint.
+  SERVICE <https://query.wikidata.org/sparql> {
+    # Find the WikiData item (?gene_wd) that matches either the Entrez Gene ID (wdt:P351)
+    # or the Ensembl Gene ID (wdt:P594) obtained from UniProt.
+    ?gene_wd (wdt:P351 | wdt:P594) ?geneId .
+
+    FILTER(?geneId = ?entrezId || ?geneId = ?ensemblId)
+
+    # Ensure the WikiData item represents a human gene, linking it back to the organism.
+    ?gene_wd wdt:P703 wd:Q15978631 . # Organism (P703) is human (Q15978631)
+
+    # Retrieve the genomic start (wdt:P644) and end (wdt:P645) positions for the gene item.
+    ?gene_wd wdt:P644 ?gene_start ;
+             wdt:P645 ?gene_end .
+
+    # Note: WikiData may store coordinates for different genome assemblies
+    # (e.g., GRCh37, GRCh38). The simple wdt:P644/P645 properties typically
+    # return the primary value, but for specific assembly coordinates,
+    # one would query qualifiers using p: and ps:/pq: properties.
+  }
+}

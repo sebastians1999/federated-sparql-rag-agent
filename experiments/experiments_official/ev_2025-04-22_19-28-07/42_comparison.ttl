@@ -1,0 +1,40 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Retrieve patent identifiers from UniProtKB entries.
+# This query assumes that UniProtKB entries may have associated patent identifiers.
+SELECT DISTINCT ?uniprotID ?patentIdentifier
+WHERE {
+  ?uniprotID rdf:type up:Protein . # Assuming up:Protein is the class for proteins in UniProt
+  ?uniprotID rdfs:seeAlso ?patentIdentifier . # Assuming rdfs:seeAlso or similar property links to external resources
+  FILTER (REGEX(str(?patentIdentifier), "^US[0-9]+[A-Z]?[0-9]?$|^EP[0-9]+[A-Z]?[0-9]?$|^WO[0-9]+[A-Z]?[0-9]?$")) # Filter for common patent formats (US, EP, WO)
+
+}
+LIMIT 100

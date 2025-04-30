@@ -1,0 +1,11 @@
+{
+  "SP-BLEU": 0.043633637472340545,
+  "METEOR": 0.29041528306810876,
+  "num_none_queries": 0,
+  "size_of_test_set": 32,
+  "error_at_endpoints": 25,
+  "avg_result_precision": 0.0,
+  "avg_result_recall": 0.0,
+  "avg_result_f1": 0.0,
+  "number_of_query_results_evaluated": 0
+}

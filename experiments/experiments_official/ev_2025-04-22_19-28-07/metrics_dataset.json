@@ -1,0 +1,15 @@
+{
+  "SP-BLEU": 0.022687352108756668,
+  "METEOR": 0.2412741118085261,
+  "num_none_queries": 0,
+  "size_of_test_set": 32,
+  "error_at_endpoints": 23,
+  "avg_result_precision": 0.0,
+  "avg_result_recall": 0.0,
+  "avg_result_f1": 0.0,
+  "number_of_query_results_evaluated": 2,
+  "list_evaluated_queries": [
+    "UniProt/67_draft_human_metabolome.ttl",
+    "UniProt/38_find_gene_region_in_wikidata_for_known_entry.ttl"
+  ]
+}

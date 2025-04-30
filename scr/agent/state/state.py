@@ -30,10 +30,10 @@ class StepOutput(BaseModel):
 class StructuredQuestion(BaseModel):
     """Structured informations extracted from the user question."""
 
-    intent: Literal["general_information", "access_resources"] = Field(
-        default="access_resources",
-        description="Intent extracted from the user question",
-    )
+    # intent: Literal["general_information", "access_resources"] = Field(
+    #     default="access_resources",
+    #     description="Intent extracted from the user question",
+    # )
     extracted_classes: List[str] = Field(
         default_factory=list,
         description="List of classes extracted from the user question",
@@ -71,11 +71,14 @@ class State(BaseState):
     structured_question: StructuredQuestion = field(default_factory=StructuredQuestion)
     """Structured information extracted from the user's question."""
 
-    retrieved_docs: List[Document] = field(default_factory=list)
+    #retrieved_docs: List[Document] = field(default_factory=list)
     """Documents retrieved from the knowledge base."""
 
     extracted_entities: List[str] = field(default_factory=list)
     """List of entities extracted and resolved from the question."""
+
+    extracted_classes: List[str] = field(default_factory=list)
+    """List of classes extracted from the question."""
 
     structured_output: str = field(default="")
     """The final structured output (e.g., SPARQL query)."""

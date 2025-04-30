@@ -1,12 +1,13 @@
 from scr.agent.state.state import State, StepOutput
-from langchain_together import Together
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from scr.agent.prompts.prompts import QUERY_GENERATION_PROMPT
-from typing import List, Dict, Any
+from typing import List, Dict, Optional
 from scr.agent.utils.config import Configuration
 from langchain_core.runnables import RunnableConfig
 from scr.agent.utils.llm_utils import get_llm
+import re
+
 
 
 
@@ -25,28 +26,39 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
 
         configuration = Configuration.from_runnable_config(config)
 
+        USER_PROMPT = "{input}\n\nThink step by step." 
 
-        llm = get_llm(configuration)
+
+        # Use per-task LLM config for SPARQL construction
+        llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
 
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("placeholder", "{question} {potential_entities} {retrieved_documents}"),
+                ("human", "{input}")
             ]
         )
+        #retrieved_documents
+        #("human", "{input}")
 
-        message = prompt_template.invoke(
+
+        message = await prompt_template.ainvoke(
             {
-                "question": state.structured_question.question_steps[0] if state.structured_question.question_steps else "Generate a SPARQL query",
+                "input": state.messages[-1].content,
                 "potential_entities": state.extracted_entities,
-                "retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
+                "potential_classes": state.extracted_classes,
             }
         )
+        #"retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
         
-        response_message = await llm.invoke(message)
+        response_message = await llm.ainvoke(message)
+
+
+        extracted_queries = extract_sparql_queries(response_message.content)
+    
 
         return {
-            "structured_output": response_message.content,
+            "structured_output": extracted_queries[-1] if extracted_queries else "",
             "steps": [
                 StepOutput(
                     label="Generated SPARQL query",
@@ -65,3 +77,24 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
                 )
             ]
         }
+
+
+
+queries_pattern = re.compile(r"```sparql(.*?)```", re.DOTALL)
+endpoint_pattern = re.compile(r"^#.*(https?://[^\s]+)", re.MULTILINE)
+
+
+def extract_sparql_queries(md_resp: str) -> list[dict[str, Optional[str]]]:
+    """Extract SPARQL queries and endpoint URL from a markdown response."""
+    extracted_queries = []
+    queries = queries_pattern.findall(md_resp)
+    for query in queries:
+        extracted_endpoint = endpoint_pattern.search(query.strip())
+        if extracted_endpoint:
+            extracted_queries.append(
+                {
+                    "query": str(query).strip(),
+                    "endpoint_url": str(extracted_endpoint.group(1)) if extracted_endpoint else None,
+                }
+            )
+    return extracted_queries

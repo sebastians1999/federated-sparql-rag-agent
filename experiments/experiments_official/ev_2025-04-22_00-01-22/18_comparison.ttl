@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi_name ?rhea_reaction
+WHERE {
+  # Find ChEBIs with a Cholestane skeleton using the IDSM Sachem service.
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    SELECT DISTINCT ?chebi_uri WHERE {
+      ?chebi_uri a <http://identifiers.org/chebi/CHEBI:35516> . # Assuming CHEBI:35516 represents Cholestane skeleton
+    }
+  }
+  
+  # Get the local name of the found ChEBI URIs (e.g., the identifier after the CHEBI namespace)
+  BIND(strafter(str(?chebi_uri), str(chebi:)) AS ?chebi_id)
+  
+  # Construct the ChEBI URI for querying Rhea.
+  BIND(iri(concat(str(chebi:), ?chebi_id)) AS ?chebi_entity)
+  
+  # Find Rhea undirected reactions that involve these ChEBI entities.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea_reaction rdfs:label ?rhea_label ;
+                   <http://purl.obolibrary.org/obo/RO_0002447> ?chebi_entity .  #RO_0002447: "is reactant of"
+    ?chebi_entity rdfs:label ?chebi_name .
+  }
+}

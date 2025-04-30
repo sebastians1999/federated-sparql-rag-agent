@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Lipids affected by human enzymes
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?swisslipid  {
+  ?swisslipid owl:equivalentClass ?chebi .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+	?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?metabolite . 
+  }
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?catalyticActivityAnnotation up:catalyticActivity/up:catalyzedReaction ?rhea .
+    ?protein up:annotation ?catalyticActivityAnnotation ;
+             up:organism taxon:9606 .
+  }
+}
+LIMIT 1
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.swisslipids.org/sparql/
+
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX uniprot: <http://purl.uniprot.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX sl: <https://swisslipids.org/rdf/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?lipid ?lipidName
+WHERE {
+  # Start by finding lipids in SwissLipids and their corresponding ChEBI identifiers.
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?lipid sl:chebi ?chebi . # Link lipid URI to ChEBI identifier
+    OPTIONAL { ?lipid rdfs:label ?lipidName } # Optional: Get the lipid name
+  }
+
+  # In Rhea, find reactions that involve the ChEBI identifier found in SwissLipids.
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    ?reaction rhea:side ?side . # Get a reaction side
+    ?side rhea:chebi ?chebi .   # Check if the ChEBI matches a reactant/product in Rhea
+
+    # Find the enzyme that catalyzes this reaction.
+    ?reaction rhea:catalyzedEvent ?catalyzedEvent .
+    ?catalyzedEvent rhea:enzyme ?rheaEnzyme .
+
+    # Link the Rhea enzyme to its UniProt entry identifier.
+    ?rheaEnzyme rhea:uniprot ?uniprot .
+  }
+
+  # In UniProt, check if the protein associated with the UniProt identifier is human.
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+     ?uniprot up:organism <http://purl.uniprot.org/taxonomy/9606> . # Filter UniProt entries by human taxonomy (9606)
+  }
+}
+# LIMIT 100 # Optional: Limit the number of results for testing or performance

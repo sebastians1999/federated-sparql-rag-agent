@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX swlipid: <http://www.swisslipids.org/rdf/terms#>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Find subclasses of the given lipid in SwissLipids
+  {
+    SELECT DISTINCT ?lipidOrSubclass WHERE {
+      VALUES ?lipid { <http://www.swisslipids.org/rdf/SWISSLIPID:000399814> } # SWISSLIPID:000399814 = Ceramide
+      ?lipid rdfs:subClassOf* ?lipidOrSubclass .
+    }
+  }
+
+  # Find reactions in Rhea involving the lipid or its subclasses
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    PREFIX rhea: <http://rdf.rhea-db.org/>
+    PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+    ?reaction rhea:equation ?equation .
+    ?reaction rhea:id ?rheaId .
+    VALUES ?chebiEntity { <http://purl.obolibrary.org/obo/CHEBI_17761> } #CHEBI_17761 = ceramide.
+    ?reaction rhea:hasParticipant ?participant .
+    ?participant rdfs:seeAlso ?chebiEntity .
+
+    # Filter reactions where the participant is a subclass of the lipid (or the lipid itself)
+    FILTER (STRSTARTS(STR(?chebiEntity), "http://purl.obolibrary.org/obo/CHEBI_"))
+
+  }
+}

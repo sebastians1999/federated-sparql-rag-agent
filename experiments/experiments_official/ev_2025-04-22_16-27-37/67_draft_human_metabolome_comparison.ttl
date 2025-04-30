@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# Endpoint: https://sparql.uniprot.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?metabolite ?metaboliteLabel
+WHERE {
+  # Start by finding all UniProt entries for Homo sapiens (Human).
+  # We use the SPARQL endpoint for UniProt.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry up:organism taxon:9606 .
+  }
+
+  # Now, using the human UniProt entries, find the biochemical reactions
+  # from Rhea-DB that are catalyzed by these human proteins.
+  # Query the Rhea-DB SPARQL endpoint.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find Rhea catalytic activities linked to the human UniProt entries
+    ?catalyticActivity rhea:uniprotEntry ?uniprotEntry .
+
+    # Find the specific Rhea reactions associated with these catalytic activities
+    ?reaction rhea:catalyticActivity ?catalyticActivity .
+
+    # Identify the participants (substrates and products) in these reactions.
+    # These participants are the metabolites involved in human biochemical reactions.
+    ?reaction rhea:participant ?metabolite .
+
+    # Filter to ensure the participant URIs are from the ChEBI ontology,
+    # as Rhea typically uses ChEBI for chemical entities (metabolites).
+    FILTER(STRSTARTS(STR(?metabolite), STR(chebi:)))
+
+    # Attempt to retrieve the human-readable label for the metabolite from Rhea.
+    # Using OPTIONAL so that metabolites without labels are still included.
+    OPTIONAL { ?metabolite rdfs:label ?metaboliteLabel . }
+  }
+}

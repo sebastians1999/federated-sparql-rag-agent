@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxonomy: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX sl: <http://swisslipids.org/rdf/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?enzyme ?proteinName
+WHERE {
+  # Step 1: Find human proteins annotated in ChEMBL within the UniProt endpoint
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme a up:Protein ;
+            up:organism taxonomy:9606 ; # Filter for human proteins
+            rdfs:label ?proteinName ;      # Get the protein name
+            rdfs:seeAlso ?chemblEntryUri . # Find cross-references
+    # Check if the cross-reference is to ChEMBL
+    ?chemblEntryUri up:database <http://purl.uniprot.org/database/ChEMBL> .
+  }
+
+  # Step 2: Find reactions catalyzed by these enzymes in the Rhea endpoint
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     ?reaction rhea:isEnzymaticallyCatalyzedBy ?enzyme . # Find reactions catalyzed by the protein
+  }
+
+  # Step 3: Check if the reaction involves a sphingolipid in the SwissLipids endpoint
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+     ?lipid sl:involved_in ?reaction . # Find lipids involved in the reaction
+     ?lipid sl:classified_by ?classification . # Get the classification of the lipid
+     # Define the URI for the Sphingolipids class in SwissLipids
+     BIND(<http://swisslipids.org/class/SL0101> AS ?sphingoClass)
+     # Check if the lipid's classification is Sphingolipids or a subclass thereof
+     ?classification skos:broader* ?sphingoClass .
+  }
+}

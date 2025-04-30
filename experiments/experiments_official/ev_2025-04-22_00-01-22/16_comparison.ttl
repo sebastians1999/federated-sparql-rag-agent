@@ -1,0 +1,69 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Return a list of enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving a specific lipid.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Find reactions in Rhea involving the specific lipid from SwissLipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    PREFIX rhea: <http://rdf.rhea-db.org/>
+    PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+    # Filter reactions where the subject or object is the specific lipid
+    VALUES ?lipid { <http://purl.obolibrary.org/obo/CHEBI_17761> } # ceramide
+
+    ?reaction rhea:has_participant ?lipid .
+    ?reaction rhea:status rhea:approved .
+  }
+
+  # Find enzymes in UniProt that catalyze these reactions
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme up:catalyticActivity ?reactionUri . # Link enzyme to reaction
+    ?enzyme rdfs:label ?enzymeName .
+    FILTER (STRSTARTS(STR(?reactionUri), "http://rdf.rhea-db.org/")) # Ensure URI is from Rhea
+    BIND(IRI(STR(?reactionUri)) AS ?reaction)
+  }
+}

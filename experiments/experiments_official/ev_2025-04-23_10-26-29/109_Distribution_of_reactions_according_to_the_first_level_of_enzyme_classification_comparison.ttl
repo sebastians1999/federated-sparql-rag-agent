@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT ?ecLevel (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Query Rhea endpoint to find reactions catalyzed by enzymes
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    # Link reaction to UniProt reference which contains the UniProt URI
+    ?reaction rhea:catalyzedBy ?uniprotRef .
+    ?uniprotRef rhea:uniprot ?uniprotEntry . # Get the UniProt URI
+  }
+
+  # Query UniProt endpoint to get the EC number for the enzyme
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry up:ecName ?ecName .
+    # Extract the first component of the EC number (the first level)
+    # Use regex to capture the digit(s) before the first dot or the end of the string
+    BIND(REPLACE(STR(?ecName), "^(\\d+)(?:\\..*)?$", "$1") AS ?ecLevel)
+    # Filter to ensure the EC name starts with a digit, indicating a valid EC number format
+    FILTER (REGEX(STR(?ecName), "^\\d+"))
+  }
+}
+GROUP BY ?ecLevel
+ORDER BY ?ecLevel

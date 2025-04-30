@@ -1,0 +1,62 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Retrieves human enzymes that metabolize sphingolipids by federating UniProt and SwissLipids.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?enzymeName ?geneName
+WHERE {
+  # Find human enzymes in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme a up:Protein .
+    ?enzyme up:organism taxon:9606 .  #Taxon 9606 corresponds to Homo sapiens (human)
+    ?enzyme rdfs:label ?enzymeName .
+    ?enzyme up:encodedBy ?gene .
+    ?gene rdfs:label ?geneName .
+    
+    # Filter for enzymes that have 'enzyme' in their description
+    FILTER (CONTAINS(LCASE(?enzymeName), "enzyme"))
+  }
+  
+  # Find enzymes in SwissLipids that are involved in sphingolipid metabolism
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?reaction a <http://www.swisslipids.org/rdf/SwissLipids#MetabolicReaction> .
+    ?reaction <http://www.swisslipids.org/rdf/SwissLipids#enzyme> ?enzymeName .
+    ?reaction <http://www.swisslipids.org/rdf/SwissLipids#substrate> ?sphingolipid .
+    FILTER (CONTAINS(LCASE(?sphingolipid), "sphingolipid")) # Filter for reactions involving sphingolipids
+  }
+}

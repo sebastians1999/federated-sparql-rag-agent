@@ -44,4 +44,7 @@ def create_graph(config: Optional[Configuration] = None) -> Graph:
     # Compile the graph
     graph = workflow.compile()
 
+    # Add config to graph
+    graph.config_meta = config
+
     return graph 

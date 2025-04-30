@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+# Note: The specific properties and endpoint URL for ALLIE's SPARQL service
+# are assumed based on common practices for vocabulary services.
+# The actual properties might differ depending on ALLIE's schema.
+# We assume ALLIE provides terms (e.g., English abbreviation/long form)
+# linked to their Japanese equivalents.
+
+SELECT ?uniprotEntry ?uniprotLabel ?allieEnglishTerm ?allieJapaneseForm
+WHERE {
+  # Query UniProt for protein entries and their labels (preferred or alternative)
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a uniprot:Protein ;
+                  skos:prefLabel|skos:altLabel ?uniprotLabel .
+    # Optional: Add more specific criteria for UniProt search if needed, e.g., organism
+    # ?uniprotEntry uniprot:organism <http://purl.uniprot.org/taxonomy/9606> . # Example for Human
+  }
+
+  # Query ALLIE for terms that have a Japanese representation
+  SERVICE <http://allie.dbcls.jp/sparql> {
+    # Assuming ALLIE entries have a primary label (e.g., English) and an alternative label in Japanese
+    ?allieEntry rdfs:label ?allieEnglishTerm . # Get the main term (assuming it's English)
+    ?allieEntry skos:altLabel ?allieJapaneseForm . # Find an alternative label
+    FILTER(lang(?allieJapaneseForm) = "ja") # Ensure the alternative label is in Japanese
+    # Optional: Add more specific criteria for ALLIE terms if needed
+  }
+
+  # Link the results by matching the UniProt label with the English term from ALLIE
+  FILTER(?uniprotLabel = ?allieEnglishTerm)
+  # Consider using LCASE for case-insensitive matching if necessary:
+  # FILTER(LCASE(?uniprotLabel) = LCASE(?allieEnglishTerm))
+}
+LIMIT 100 # Add a limit to restrict the number of results

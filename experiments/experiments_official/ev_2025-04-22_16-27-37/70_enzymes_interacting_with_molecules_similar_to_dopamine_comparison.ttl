@@ -1,0 +1,83 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX formula: <http://rdf.rhea-db.org/formula/>
+
+SELECT DISTINCT ?reaction ?reaction_description ?enzyme_uri ?enzyme_name ?ec_number
+WHERE {
+  # Query Rhea to find reactions involving Dopamine and their related enzymes
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions that have a participant composition involving Dopamine (CHEBI:18243)
+    ?reaction a rhea:Reaction .
+    { ?reaction rhea:hasLeftParticipant ?composition . } # Check left side participants
+    UNION
+    { ?reaction rhea:hasRightParticipant ?composition . } # Check right side participants
+    ?composition rhea:chebi chebi:18243 . # Link the composition to the ChEBI URI for Dopamine
+
+    # Find the enzyme(s) associated with this reaction
+    # Reactions can be linked to an EC number or a UniProt entry
+    OPTIONAL {
+      ?reaction rhea:ec ?ec_uri .
+      # Extract the EC number string from the URI for easier reading
+      BIND(STRAFTER(STR(?ec_uri), STR(ec:)) AS ?ec_number)
+    }
+    OPTIONAL { ?reaction rhea:uniprot ?enzyme_uri . }
+
+    # Get the reaction description for context
+    OPTIONAL {
+       ?reaction rhea:formula ?formula_node .
+       ?formula_node rhea:directionalFormula ?directionalFormula .
+       ?directionalFormula rhea:chiewFormula ?reaction_description .
+    }
+  }
+
+  # If a UniProt entry URI was found in Rhea, query UniProt for the enzyme's name
+  OPTIONAL {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+       # Ensure the URI is a UniProt protein and get its recommended name
+       ?enzyme_uri a up:Protein ;
+                   up:recommendedName/up:fullName ?enzyme_name .
+       # This OPTIONAL block will only succeed if ?enzyme_uri is a valid UniProt protein URI
+       # and the UniProt service is available and contains the entry.
+    }
+  }
+}

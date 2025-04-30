@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# http://rdf.rhea-db.org/sparql
+SELECT DISTINCT ?enzyme ?enzymeName WHERE {
+  # Define the ChEBI URI for dopamine
+  VALUES ?dopamine { <http://purl.obolibrary.org/obo/CHEBI_18233> } # CHEBI:18233 is dopamine
+
+  # Find related molecules in ChEBI using SERVICE block
+  SERVICE <https://sparql.ebi.ac.uk/sparql> {
+    # Find molecules related to dopamine using chebi:is_related_to or include dopamine itself
+     { ?relatedMolecule chebi:is_related_to ?dopamine }
+    UNION
+     { ?dopamine chebi:is_related_to ?relatedMolecule }
+    UNION
+     { VALUES ?relatedMolecule { ?dopamine } } # Include dopamine itself
+
+    BIND(?relatedMolecule AS ?molecule)
+  }
+
+  # Find reactions in RHEA involving these molecules using SERVICE block
+  SERVICE <http://rdf.rhea-db.org/sparql> {
+    ?reaction rhea:has_participant ?molecule . # molecule is a substrate or product
+    ?reaction rhea:ec ?ecNumber .
+  }
+
+  # Find enzymes (proteins) in UniProt with these EC numbers using SERVICE block
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme a uniprot:Protein ;
+            uniprot:ec ?ecNumber ;
+            rdfs:label ?enzymeName .
+  }
+}

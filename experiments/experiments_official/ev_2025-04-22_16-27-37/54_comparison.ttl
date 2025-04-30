@@ -1,0 +1,89 @@
+
+# Natural Language Question
+# =======================
+Proteins with binding sites for ligands similar to heme
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT 
+  ?protein
+  ?mnemonic
+  ?proteinName
+  ?ligandSimilarityScore
+  ?ligand
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ssc sachem:compound ?ligand; 
+      sachem:score ?ligandSimilarityScore ;
+      sachem:similaritySearch ?sss .
+        # Smiles of Heme
+    ?sss    sachem:query "CC1=C(CCC([O-])=O)C2=[N+]3C1=Cc1c(C)c(C=C)c4C=C5C(C)=C(C=C)C6=[N+]5[Fe-]3(n14)n1c(=C6)c(C)c(CCC([O-])=O)c1=C2";
+      sachem:cutoff "8e-1"^^xsd:double ;
+      sachem:aromaticityMode sachem:aromaticityDetect ;
+      sachem:similarityRadius 1 ;
+      sachem:tautomerMode sachem:ignoreTautomers .
+  }
+  ?protein up:mnemonic ?mnemonic ;
+    up:recommendedName/up:fullName ?proteinName ;
+    up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation ;
+      up:ligand/rdfs:subClassOf ?ligand .
+}
+ORDER BY DESC(?ligandSimilarityScore)
+
+# Predicted Query
+# ==============
+# Starting endpoint: https://sparql.uniprot.org/sparql
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?protein ?proteinName ?bindingSiteFeature ?bindingSiteComment ?ligandChebiUri
+WHERE {
+  # Query the UniProt endpoint for proteins and their features
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find resources that are proteins
+    ?protein a up:Protein ;
+             skos:prefLabel ?proteinName ; # Get the preferred name of the protein
+             up:hasFeature ?bindingSiteFeature . # Link the protein to its features
+
+    # Filter features to find binding sites
+    ?bindingSiteFeature a up:Binding_Site ;
+                        rdfs:comment ?bindingSiteComment . # Get the comment for the binding site (often describes the ligand)
+
+    # Optional: Try to find a cross-reference from the binding site feature to ChEBI for the ligand
+    OPTIONAL {
+      ?bindingSiteFeature up:crossReference ?chebiRef .
+      ?chebiRef a up:Chem_Ref ; # Ensure the cross-reference is a chemical reference
+                up:db <http://purl.uniprot.org/database/ChEBI> ; # Ensure the database is ChEBI
+                up:id ?chebiIdLiteral . # Get the ChEBI ID as a literal (e.g., "CHEBI:16488")
+
+      # Convert the ChEBI ID literal to an integer and construct the ChEBI URI
+      BIND(xsd:integer(REPLACE(STR(?chebiIdLiteral), "CHEBI:", "")) AS ?chebiIdInt)
+      BIND(chebi:?chebiIdInt AS ?ligandChebiUri)
+    }
+
+    # Filter for binding sites where the ligand is Heme or similar.
+    # This is approximated by checking specific ChEBI IDs for Heme (CHEBI:16488, CHEBI:147291)
+    # or by searching for the term "heme" within the binding site comment.
+    FILTER (
+       # Check if the found ChEBI URI is for generic Heme or a specific Heme variant
+       (?ligandChebiUri = chebi:16488 || ?ligandChebiUri = chebi:147291) ||
+       # Alternatively, check if the comment text contains "heme" (case-insensitive)
+       CONTAINS(LCASE(?bindingSiteComment), "heme")
+    )
+  }
+}

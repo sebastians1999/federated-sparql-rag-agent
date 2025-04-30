@@ -1,0 +1,62 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Find proteins related to "ec" in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein rdfs:label ?proteinLabel .
+    FILTER (CONTAINS(LCASE(?proteinLabel), "ec")) # Filter protein labels containing "ec"
+  }
+
+  # Find reactions in RheaDB
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type <http://rdf.rhea-db.org/Reaction> .
+    ?reaction rdfs:label ?reactionLabel .
+    # Attempt to link reactions to proteins via EC number annotations.
+    OPTIONAL {
+      ?reaction <http://purl.obolibrary.org/obo/RO_0002333> ?enzyme .  #rhea:enzyme ?enzyme . # RO_0002333: is enzyme target of
+      ?enzyme rdfs:label ?ecNumber .
+      FILTER (REGEX(?ecNumber, "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")) #EC numbers are in the form of n.n.n.n
+
+      #Additionally filter by proteins that have the same EC number
+        SERVICE <https://sparql.uniprot.org/sparql> {
+            ?protein up:annotation ?annot.
+            ?annot up:category "EC".
+            ?annot rdfs:label ?ecNumber .
+        }
+    }
+  }
+}

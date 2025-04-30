@@ -1,0 +1,83 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?chemical ?japaneseName ?englishTranslation
+WHERE {
+  # The query searches for chemical entities across Rhea and SwissLipids
+  # It looks for names (labels) that start with "Japanese" and retrieves
+  # their alternative names (translations) specifically in English.
+
+  {
+    # Query Rhea DB, which contains biochemical reactions and links to ChEBI chemicals
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      # Find a label associated with a chemical entity
+      # We check both rdfs:label and skos:prefLabel as common labeling properties
+      { ?chemical rdfs:label ?japaneseName . }
+      UNION
+      { ?chemical skos:prefLabel ?japaneseName . }
+
+      # Filter the label to find names that start with "Japanese" (case-insensitive)
+      FILTER regex(str(?japaneseName), "^Japanese", "i")
+
+      # Optionally get alternative labels (translations) in English
+      OPTIONAL {
+        ?chemical skos:altLabel ?englishTranslation .
+        # Filter the alternative label by language tag "en" for English
+        FILTER (lang(?englishTranslation) = "en")
+      }
+    }
+  }
+  UNION
+  {
+    # Query SwissLipids, which contains lipid structures (a type of chemical entity)
+    SERVICE <https://sparql.swisslipids.org/sparql/> {
+      # Find a label associated with a lipid/chemical entity
+      # We check both rdfs:label and skos:prefLabel
+      { ?chemical rdfs:label ?japaneseName . }
+      UNION
+      { ?chemical skos:prefLabel ?japaneseName . }
+
+      # Filter the label to find names that start with "Japanese" (case-insensitive)
+      FILTER regex(str(?japaneseName), "^Japanese", "i")
+
+      # Optionally get alternative labels (translations) in English using skos:altLabel as requested ("allie")
+      OPTIONAL {
+        ?chemical skos:altLabel ?englishTranslation .
+        # Filter the alternative label by language tag "en" for English
+        FILTER (lang(?englishTranslation) = "en")
+      }
+    }
+  }
+  # Note: Finding standard chemical names starting with "Japanese" is very unlikely.
+  # This query directly interprets the user's request based on the provided text.
+}
