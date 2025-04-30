@@ -49,7 +49,7 @@ def format_extracted_classes(classes_list):
             result += "No matches found.\n\n"
     return result
 
-async def retrieve_documents(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
+async def retrieve_entities_classes(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     """
     Retrieve documents for entity resolution using dense vector search.
     
