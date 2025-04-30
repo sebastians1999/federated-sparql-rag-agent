@@ -80,8 +80,12 @@ class State(BaseState):
     extracted_classes: List[str] = field(default_factory=list)
     """List of classes extracted from the question."""
 
+    extracted_example_queries: List[str] = field(default_factory=list)
+    """List of example queries extracted from the question."""
+
     structured_output: str = field(default="")
     """The final structured output (e.g., SPARQL query)."""
+
 
     steps: List[StepOutput] = field(default_factory=list)
     """List of steps taken during the agent's execution."""
