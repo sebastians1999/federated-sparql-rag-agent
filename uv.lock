@@ -559,6 +559,37 @@ wheels = [
 ]
 
 [[package]]
+name = "curies-rs"
+version = "0.1.3"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/b1/57e18f9a5a61deefd8e3fce2106ee9c3c1d85127fe846c75bdf321e6bd8d/curies_rs-0.1.3-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:a6a6add2b8ab36798d7c2506b3dd013a3f90153fbc003c3f47b3e125a837a6d9", size = 2352287 },
+    { url = "https://files.pythonhosted.org/packages/1b/a8/25d0e28a28cf2bd9e83dd7b5cb28be9b55a7e7c417267d932b095d66b567/curies_rs-0.1.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:604f98853fe5006befb1e106108b45365b9780c60146ab12864b56c0f900c195", size = 2202812 },
+    { url = "https://files.pythonhosted.org/packages/5f/58/3b2b23423134f7c368cd48b1c375e49299cec0fa428c59b1168acd3fd836/curies_rs-0.1.3-cp311-cp311-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:a29c385f3a4a9e79f6144af6fee9dbd78fcccb263f75e1420ee8152a73877780", size = 2289489 },
+    { url = "https://files.pythonhosted.org/packages/90/cb/bb4aa5e221f59d5aa6a2e3f559d6488c7cd2f696664dacc0d688a13fec4c/curies_rs-0.1.3-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:468bd7764514ad0241dd4bd169eec3f250ee1a84cdad0507cee674ec83d12691", size = 2448919 },
+    { url = "https://files.pythonhosted.org/packages/1f/d8/d5e13e90975d1d161e7a5a87f90ff2bdd98387e2eea40f2b63621451c9ae/curies_rs-0.1.3-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:976bc55f8f7f0b39f58007af4cbc8660b78c12e5db015fc7dff99c240a5ca3e0", size = 2285516 },
+    { url = "https://files.pythonhosted.org/packages/f3/06/55f763abb9a76ebf968ebb1acd271553b87e187bee101d210b21d63450f7/curies_rs-0.1.3-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:539df0005993f6d3c79ed1a750242ac88b3c7b9b82ddab57218d8d73f4e6d886", size = 2523060 },
+    { url = "https://files.pythonhosted.org/packages/ef/f5/212d63d779db6a6e82a82076034dbc4cf4700039216f9c1e0cf32878fefb/curies_rs-0.1.3-cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:2d228a35fb602aad162a99e4c638c9ae34b2af4e437b05987058d8b6c220e9d7", size = 2938121 },
+    { url = "https://files.pythonhosted.org/packages/3e/54/2da62a465fffdd6c1d79ed36203423319530d093463fe8dfa14272842187/curies_rs-0.1.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f444be7981eddfa85b462f4c8fa9c4c2eb9f7dd3ed895bd03093e243c096dd7b", size = 2485843 },
+    { url = "https://files.pythonhosted.org/packages/70/e4/3ff16d7976f7f78a3454699e60d9c5d0d8c7c8c70ecfc78b358443bde8d4/curies_rs-0.1.3-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:26abafe7a42867994dad54e53dd73f4dca71415b76ad0fac8bebedb926adead9", size = 2612386 },
+    { url = "https://files.pythonhosted.org/packages/51/c1/c54fa4e4a9ca172bc1a9570d95a508e3a4d9b63cab2032cd7870553b7b06/curies_rs-0.1.3-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:3bf8a59b2065a35ce8bedad51ca802af386c494acea847d4cee74092982c8a67", size = 2655700 },
+    { url = "https://files.pythonhosted.org/packages/8f/5b/a05400158fce19a052e27f4bdf9f34ad516501bfc792f67cb69bf534fd56/curies_rs-0.1.3-cp311-none-win32.whl", hash = "sha256:a6b3ebe97ef0986f0786c11ec26e736137c1d26dfed1b2c35ab27b8853752e54", size = 1876605 },
+    { url = "https://files.pythonhosted.org/packages/e9/2c/4b918f9840f0dc35b1d7a77f56f39421e581be1d241ce1c404c709ae480e/curies_rs-0.1.3-cp311-none-win_amd64.whl", hash = "sha256:350138be9152f8f66f905b2a48b75f19ea2de38c866373ccdb557b0e02b6faa5", size = 2268871 },
+    { url = "https://files.pythonhosted.org/packages/12/2c/a4b9ef6c5021e443c12bb888a54419ac62d33261d3c7fef7b58f1e1185d9/curies_rs-0.1.3-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:d13b3f31a86f84b391a2cfc9d3aa4f6c3b24efeb37785d2da7f02800239da650", size = 2349443 },
+    { url = "https://files.pythonhosted.org/packages/95/49/b74b7e2e9c9aa280d289f6f3ea18176b54efdb815e902e58a59618c5dd05/curies_rs-0.1.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5d7df8154d46fd17c38db9e9abcf20cfde01134ab81c77cc1705b742aee4f8cb", size = 2198078 },
+    { url = "https://files.pythonhosted.org/packages/de/49/b4dae4bc572f653dc959f41f0e59d0a9c1c0757afce4d79b61e8c293bea9/curies_rs-0.1.3-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:11e5fc59faf29bc24259b8f620ab3cde0952355b9858ec15126e022ecf31484d", size = 2288602 },
+    { url = "https://files.pythonhosted.org/packages/e6/a5/7ded0d3b7256bf2822f832e4ab34f25097fa901c012e40266c6be0f64fd1/curies_rs-0.1.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dc48de4d2b00bc6fdea9dcec5161d9c20341bc265c9d20a75485745c8745c2a2", size = 2444718 },
+    { url = "https://files.pythonhosted.org/packages/bb/9f/9d287aefe1c0dd21367011aa803a54c70e6636fddbc1c6ef5405c10f488e/curies_rs-0.1.3-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:33c53de68b5fa29d2fbd212364345afc6912ef9bc1904c54ac77dbb5a4317d8c", size = 2285220 },
+    { url = "https://files.pythonhosted.org/packages/42/bd/c4e617a70e728d1cbbc6bf57e8e00fcb604178db665c93a9665e01ea75ea/curies_rs-0.1.3-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:819d8a6187f52580f99d9fea425b045c004f1ae25990f6c887e74b2498395c98", size = 2520128 },
+    { url = "https://files.pythonhosted.org/packages/a9/3a/030d44ae11628fedbd4f3ada61b136a51bd1758a98d932fc37d1c616d930/curies_rs-0.1.3-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:01457bbac3e26c17b0c58a735985594a3471ab6ad12f846ff4e104b5fe50da62", size = 2926277 },
+    { url = "https://files.pythonhosted.org/packages/17/e7/d4c714026b5422b17595f2050c0d56947fe196586913f65c7e82c854947e/curies_rs-0.1.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0374268380043bdd2566e6b194fcd894bfaa47652895776a8e18cea5dbfadeb2", size = 2482958 },
+    { url = "https://files.pythonhosted.org/packages/7e/55/3ca9e466c6322eecf115f95356af5bf7b75f5143847bda3c6e4743bf8347/curies_rs-0.1.3-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:3d6552a24c844f3028fbc5d2f8972b5eff6d087600cdbe64c026265b024847ad", size = 2610813 },
+    { url = "https://files.pythonhosted.org/packages/6b/0f/880bf31b8aa52e108745f3884d6a879c903f3091720e9c02c666cbd6e9c4/curies_rs-0.1.3-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:e95e79c8e4791094b459a4a9b5c2e21572dc5f3e10d3a0c551c5a3ef3f711b4e", size = 2652672 },
+    { url = "https://files.pythonhosted.org/packages/29/6d/59f27bff6a665e4ab47866d5e43562408edb4c432f16bdc5c5456164aa42/curies_rs-0.1.3-cp312-none-win32.whl", hash = "sha256:526ad6ddca45a072a4c10a59c2a2492fdd43eb84518200efded5adea7bfb47c7", size = 1874906 },
+    { url = "https://files.pythonhosted.org/packages/12/16/62716012a637a2f3541184ca5a6b238b149f09c5eee7f0cd4f88fbe543a5/curies_rs-0.1.3-cp312-none-win_amd64.whl", hash = "sha256:537994e8cc5290458cba1a40788a37a34c09925836698bcfa429de9e37cda398", size = 2264560 },
+]
+
+[[package]]
 name = "cycler"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4211,6 +4242,22 @@ wheels = [
 ]
 
 [[package]]
+name = "sparql-llm"
+version = "0.0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "curies-rs" },
+    { name = "httpx" },
+    { name = "langchain-core" },
+    { name = "rdflib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/d6/a7e418dbc29d1571cbbbc8bb40f000fc35b4735e845f1ce91b8c6d22945b/sparql_llm-0.0.8.tar.gz", hash = "sha256:8b567f021d9074f072cbda852f7570ffd6bd26e03868019f8eef0acdb3cea670", size = 193778 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/ce/a68cb0274aa211e97a4c4efb014abce4eb8e4c4938ba3de12b797f5449a4/sparql_llm-0.0.8-py3-none-any.whl", hash = "sha256:465bf8ffa9fc88497541a17d35b44b153312d1b786e580c084596864eb1de009", size = 85356 },
+]
+
+[[package]]
 name = "sparql-rag-agent"
 version = "0.1.0"
 source = { editable = "." }
@@ -4240,6 +4287,7 @@ dependencies = [
     { name = "requests" },
     { name = "scikit-learn" },
     { name = "sentence-transformers" },
+    { name = "sparql-llm" },
     { name = "sparqlwrapper" },
     { name = "transformers" },
     { name = "typing-extensions" },
@@ -4272,6 +4320,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.3" },
     { name = "scikit-learn", specifier = ">=1.6.1" },
     { name = "sentence-transformers", specifier = ">=3.4.1" },
+    { name = "sparql-llm", specifier = ">=0.0.8" },
     { name = "sparqlwrapper", specifier = ">=2.0.0" },
     { name = "transformers", specifier = ">=4.50.1" },
     { name = "typing-extensions", specifier = ">=4.12.2" },

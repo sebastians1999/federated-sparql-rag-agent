@@ -1,0 +1,578 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix void: <http://rdfs.org/ns/void#> .
+@prefix : <http://www.w3.org/ns/sparql-service-description#> .
+@prefix void_ext: <http://ldf.fi/void-ext#> .
+@prefix formats: <http://www.w3.org/ns/formats/> .
+@prefix pav: <http://purl.org/pav/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<https://beta.sparql.swisslipids.org/sparql> a :Service;
+  :defaultDataset <https://beta.sparql.swisslipids.org/sparql#sparql-default-dataset>;
+  :endpoint <https://beta.sparql.swisslipids.org/sparql>;
+  :resultFormat formats:SPARQL_Results_CSV, formats:SPARQL_Results_JSON, formats:N-Triples,
+    formats:RDF_XML, formats:SPARQL_Results_TSV, formats:Turtle, formats:SPARQL_Results_XML;
+  :supportedLanguage :SPARQL11Query;
+  :feature :UnionDefaultGraph, :BasicFederatedQuery;
+  :availableGraphs <https://beta.sparql.swisslipids.org/.well-known/void##sparql-graph-collection> .
+
+<https://beta.sparql.swisslipids.org/sparql#sparql-default-dataset> a :Dataset;
+  :defaultGraph <https://beta.sparql.swisslipids.org/.well-known/void##sparql-default-graph>;
+  :namedGraph <https://sparql.swisslipids.org/swisslipids> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void##sparql-default-graph> a :Graph;
+  void:triples "23348256"^^xsd:long;
+  void:distinctObjects "5866373"^^xsd:long;
+  void_ext:distinctLiterals "4524602"^^xsd:long;
+  void_ext:distinctIRIReferenceObjects "1341771"^^xsd:long;
+  void:distinctSubjects "2635923"^^xsd:long;
+  void_ext:distinctIRIReferenceSubjects "783012"^^xsd:long;
+  void_ext:distinctBlankNodeSubjects "1852911"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void##sparql-graph-collection> :namedGraph
+    <https://sparql.swisslipids.org/swisslipids> .
+
+<https://sparql.swisslipids.org/swisslipids> a :NamedGraph;
+  :name <https://sparql.swisslipids.org/swisslipids>;
+  :graph <https://beta.sparql.swisslipids.org/.well-known/void##_graph_swisslipids!9220518f> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void##_graph_swisslipids!9220518f>
+  a :Graph;
+  void:triples "23348256"^^xsd:long;
+  void:classes "5"^^xsd:long;
+  void:classPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!55439a5d!AnnotationProperty>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!9e6d9edd!DatatypeProperty>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!472ee8b9!ObjectProperty>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!89df24df!Ontology>;
+  void:propertyPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!1c0655c9!smiles>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7436244d!charge>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d7851591!formula>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8c536369!inchi>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d1d4df9d!inchikey>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!336862c8!smiles>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ccead98d!CHEMINF_000570>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e978ba14!hasDbXref>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!5052af0b!hasRelatedSynonym>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!c74e2b73!type>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!dacf627f!comment>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d89567f0!domain>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!4f75ce12!label>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7e72e214!seeAlso>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!b6c99360!subClassOf>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!bbfcc21a!equivalentClass>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f48ccabe!imports>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!07d92ae6!altLabel>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8d3b7b43!prefLabel>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!07fe8d09!depiction>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!110a9f76!SLM_citation>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!50b141da!SLM_derivedFrom>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0b23af24!SLM_hasPart>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!fd188a84!SLM_position>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e107bfb7!SLM_rank>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!aa966749!SLM_rankPreference>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ed471337!charge>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ef9363f2!inchi_key_string>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e9f4f2bc!inchi_string>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!5fcad7c0!smiles_string>;
+  void:distinctObjects "4524308"^^xsd:long;
+  void_ext:distinctLiterals "4524308"^^xsd:long;
+  void:distinctSubjects "1852844"^^xsd:long;
+  void_ext:distinctBlankNodeSubjects "1852844"^^xsd:long;
+  void:subset <https://beta.sparql.swisslipids.org/.well-known/void##linkset_46f39679>,
+    <https://beta.sparql.swisslipids.org/.well-known/void##linkset_5dec996f>, <https://beta.sparql.swisslipids.org/.well-known/void##linkset_64dbea2f> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!55439a5d!AnnotationProperty>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#AnnotationProperty>;
+  void:entities "2"^^xsd:long;
+  void:propertyPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0d9b1947!-AnnotationProperty-label> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0d9b1947!-AnnotationProperty-label>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#label>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d0c3c717!-label-string>;
+  void:triples "2"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d0c3c717!-label-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#Class>;
+  void:entities "779286"^^xsd:long;
+  void:propertyPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6bb63739!-Class-charge>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!cba2e065!-Class-formula>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d38e077d!-Class-inchi>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!2d1eb2d4!-Class-inchikey>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6d9b6bc6!-Class-smiles>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f4a65750!-Class-CHEMINF_000570>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f0e0a8df!-Class-hasDbXref>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!76b2ccc6!-Class-hasRelatedSynonym>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!a6ab1b48!-Class-comment>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!9c512998!-Class-label>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0b8d46ed!-Class-seeAlso>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d846a9c4!-Class-subClassOf>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f8852173!-Class-equivalentClass>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0c700455!-Class-altLabel>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!a7729710!-Class-prefLabel>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!3a1d2754!-Class-depiction>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0434eb04!-Class-SLM_citation>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!be2ebe40!-Class-SLM_hasPart>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ef152cd0!-Class-SLM_rank>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!5e1f17b6!-Class-SLM_rankPreference>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!a01fa833!-Class-charge>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!3db8a4a4!-Class-inchi_key_string>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!060edf93!-Class-inchi_string>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!fe98c442!-Class-smiles_string> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6bb63739!-Class-charge>
+  a void:Dataset;
+  void:property <http://purl.obolibrary.org/obo/chebi/charge>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!46ffb1ac!-charge-string>;
+  void:triples "779237"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!46ffb1ac!-charge-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!cba2e065!-Class-formula>
+  a void:Dataset;
+  void:property <http://purl.obolibrary.org/obo/chebi/formula>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8f9c0ee5!-formula-string>;
+  void:triples "779035"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8f9c0ee5!-formula-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d38e077d!-Class-inchi>
+  a void:Dataset;
+  void:property <http://purl.obolibrary.org/obo/chebi/inchi>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d7a70d66!-inchi-string>;
+  void:triples "593209"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d7a70d66!-inchi-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!2d1eb2d4!-Class-inchikey>
+  a void:Dataset;
+  void:property <http://purl.obolibrary.org/obo/chebi/inchikey>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!091c3c31!-inchikey-string>;
+  void:triples "593215"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!091c3c31!-inchikey-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6d9b6bc6!-Class-smiles>
+  a void:Dataset;
+  void:property <http://purl.obolibrary.org/obo/chebi/smiles>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d872d218!-smiles-string>;
+  void:triples "778936"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d872d218!-smiles-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f4a65750!-Class-CHEMINF_000570>
+  a void:Dataset;
+  void:property <http://semanticscience.org/resource/CHEMINF_000570>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f1b97b9f!-CHEMINF_000570-string>;
+  void:triples "779249"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f1b97b9f!-CHEMINF_000570-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f0e0a8df!-Class-hasDbXref>
+  a void:Dataset;
+  void:property <http://www.geneontology.org/formats/oboInOwl#hasDbXref>;
+  void:triples "543146"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!76b2ccc6!-Class-hasRelatedSynonym>
+  a void:Dataset;
+  void:property <http://www.geneontology.org/formats/oboInOwl#hasRelatedSynonym>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e124cbba!-hasRelatedSynonym-string>;
+  void:triples "568257"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e124cbba!-hasRelatedSynonym-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!a6ab1b48!-Class-comment>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#comment>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7eee51bc!-comment-string>;
+  void:triples "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7eee51bc!-comment-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!9c512998!-Class-label>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#label>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d0c3c717!-label-string>;
+  void:triples "779255"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0b8d46ed!-Class-seeAlso>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#seeAlso>;
+  void:triples "21251"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d846a9c4!-Class-subClassOf>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#subClassOf>;
+  void:classPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!cd406d2c!-Class-subClassOf-Class>;
+  void:triples "4917043"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!cd406d2c!-Class-subClassOf-Class>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#Class>;
+  void:triples "4916992"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void##linkset_46f39679> a void:Linkset;
+  void:linkPredicate <http://www.w3.org/2000/01/rdf-schema#subClassOf>;
+  void:subjectsTarget <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class>;
+  void:objectsTarget <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f8852173!-Class-equivalentClass>
+  a void:Dataset;
+  void:property <http://www.w3.org/2002/07/owl#equivalentClass>;
+  void:triples "4278"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0c700455!-Class-altLabel>
+  a void:Dataset;
+  void:property <http://www.w3.org/2004/02/skos/core#altLabel>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!39d42684!-altLabel-string>;
+  void:triples "776464"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!39d42684!-altLabel-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!a7729710!-Class-prefLabel>
+  a void:Dataset;
+  void:property <http://www.w3.org/2004/02/skos/core#prefLabel>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8e6c15be!-prefLabel-string>;
+  void:triples "779249"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8e6c15be!-prefLabel-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!3a1d2754!-Class-depiction>
+  a void:Dataset;
+  void:property <http://xmlns.com/foaf/0.1/depiction>;
+  void:triples "778936"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0434eb04!-Class-SLM_citation>
+  a void:Dataset;
+  void:property <https://swisslipids.org/rdf/SLM_citation>;
+  void:triples "10101"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!be2ebe40!-Class-SLM_hasPart>
+  a void:Dataset;
+  void:property <https://swisslipids.org/rdf/SLM_hasPart>;
+  void:triples "1852844"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ef152cd0!-Class-SLM_rank>
+  a void:Dataset;
+  void:property <https://swisslipids.org/rdf/SLM_rank>;
+  void:classPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f2d779a9!-Class-SLM_rank-Class>;
+  void:triples "777956"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f2d779a9!-Class-SLM_rank-Class>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#Class>;
+  void:triples "777956"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void##linkset_5dec996f> a void:Linkset;
+  void:linkPredicate <https://swisslipids.org/rdf/SLM_rank>;
+  void:subjectsTarget <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class>;
+  void:objectsTarget <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!5e1f17b6!-Class-SLM_rankPreference>
+  a void:Dataset;
+  void:property <https://swisslipids.org/rdf/SLM_rankPreference>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!1f6cc24f!-SLM_rankPreference-integer>;
+  void:triples "6"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!1f6cc24f!-SLM_rankPreference-integer>
+  a void:Dataset;
+  void_ext:datatype xsd:integer .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!a01fa833!-Class-charge>
+  a void:Dataset;
+  void:property <https://w3id.org/chemrof/charge>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!4bacb08f!-charge-string>;
+  void:triples "779237"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!4bacb08f!-charge-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!3db8a4a4!-Class-inchi_key_string>
+  a void:Dataset;
+  void:property <https://w3id.org/chemrof/inchi_key_string>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d5c8baba!-inchi_key_string-string>;
+  void:triples "593215"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d5c8baba!-inchi_key_string-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!060edf93!-Class-inchi_string>
+  a void:Dataset;
+  void:property <https://w3id.org/chemrof/inchi_string>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7e324a33!-inchi_string-string>;
+  void:triples "593209"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7e324a33!-inchi_string-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!fe98c442!-Class-smiles_string>
+  a void:Dataset;
+  void:property <https://w3id.org/chemrof/smiles_string>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d29f4232!-smiles_string-string>;
+  void:triples "778936"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d29f4232!-smiles_string-string>
+  a void:Dataset;
+  void_ext:datatype xsd:string .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!9e6d9edd!DatatypeProperty>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#DatatypeProperty>;
+  void:entities "1"^^xsd:long;
+  void:propertyPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8b864d5c!-DatatypeProperty-label> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8b864d5c!-DatatypeProperty-label>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#label>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d0c3c717!-label-string>;
+  void:triples "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!472ee8b9!ObjectProperty>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#ObjectProperty>;
+  void:entities "2"^^xsd:long;
+  void:propertyPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d4d9d17d!-ObjectProperty-comment>,
+    <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!97205a1b!-ObjectProperty-domain> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d4d9d17d!-ObjectProperty-comment>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#comment>;
+  void_ext:datatypePartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7eee51bc!-comment-string>;
+  void:triples "2"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!97205a1b!-ObjectProperty-domain>
+  a void:Dataset;
+  void:property <http://www.w3.org/2000/01/rdf-schema#domain>;
+  void:classPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!48788e64!-ObjectProperty-domain-Class>;
+  void:triples "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!48788e64!-ObjectProperty-domain-Class>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#Class>;
+  void:triples "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void##linkset_64dbea2f> a void:Linkset;
+  void:linkPredicate <http://www.w3.org/2000/01/rdf-schema#domain>;
+  void:subjectsTarget <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!472ee8b9!ObjectProperty>;
+  void:objectsTarget <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!6be100d0!Class> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!89df24df!Ontology>
+  a void:Dataset;
+  void:class <http://www.w3.org/2002/07/owl#Ontology>;
+  void:entities "1"^^xsd:long;
+  void:propertyPartition <https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!3eb38218!-Ontology-imports> .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!3eb38218!-Ontology-imports>
+  a void:Dataset;
+  void:property <http://www.w3.org/2002/07/owl#imports>;
+  void:triples "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!1c0655c9!smiles>
+  void:property <http://purl.obolibrary.org/obo/chebi#smiles>;
+  void:triples "3502"^^xsd:long;
+  void:distinctSubjects "3502"^^xsd:long;
+  void:distinctObjects "3500"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7436244d!charge>
+  void:property <http://purl.obolibrary.org/obo/chebi/charge>;
+  void:triples "779237"^^xsd:long;
+  void:distinctSubjects "779237"^^xsd:long;
+  void:distinctObjects "10"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d7851591!formula>
+  void:property <http://purl.obolibrary.org/obo/chebi/formula>;
+  void:triples "779035"^^xsd:long;
+  void:distinctSubjects "779035"^^xsd:long;
+  void:distinctObjects "20521"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8c536369!inchi>
+  void:property <http://purl.obolibrary.org/obo/chebi/inchi>;
+  void:triples "593209"^^xsd:long;
+  void:distinctSubjects "593209"^^xsd:long;
+  void:distinctObjects "507728"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d1d4df9d!inchikey>
+  void:property <http://purl.obolibrary.org/obo/chebi/inchikey>;
+  void:triples "593215"^^xsd:long;
+  void:distinctSubjects "593215"^^xsd:long;
+  void:distinctObjects "593205"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!336862c8!smiles>
+  void:property <http://purl.obolibrary.org/obo/chebi/smiles>;
+  void:triples "778936"^^xsd:long;
+  void:distinctSubjects "778936"^^xsd:long;
+  void:distinctObjects "594258"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ccead98d!CHEMINF_000570>
+  void:property <http://semanticscience.org/resource/CHEMINF_000570>;
+  void:triples "779249"^^xsd:long;
+  void:distinctSubjects "779249"^^xsd:long;
+  void:distinctObjects "779249"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e978ba14!hasDbXref>
+  void:property <http://www.geneontology.org/formats/oboInOwl#hasDbXref>;
+  void:triples "543146"^^xsd:long;
+  void:distinctSubjects "509245"^^xsd:long;
+  void:distinctObjects "534224"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!5052af0b!hasRelatedSynonym>
+  void:property <http://www.geneontology.org/formats/oboInOwl#hasRelatedSynonym>;
+  void:triples "568257"^^xsd:long;
+  void:distinctSubjects "548163"^^xsd:long;
+  void:distinctObjects "534781"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!c74e2b73!type> void:property
+    rdf:type;
+  void:triples "779292"^^xsd:long;
+  void:distinctSubjects "779292"^^xsd:long;
+  void:distinctObjects "10"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!dacf627f!comment>
+  void:property <http://www.w3.org/2000/01/rdf-schema#comment>;
+  void:triples "3"^^xsd:long;
+  void:distinctSubjects "3"^^xsd:long;
+  void:distinctObjects "3"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!d89567f0!domain>
+  void:property <http://www.w3.org/2000/01/rdf-schema#domain>;
+  void:triples "1"^^xsd:long;
+  void:distinctSubjects "1"^^xsd:long;
+  void:distinctObjects "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!4f75ce12!label>
+  void:property <http://www.w3.org/2000/01/rdf-schema#label>;
+  void:triples "779258"^^xsd:long;
+  void:distinctSubjects "779258"^^xsd:long;
+  void:distinctObjects "779146"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!7e72e214!seeAlso>
+  void:property <http://www.w3.org/2000/01/rdf-schema#seeAlso>;
+  void:triples "21251"^^xsd:long;
+  void:distinctSubjects "21246"^^xsd:long;
+  void:distinctObjects "21247"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!b6c99360!subClassOf>
+  void:property <http://www.w3.org/2000/01/rdf-schema#subClassOf>;
+  void:triples "4917043"^^xsd:long;
+  void:distinctSubjects "779277"^^xsd:long;
+  void:distinctObjects "185720"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!bbfcc21a!equivalentClass>
+  void:property <http://www.w3.org/2002/07/owl#equivalentClass>;
+  void:triples "4278"^^xsd:long;
+  void:distinctSubjects "4276"^^xsd:long;
+  void:distinctObjects "4277"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!f48ccabe!imports>
+  void:property <http://www.w3.org/2002/07/owl#imports>;
+  void:triples "1"^^xsd:long;
+  void:distinctSubjects "1"^^xsd:long;
+  void:distinctObjects "1"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!07d92ae6!altLabel>
+  void:property <http://www.w3.org/2004/02/skos/core#altLabel>;
+  void:triples "776464"^^xsd:long;
+  void:distinctSubjects "776464"^^xsd:long;
+  void:distinctObjects "727572"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!8d3b7b43!prefLabel>
+  void:property <http://www.w3.org/2004/02/skos/core#prefLabel>;
+  void:triples "779249"^^xsd:long;
+  void:distinctSubjects "779249"^^xsd:long;
+  void:distinctObjects "779137"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!07fe8d09!depiction>
+  void:property <http://xmlns.com/foaf/0.1/depiction>;
+  void:triples "782438"^^xsd:long;
+  void:distinctSubjects "782438"^^xsd:long;
+  void:distinctObjects "594251"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!110a9f76!SLM_citation>
+  void:property <https://swisslipids.org/rdf/SLM_citation>;
+  void:triples "10101"^^xsd:long;
+  void:distinctSubjects "3066"^^xsd:long;
+  void:distinctObjects "1529"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!50b141da!SLM_derivedFrom>
+  void:property <https://swisslipids.org/rdf/SLM_derivedFrom>;
+  void:triples "1852844"^^xsd:long;
+  void:distinctSubjects "1852844"^^xsd:long;
+  void:distinctObjects "216"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!0b23af24!SLM_hasPart>
+  void:property <https://swisslipids.org/rdf/SLM_hasPart>;
+  void:triples "1852844"^^xsd:long;
+  void:distinctSubjects "765323"^^xsd:long;
+  void:distinctObjects "1852844"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!fd188a84!SLM_position>
+  void:property <https://swisslipids.org/rdf/SLM_position>;
+  void:triples "1852844"^^xsd:long;
+  void:distinctSubjects "1852844"^^xsd:long;
+  void:distinctObjects "22"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e107bfb7!SLM_rank>
+  void:property <https://swisslipids.org/rdf/SLM_rank>;
+  void:triples "777956"^^xsd:long;
+  void:distinctSubjects "777956"^^xsd:long;
+  void:distinctObjects "6"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!aa966749!SLM_rankPreference>
+  void:property <https://swisslipids.org/rdf/SLM_rankPreference>;
+  void:triples "6"^^xsd:long;
+  void:distinctSubjects "6"^^xsd:long;
+  void:distinctObjects "6"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ed471337!charge>
+  void:property <https://w3id.org/chemrof/charge>;
+  void:triples "779237"^^xsd:long;
+  void:distinctSubjects "779237"^^xsd:long;
+  void:distinctObjects "10"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!ef9363f2!inchi_key_string>
+  void:property <https://w3id.org/chemrof/inchi_key_string>;
+  void:triples "593215"^^xsd:long;
+  void:distinctSubjects "593215"^^xsd:long;
+  void:distinctObjects "593205"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!e9f4f2bc!inchi_string>
+  void:property <https://w3id.org/chemrof/inchi_string>;
+  void:triples "593209"^^xsd:long;
+  void:distinctSubjects "593209"^^xsd:long;
+  void:distinctObjects "507728"^^xsd:long .
+
+<https://beta.sparql.swisslipids.org/.well-known/void#swisslipids!5fcad7c0!smiles_string>
+  void:property <https://w3id.org/chemrof/smiles_string>;
+  void:triples "778936"^^xsd:long;
+  void:distinctSubjects "778936"^^xsd:long;
+  void:distinctObjects "594258"^^xsd:long .
