@@ -1,0 +1,39 @@
+{
+  "SP-BLEU": 0.11675671210542019,
+  "METEOR": 0.32908990733161475,
+  "num_none_queries": 0,
+  "size_of_test_set": 28,
+  "error_at_endpoints": 9,
+  "empty_results_count": 10,
+  "syntactically_valid_queries_count": 23,
+  "avg_result_including_empty_result_precision": 0.15384615384615385,
+  "avg_result_including_empty_result_recall": 0.15384615384615385,
+  "avg_result_including_empty_result_f1": 0.15384615384615385,
+  "number_of_query_results_evaluated_including_empty_result": 13,
+  "list_evaluated_queries_including_empty_result": [
+    "UniProt/118_biosodafrontend_rat_brain_human_cancer.ttl",
+    "UniProt/54_binding_sites_for_ligands_similar_to_heme_sachem.ttl",
+    "UniProt/43_patents_used_in_uniprot_granted_twenty_years_in_the_past.ttl",
+    "UniProt/42_connect_patents_to_epo.ttl",
+    "UniProt/70_enzymes_interacting_with_molecules_similar_to_dopamine.ttl",
+    "UniProt/117_biosodafrontend_glioblastoma_orthologs_rat.ttl",
+    "UniProt/116_biosodafrontend_rabit_mouse_orthologs.ttl",
+    "Rhea/11.ttl",
+    "Rhea/12.ttl",
+    "Rhea/115_Retrieve_the_set_of_metabolites_involved_in_reactions_catalyzed_by_human_genes_HUMAN_reference_proteome.ttl"
+  ],
+  "avg_result_excluding_empty_result_precision": 0.6666666666666666,
+  "avg_result_excluding_empty_result_recall": 0.6666666666666666,
+  "avg_result_excluding_empty_result_f1": 0.6666666666666666,
+  "number_of_query_results_evaluated_excluding_empty_result": 3,
+  "list_evaluated_queries_excluding_empty_result": [
+    "SwissLipids/16.ttl",
+    "SwissLipids/6.ttl",
+    "UniProt/36_orthologous_proteins_via_orthodb.ttl"
+  ],
+  "avg_result_all_precision": 0.07142857142857142,
+  "avg_result_all_recall": 0.07142857142857142,
+  "avg_result_all_f1": 0.07142857142857142,
+  "number_of_query_results_evaluated_all": 28,
+  "list_evaluated_queries_all": []
+}

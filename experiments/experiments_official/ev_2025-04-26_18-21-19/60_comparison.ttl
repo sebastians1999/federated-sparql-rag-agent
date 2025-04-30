@@ -1,0 +1,82 @@
+
+# Natural Language Question
+# =======================
+Find human proteins that catalyze reactions where substrates or product have a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane skeleton</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  DISTINCT
+    ?protein
+    ?disease
+    ?rhea
+    ?chebi
+    ?omim
+WHERE {
+    # Find complete ChEBIs with a Cholestane skeleton, via the Czech Elixir node IDSM Sachem chemical substructure search.
+    SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+      ?chebi sachem:substructureSearch [
+        sachem:query
+"[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]"
+].
+   }
+   # Use the fact that UniProt catalytic activities are annotated using Rhea 
+   # Mapping the found ChEBIs to Rhea reactions
+   SERVICE <https://sparql.rhea-db.org/sparql>{
+     ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+   }
+   # Match the found Rhea reactions with human UniProtKB proteins
+   ?protein up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+   ?protein up:organism taxon:9606 .
+   # Find only those human entries that have an annotated related disease, and optionaly map these to OMIM
+   ?protein up:annotation/up:disease ?disease .
+   OPTIONAL {
+     ?disease rdfs:seeAlso ?omim .
+     ?omim up:database <http://purl.uniprot.org/database/MIM>
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein
+WHERE {
+  # Find reactions in Rhea
+  ?reaction a rhea:Reaction ;
+            rhea:participant ?participant . # Get participants of the reaction
+
+  # Find the chemical entity (ChEBI) associated with the participant
+  ?participant rhea:ChEBI ?chebiEntity .
+
+  # Check if the chemical entity is the Cholestane skeleton (CHEBI:35516)
+  # or a chemical entity that is a subclass of Cholestane skeleton.
+  # This traverses the rdfs:subClassOf hierarchy.
+  ?chebiEntity rdfs:subClassOf* chebi:35516 . # CHEBI:35516 is 'cholestane skeleton'
+
+  # Find the protein that catalyzes this reaction in Rhea
+  ?reaction rhea:catalyzedBy ?protein .
+
+  # Use SERVICE to query the UniProt endpoint to filter for human proteins
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Ensure the found entity is a UniProt protein
+    ?protein a up:Protein ;
+             # Filter by organism: Homo sapiens (Taxonomy ID 9606)
+             up:organism taxon:9606 .
+  }
+}

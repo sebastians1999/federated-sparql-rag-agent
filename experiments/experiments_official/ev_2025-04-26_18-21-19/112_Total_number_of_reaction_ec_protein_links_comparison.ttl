@@ -1,0 +1,49 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+
+SELECT (COUNT(DISTINCT ?protein ?reaction ?ec) AS ?totalLinks)
+WHERE {
+  # Find proteins and the reactions they catalyze in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein ;
+             uniprot:catalyzedReaction ?reaction . # Link from protein to Rhea reaction
+  }
+
+  # Find the EC number associated with the reaction in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:ec ?ec . # Link from Rhea reaction to EC number
+  }
+  # This query counts distinct combinations of protein, reaction, and EC number
+  # where the protein is annotated in UniProt as catalyzing the reaction,
+  # and the reaction is annotated in Rhea with that specific EC number.
+}

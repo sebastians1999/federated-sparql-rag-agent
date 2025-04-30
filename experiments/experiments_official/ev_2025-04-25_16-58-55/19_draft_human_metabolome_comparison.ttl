@@ -1,0 +1,81 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX sl: <http://swisslipids.org/rdf#>
+
+SELECT DISTINCT ?metabolite ?metaboliteName
+WHERE {
+  { # Metabolites from UniProt and Rhea
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      # Find human proteins
+      ?protein a up:Protein ;
+               up:organism taxon:9606 .  # 9606 is the NCBI taxonomy ID for Homo sapiens
+
+      # Link to Rhea reactions via UniProt's cross-references (if available) - this might be sparse
+      OPTIONAL { ?protein up:xref ?rheaXref .
+                 ?rheaXref a up:Resource ;
+                          rdfs:label ?rheaId .
+                 FILTER CONTAINS(STR(?rheaId), "RHEA:")
+                 BIND(IRI(REPLACE(STR(?rheaId), "RHEA:(.*)", "http://rdf.rhea-db.org/\\1")) AS ?rheaReaction)
+        }
+    }
+    OPTIONAL {
+      SERVICE <https://sparql.rhea-db.org/sparql> {
+        # If we found a Rhea reaction, extract reactants and products
+        VALUES ?relation { rhea:reactant rhea:product }
+        ?rheaReaction ?relation ?chebiEntity .
+        ?chebiEntity rdfs:seeAlso ?chebi . #chebi ID
+        SERVICE <https://sparql.uniprot.org/sparql>{
+          ?chebi rdfs:label ?metaboliteName .
+          BIND(STR(?chebi) AS ?metabolite)
+        }
+      }
+    }
+  }
+  UNION
+  { #Lipids from SwissLipids
+    SERVICE <https://sparql.swisslipids.org/sparql/> {
+      ?lipid a sl:Lipid ;
+             sl:species "Homo sapiens" ; # Filter for human lipids
+             rdfs:label ?metaboliteName .
+      BIND(STR(?lipid) AS ?metabolite)
+    }
+  }
+}

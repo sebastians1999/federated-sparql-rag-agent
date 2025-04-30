@@ -1,0 +1,73 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.swisslipids.org/sparql/
+PREFIX sl: <http://swisslipids.org/rdf/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?uniprotAccession ?chemblId ?reaction ?sphingoLipid ?sphingoChebi
+WHERE {
+  # SERVICE 1: Query SwissLipids to find ChEBI identifiers for Sphingolipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    # Find lipids classified under the Sphingolipid category (LIPID MAPS abbreviation "SP")
+    ?sphingoLipid sl:lipidMapsClassification "SP" ;
+                  sl:chebi ?sphingoChebi . # Get the corresponding ChEBI ID for the lipid
+  }
+
+  # SERVICE 2: Query Rhea to find reactions involving these sphingolipid ChEBI entities and the enzymes catalyzing them
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions that have the sphingolipid ChEBI entity as a participant (substrate or product)
+    ?reaction rhea:hasParticipant ?participant .
+    ?participant rhea:chebi ?sphingoChebi . # Link participant to the ChEBI ID found in SwissLipids
+
+    # Find the protein (enzyme) that catalyzes this reaction
+    ?reaction rhea:catalyzedBy ?protein .
+  }
+
+  # SERVICE 3: Query UniProt to check if the protein is human and has a ChEMBL cross-reference
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     # Ensure the protein is a UniProt protein entry
+     ?protein a up:Protein ;
+              up:accession ?uniprotAccession ; # Get the UniProt accession
+              up:organism taxon:9606 . # Filter for Homo sapiens (human)
+
+     # Check for a cross-reference to the ChEMBL database
+     ?protein up:dbReference ?chemblRef .
+     ?chemblRef up:database <http://purl.uniprot.org/database/ChEMBL> ;
+                up:accession ?chemblId . # Get the ChEMBL identifier
+  }
+}

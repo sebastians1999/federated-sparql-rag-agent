@@ -22,7 +22,7 @@ class LLMConfig:
 
     temperature: Dict[str, float] = field(default_factory=lambda: {
         "question_understanding": 0.2,
-        "sparql_construction": 0.8,
+        "sparql_construction": 0.1,
     })
     max_tokens: Dict[str, int] = field(default_factory=lambda: {
         "question_understanding": 4000,
@@ -37,19 +37,21 @@ class LLMConfig:
     provider_question_understanding: str = "google-genai"
     provider_sparql_construction: str = "google-genai"
     question_understanding_model: str = "gemini-2.0-flash"
+    #question_understanding_model: str = "gemini-2.0-flash-lite"
     #sparql_construction_model: str = "gemini-2.0-flash"
-    #sparql_construction_model: str = "gemini-2.5-flash-preview-04-17"
-    sparql_construction_model: str = "gemini-2.5-pro-exp-03-25"
+    #sparql_construction_model: str = "gemini-2.0-flash-lite"
+    sparql_construction_model: str = "gemini-2.5-flash-preview-04-17"
+    #sparql_construction_model: str = "gemini-2.5-pro-exp-03-25"
     #question_understanding_model: str = "gemini-2.0-flash-thinking-exp-01-21"
 
 
 
     extra_params: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "google-genai": {
-            "gemini-2.5-flash-preview-04-17": {
-                "thinkingBudget": 0
-            }
-        }
+        # "google-genai": {
+        #     "gemini-2.5-flash-preview-04-17": {
+        #         "thinkingBudget": 0
+        #     }
+        # }
     })
 
 

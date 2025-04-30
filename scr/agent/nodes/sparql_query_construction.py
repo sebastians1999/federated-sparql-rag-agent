@@ -7,6 +7,11 @@ from scr.agent.utils.config import Configuration
 from langchain_core.runnables import RunnableConfig
 from scr.agent.utils.llm_utils import get_llm
 import re
+from  scr.agent.prompts.few_shot_examples import examples_few_shot_federated_query_generation
+from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import FewShotPromptTemplate
+from scr.agent.prompts.prompts import INTRODUCTION_PROMPT, ENPOINT_INFORMATION_PROMPT, QUERY_FORMAT_PROMPT, INTRODUCTION_PROMPT
+
 
 
 
@@ -35,7 +40,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("human", "{input}")
+                ("human", USER_PROMPT)
             ]
         )
         #retrieved_documents
@@ -51,6 +56,91 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         )
         #"retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
         
+        response_message = await llm.ainvoke(message)
+
+
+        extracted_queries = extract_sparql_queries(response_message.content)
+    
+
+        return {
+            "structured_output": extracted_queries[-1] if extracted_queries else "",
+            "steps": [
+                StepOutput(
+                    label="Generated SPARQL query",
+                    details=response_message.content,
+                )
+            ]
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "steps": [
+                StepOutput(
+                    label="Error in SPARQL query generation",
+                    details=f"Failed to generate query: {str(e)}",
+                    type="fix-message"
+                )
+            ]
+        }
+
+async def query_generator_few_shot_cot(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
+    """Generate a SPARQL query based on the structured question and retrieved documents.
+    
+    Args:
+        state: The current state containing structured question and retrieved documents
+        config: Configuration for the runner
+        
+    Returns:
+        Dict containing structured_output and steps
+    """
+    
+    try:
+
+        configuration = Configuration.from_runnable_config(config)
+
+     
+
+
+        # Use per-task LLM config for SPARQL construction
+        llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
+
+        context_template = PromptTemplate(
+            template_format='jinja2',
+            input_variables=["potential_entities", "potential_classes"],
+            template= QUERY_FORMAT_PROMPT
+        )
+
+        formatted_context= await context_template.ainvoke({
+            "potential_entities": state.extracted_entities, 
+            "potential_classes": state.extracted_classes
+        })
+
+        example_template = PromptTemplate(
+            template_format='jinja2',
+            input_variables=["Input", "Context", "Endpoint_information", "Assistant"],
+            template="**User:**\n{{ Input }}\n\n**Context:**\n{{ Context }}\n\n**Endpoint Information:**\n{{ Endpoint_information }}\n\n**Assistant:**\n{{ Assistant }}\n\n"
+        )
+
+        few_shot_prompt = FewShotPromptTemplate(
+            examples=examples_few_shot_federated_query_generation,
+            example_prompt=example_template,
+            input_variables=["Input", "Context", "Endpoint_information"],
+            prefix=INTRODUCTION_PROMPT,
+            suffix="**User:**\n{{ Input }}\n\n**Context:**\n{{ Context }}\n\n**Endpoint Information:**\n{{ Endpoint_information }}\n\n**Assistant:**",
+            template_format="jinja2" 
+        )
+
+
+        message = await few_shot_prompt.ainvoke({
+            "Input": state.messages[-1].content,
+            "Context": formatted_context.to_string(),
+            "Endpoint_information": ENPOINT_INFORMATION_PROMPT,
+        })
+
+        #print(formatted_context.to_string())
+
+        #print(message.to_string())
+
         response_message = await llm.ainvoke(message)
 
 

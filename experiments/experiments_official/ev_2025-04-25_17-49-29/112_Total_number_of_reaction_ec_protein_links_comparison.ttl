@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>  # Assuming a suitable EC namespace
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Find reactions in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    ?reaction rhea:equation ?equation . # Assuming reactions have equations
+  }
+
+  # Find proteins associated with reactions (linking via EC number if possible)
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    OPTIONAL {
+      ?protein uniprot:classifiedWith ?ecNumber .  # Proteins classified with EC numbers
+    }
+    OPTIONAL {
+      ?protein rdfs:seeAlso ?ecNumber . #Alternative way to link to EC numbers
+    }
+  }
+
+  #Potentially link reactions to EC numbers (if available in Rhea or via UniProt)
+  OPTIONAL {
+     SERVICE <https://sparql.rhea-db.org/sparql> {
+       ?reaction rhea:ec ?ecNumber . # Reactions directly linked to EC numbers in Rhea
+     }
+  }
+
+  # Filter to include only reactions, proteins, and EC numbers that are linked
+  FILTER (BOUND(?ecNumber)) # Ensure there's a link to an EC number
+}

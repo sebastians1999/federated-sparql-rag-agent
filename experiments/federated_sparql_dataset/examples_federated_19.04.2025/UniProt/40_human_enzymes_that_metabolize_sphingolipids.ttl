@@ -30,4 +30,3 @@ LIMIT 10""" ;
     schema:keywords "enzyme" , "small molecule" , " cross-reference" , "ChEMBL" , "federated query" ;
     schema:target <https://sparql.uniprot.org/sparql/> ;
     spex:federatesWith <https://sparql.rhea-db.org/sparql> .
-

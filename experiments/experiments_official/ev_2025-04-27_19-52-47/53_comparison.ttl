@@ -1,0 +1,85 @@
+
+# Natural Language Question
+# =======================
+Find mouse homologs in OMABrowser of human enzymes that catalyze reactions involving sterols (CHEBI:15889). Federating with Rhea and OMABrowser.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  DISTINCT
+    ?chebi
+    ?reaction
+    ?humanProtein
+    ?mouseProtein
+    ?cluster 
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction .
+    ?reaction rh:side/rh:contains/rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    ?chebi rdfs:subClassOf* CHEBI:15889
+  }
+
+  ?humanProtein up:organism taxon:9606 .
+  ?humanProtein up:annotation ?a .
+  ?a a up:Catalytic_Activity_Annotation .
+  ?a up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction .
+
+  SERVICE  <https://sparql.omabrowser.org/sparql> {
+    ?cluster a orth:ParalogsCluster .
+    ?cluster orth:hasHomologousMember ?node1 , ?node2 .
+    ?node1 orth:hasHomologousMember* ?orthoProtein1 .
+    ?node2 orth:hasHomologousMember* ?orthoProtein2 .
+    ?orthoProtein1 lscr:xrefUniprot ?mouseProtein .
+    ?orthoProtein2 lscr:xrefUniprot ?humanProtein .
+    # inTaxon mouse
+    ?orthoProtein1 orth:organism/<http://purl.obolibrary.org/obo/RO_0002162> taxon:10090 . 
+  }
+}
+
+# Predicted Query
+# ==============
+#https://sparql.uniprot.org/sparql
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX oma: <http://omabrowser.org/ontology/oma#>
+
+SELECT DISTINCT ?humanProtein ?mouseProtein
+WHERE {
+  # 1. Find human proteins with catalytic activity
+  ?humanProtein up:organism taxon:9606 . # Filter for human proteins
+  ?humanProtein up:annotation/up:catalyticActivity ?ca . # Find catalytic activity annotations
+  ?ca up:catalyzedReaction ?rhea . # Link catalytic activity to a reaction
+
+  # 2. Filter reactions involving sterols (CHEBI:15889 or descendants) using Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:side/rh:contains/rh:compound/rh:chebi rdfs:subClassOf+ CHEBI:15889 . # Find reactions where a participant is a sterol or subclass
+  }
+
+  # 3. Find the OMA cross-reference for the human protein in UniProt
+  ?humanProtein rdfs:seeAlso ?omaEntryHuman .
+  FILTER(STRSTARTS(STR(?omaEntryHuman), "http://omabrowser.org/oma/")) # Ensure the seeAlso link is to an OMA entry
+
+  # 4. Find mouse orthologs of the human OMA entry using OMABrowser
+  SERVICE <https://sparql.omabrowser.org/sparql> {
+    ?omaEntryHuman oma:hasOrtholog ?omaEntryMouse . # Find ortholog OMA entries
+    ?omaEntryMouse oma:organism <http://omabrowser.org/taxonomy/10090> . # Filter orthologs to mouse organism (OMA taxonomy ID for mouse)
+    ?omaEntryMouse oma:hasProtein ?mouseProtein . # Get the protein URI associated with the mouse OMA entry (typically a UniProt URI)
+  }
+}

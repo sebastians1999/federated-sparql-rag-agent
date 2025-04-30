@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.swisslipids.org/sparql/
+PREFIX sl: <http://purl.swisslipids.org/sl/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  # Query the SwissLipids endpoint to find the specified lipid and its subclasses
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    # Define the starting lipid resource URI
+    BIND(sl:SWISSLIPID:000399814 AS ?startLipid)
+
+    # Find the starting lipid itself OR any lipid that is a subclass (directly or indirectly)
+    # of the starting lipid. This covers the "more specific forms" requirement.
+    { ?specificLipid rdfs:subClassOf* ?startLipid }
+    UNION
+    { BIND(?startLipid AS ?specificLipid) } # Include the starting lipid resource itself
+
+    # Find Rhea reactions that involve these specific lipids.
+    # Assuming sl:involvedIn is the property linking lipids to Rhea reactions in SwissLipids.
+    ?specificLipid sl:involvedIn ?rheaReaction .
+  }
+
+  # Federate to the Rhea endpoint to get details about the found reactions
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    # Ensure the resource is a Rhea Reaction (optional but good practice)
+    ?rheaReaction a rhea:Reaction .
+
+    # Extract the Rhea ID from the reaction URI
+    BIND(STRAFTER(STR(?rheaReaction), STR(rhea:)) AS ?rheaID)
+
+    # Get the reaction equation
+    ?rheaReaction rhea:equation ?equation .
+  }
+}

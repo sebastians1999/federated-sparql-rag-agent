@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX taxonomy: <http://purl.uniprot.org/taxonomy/>
+PREFIX sl: <https://swisslipids.org/rdf/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?metabolite
+WHERE {
+  # Query Rhea for metabolites involved in biochemical reactions known to occur in Homo sapiens
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find reactions associated with the human taxonomy identifier (Homo sapiens)
+    ?reaction rhea:organism taxonomy:9606 ;
+              rhea:contains ?participant . # Link the reaction to its participants (substrates/products)
+    # Link the participant to the chemical entity involved in the reaction
+    # These are typically represented by ChEBI identifiers in Rhea
+    ?participant rhea:contains ?metabolite_chebi .
+    # Filter to ensure we are getting ChEBI entities, which represent metabolites
+    FILTER(STRSTARTS(STR(?metabolite_chebi), STR(chebi:)))
+    # Bind the ChEBI URI as the result variable ?metabolite
+    BIND(?metabolite_chebi AS ?metabolite)
+  }
+  UNION
+  # Query SwissLipids for known lipid entities
+  # Lipids are a major class of metabolites. This service provides lipid-specific data.
+  # Note: This part lists all lipids in SwissLipids, not strictly filtered by organism,
+  # as direct organism links are not explicitly described for the service.
+  # It contributes a broad set of lipids to the 'draft' metabolome.
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    # Find all entities that are classified as Lipids in SwissLipids
+    ?lipid_sl a sl:Lipid .
+    # Bind the SwissLipids URI as the result variable ?metabolite
+    BIND(?lipid_sl AS ?metabolite)
+  }
+}

@@ -1,0 +1,74 @@
+
+# Natural Language Question
+# =======================
+Proteins with binding sites for ligands similar to heme
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT 
+  ?protein
+  ?mnemonic
+  ?proteinName
+  ?ligandSimilarityScore
+  ?ligand
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ssc sachem:compound ?ligand; 
+      sachem:score ?ligandSimilarityScore ;
+      sachem:similaritySearch ?sss .
+        # Smiles of Heme
+    ?sss    sachem:query "CC1=C(CCC([O-])=O)C2=[N+]3C1=Cc1c(C)c(C=C)c4C=C5C(C)=C(C=C)C6=[N+]5[Fe-]3(n14)n1c(=C6)c(C)c(CCC([O-])=O)c1=C2";
+      sachem:cutoff "8e-1"^^xsd:double ;
+      sachem:aromaticityMode sachem:aromaticityDetect ;
+      sachem:similarityRadius 1 ;
+      sachem:tautomerMode sachem:ignoreTautomers .
+  }
+  ?protein up:mnemonic ?mnemonic ;
+    up:recommendedName/up:fullName ?proteinName ;
+    up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation ;
+      up:ligand/rdfs:subClassOf ?ligand .
+}
+ORDER BY DESC(?ligandSimilarityScore)
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?protein ?accession
+WHERE {
+  # Query the UniProt endpoint for protein information
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find proteins
+    ?protein a up:Protein .
+
+    # Find annotations associated with the protein
+    ?protein up:annotation ?annotation .
+
+    # Filter for binding site annotations
+    ?annotation a up:Binding_Site_Annotation .
+
+    # Find the ligand associated with the binding site
+    ?annotation up:ligand ?ligand .
+
+    # Filter the ligand by the specific ChEBI identifier for Heme (Fe(II)-heme i(2-))
+    # Note: This query specifically looks for binding sites of the exact Heme entity identified.
+    # Finding ligands "similar" to Heme would require additional information or criteria
+    # for similarity, which is not directly available as a simple property in the schema.
+    ?ligand up:molecule chebi:147291 . # CHEBI:147291 corresponds to Fe(II)-heme i(2-)
+
+    # Get the protein accession number
+    ?protein up:accession ?accession .
+  }
+}

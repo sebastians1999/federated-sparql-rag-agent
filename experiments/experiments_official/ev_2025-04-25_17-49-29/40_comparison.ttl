@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated SPARQL query to retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?enzymeName ?enzymeUri
+WHERE {
+  # Find human enzymes in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzymeUri a up:Protein .
+    ?enzymeUri up:organism taxon:9606 .  # Human
+    ?enzymeUri rdfs:label ?enzymeName .
+    # Filter for enzymes (EC numbers)
+    FILTER regex(?enzymeName, "enzyme", "i")
+  }
+  
+  # Find enzymes that metabolize sphingolipids in SwissLipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?reaction a <http://www.swisslipids.org/rdf/SwissLipids#Reaction>.
+    ?reaction <http://www.swisslipids.org/rdf/SwissLipids#enzyme> ?enzymeUri .
+    ?reaction <http://www.swisslipids.org/rdf/SwissLipids#substrate> ?sphingolipid .
+    ?sphingolipid a <http://www.swisslipids.org/rdf/SwissLipids#Lipid> .
+    FILTER regex(str(?sphingolipid), "sphingo", "i") # Filter for sphingolipids
+  }
+  
+  # Attempt to find ChEMBL annotation (this part might not directly work as ChEMBL is not a direct service)
+  # This part is speculative and assumes a possible indirect link.  It might require a different approach
+  # depending on how ChEMBL data is linked to UniProt or SwissLipids.
+  #SERVICE <https://www.ebi.ac.uk/chembl/sparql> { #This is not a valid endpoint
+  #  ?chemblTarget a chembl:Target .
+  #  ?chemblTarget chembl:hasTargetComponent ?enzymeUri . # Assuming a direct link, which is unlikely
+  #}
+}
