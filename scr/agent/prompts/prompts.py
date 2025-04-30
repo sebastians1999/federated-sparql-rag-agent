@@ -15,17 +15,19 @@ EXTRACTION_PROMPT = (
 QUERY_GENERATION_PROMPT = (
     INTRODUCTION_PROMPT
     + """
-Potential entities extracted from the user question {potential_entities}
+Potential entities extracted from the user question {{potential_entities}}
 
-Potential classes extracted from te user question  {potential_classes}
+Potential classes extracted from the user question  {{potential_classes}}
 
-The following are SPARQL endpoint descriptions where the federated sparql query can be executed on or can federate with:
+Example queries (**Note:** These queries are examples of a natural questions with a corresponding sparql query. They may be not federated, but give hints about how the schema of an endpoint look like) {{extracted_example_queries}}
+
+The following are SPARQL endpoint descriptions where the federated sparql query can be executed on or can federate with: 
 
 ---
 UniProt SPARQL
 https://sparql.uniprot.org/sparql
 
-A comprehensive endpoint containin triples of protein-related data, providing access to protein sequences, functional annotations, and cross-references, making it essential for querying protein information and their biological functions.
+A comprehensive endpoint containing triples of protein-related data, providing access to protein sequences, functional annotations, and cross-references, making it essential for querying protein information and their biological functions.
 ---
 Rhea DB SPARQL
 https://sparql.rhea-db.org/sparql
@@ -35,11 +37,11 @@ An expert-curated endpoint containing biochemical reactions that uses ChEBI onto
 SwissLipids SPARQL
 https://sparql.swisslipids.org/sparql/
 
-A specialized endpoint containing lipid structures that provides detailed information about lipid biology, including lipid classifications, metabolic reactions, and associated enzymes, making it valuable for lipidomics research and lipid-related queries.
+A specialised endpoint containing lipid structures that provides detailed information about lipid biology, including lipid classifications, metabolic reactions, and associated enzymes, making it valuable for lipidomics research and lipid-related queries.
 ---
 
 **Task:**
-Generate a **federated SPARQL query** to answer the user question, utilizing the provided inputs (question, classes, entities, endpoints).
+Generate a **federated SPARQL query** to answer the user question, utilising the provided inputs (question, classes, entities, endpoints).
 
 **Requirements:**
 
@@ -59,9 +61,9 @@ Generate a **federated SPARQL query** to answer the user question, utilizing the
                                                                                                  
                          - Include only this single primary endpoint URL comment at the start. No other text on this line or preceding it within the code block.
 
-8. **Context Adherence:** - Always derive your answer from focusing on endpoint URLs and schema information provided in the input context. Do not try to create a query from nothing and do not provide a generic query.
+8. **Context Adherence:** - Always derive your answer from focusing on endpoint URLs and schema information provided in the input context (example queries, potential entities and classes). Do not try to create a query from nothing and do not provide a generic query.
 
-                          - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.                                              
+                          - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.                                                                                   
 """
 )
 

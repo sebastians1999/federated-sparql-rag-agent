@@ -37,14 +37,14 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         # Use per-task LLM config for SPARQL construction
         llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
 
-        prompt_template = ChatPromptTemplate.from_messages(
+        prompt_template = ChatPromptTemplate(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("human", USER_PROMPT)
-            ]
+                ("human", "{{input}}")
+            ],
+            input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
+            template_format="jinja2"
         )
-        #retrieved_documents
-        #("human", "{input}")
 
 
         message = await prompt_template.ainvoke(
@@ -52,9 +52,9 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
                 "input": state.messages[-1].content,
                 "potential_entities": state.extracted_entities,
                 "potential_classes": state.extracted_classes,
+                "extracted_example_queries": state.extracted_example_queries
             }
         )
-        #"retrieved_documents": [doc.page_content for doc in state.retrieved_docs],
         
         response_message = await llm.ainvoke(message)
 
