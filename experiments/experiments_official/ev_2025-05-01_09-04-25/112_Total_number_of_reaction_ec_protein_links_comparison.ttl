@@ -1,0 +1,57 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+  (count(distinct ?reaction) as ?reactionCount) # Count distinct reactions involved
+  (count(distinct ?enzyme) as ?enzymeCount)     # Count distinct EC numbers involved
+  (count(distinct ?protein) as ?proteinCount)   # Count distinct proteins involved
+WHERE {
+  # Find reactions linked to EC numbers in Rhea
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme .
+
+  # Federate with UniProt to find proteins linked to the same EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein ;
+             up:reviewed true . # Filter for reviewed UniProt entries
+
+    # Proteins can be linked to EC numbers directly or via domains/components
+    { ?protein up:enzyme ?enzyme }
+    UNION
+    { ?protein up:domain/up:enzyme ?enzyme }
+    UNION
+    { ?protein up:component/up:enzyme ?enzyme }
+  }
+}

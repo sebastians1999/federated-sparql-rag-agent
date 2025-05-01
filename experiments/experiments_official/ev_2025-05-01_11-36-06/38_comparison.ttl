@@ -1,0 +1,73 @@
+
+# Natural Language Question
+# =======================
+For the human entry P05067 (Amyloid-beta precursor protein) find the gene start ends in WikiData
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+SELECT 
+	?protein 
+	?begin
+	?end
+	?chromosome
+	?assembly
+WHERE {
+    {
+        BIND(uniprotkb:P05067 AS ?proteinIRI)
+        BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+    }
+    SERVICE <https://query.wikidata.org/sparql> {
+        ?wp wdt:P352 ?protein ;
+            wdt:P702 ?wg . 
+        ?wg p:P644   ?wgss .
+        ?wgss ps:P644        ?begin ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        ?wg p:P645 ?wgse .
+        ?wgse ps:P645        ?end ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        FILTER(lang(?assembly) = "en")
+  } 
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT ?geneStart ?geneEnd
+WHERE {
+  # Start with the specific human UniProt entry P05067
+  uniprotkb:P05067 a up:Protein ;
+                   up:organism taxon:9606 ; # Ensure it's the human entry
+                   up:encodedBy ?gene .     # Find the gene encoding this protein
+
+  # Find the Wikidata cross-reference for the gene
+  ?gene rdfs:seeAlso ?wikidataGene .
+  ?wikidataGene up:database <http://purl.uniprot.org/database/Wikidata> .
+
+  # Federate to the Wikidata endpoint to get gene location information
+  SERVICE <https://query.wikidata.org/sparql> {
+    # Retrieve the genomic start and end positions from Wikidata
+    ?wikidataGene wdt:P644 ?geneStart ; # P644 is 'genomic start'
+                  wdt:P645 ?geneEnd .   # P645 is 'genomic end'
+  }
+}

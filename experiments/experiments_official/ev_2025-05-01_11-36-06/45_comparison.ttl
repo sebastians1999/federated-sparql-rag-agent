@@ -1,0 +1,116 @@
+
+# Natural Language Question
+# =======================
+Retrieve drugs that target human enzymes involved in sterol metabolism (federated query with WikiData and Rhea).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX chebihash: <http://purl.obolibrary.org/obo/chebi#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT DISTINCT ?protein ?proteinFullName ?wikiChemical ?wikiChemicalLabel ?medicalConditionTreatedLabel
+WHERE {
+  # ChEBI: retrieve members of the ChEBI class ChEBI:15889 (sterol)
+  # Rhea: retrieve the reactions involving these ChEBI as participants
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction ;
+      rh:status rh:Approved ;
+      rh:side ?reactionSide .
+    ?reactionSide
+      rh:contains ?participant .
+    ?participant rh:compound ?compound
+    {
+      ?compound rh:chebi ?chebi .
+      ?chebi (rdfs:subClassOf)+ CHEBI:15889
+    } UNION {
+      ?compound rh:chebi ?chebi .
+      ?chebi2 rdfs:subClassOf ?chebiRestriction .
+      ?chebiRestriction
+		a owl:Restriction ;
+		owl:onProperty chebihash:has_major_microspecies_at_pH_7_3 ;
+		owl:someValuesFrom ?chebi .
+      ?chebi2 (rdfs:subClassOf)+ CHEBI:15889
+    }
+  }
+  # UniProt: retrieve the human (taxid:9606) enzymes catalyzing these Rhea reactions
+  ?ca up:catalyzedReaction  ?reaction .
+  ?a up:catalyticActivity  ?ca .
+  ?proteinIRI  up:annotation ?a ;
+    up:organism taxon:9606 ;
+    up:recommendedName ?proteinRecName .
+  ?proteinRecName up:fullName ?proteinFullName .
+  # Find drugs in wikidata that interact with the UniProt Proteins
+  BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+  SERVICE <https://query.wikidata.org/sparql> {
+    ?wp wdt:P352  ?protein .
+    ?wikiChemical wdt:P129 ?wp . # Physically interacts with
+    ?wikiChemical rdfs:label ?wikiChemicalLabel .
+    ?wikiChemical wdt:P2175 ?wmc . # Medical conndition treated
+    ?wmc rdfs:label ?medicalConditionTreatedLabel .
+    FILTER(lang(?medicalConditionTreatedLabel) = 'en')
+    FILTER(lang(?wikiChemicalLabel) = 'en')
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+
+SELECT DISTINCT ?drug ?drugLabel ?protein ?proteinName
+WHERE {
+  # Find human enzymes in UniProt
+  ?protein a up:Protein ;
+           up:organism taxon:9606 ; # Filter for human proteins
+           up:annotation ?a .
+  ?a a up:Catalytic_Activity_Annotation ;
+     up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction . # Link to the catalyzed reaction (expected to be a Rhea reaction)
+
+  # Get the protein recommended name if available
+  OPTIONAL { ?protein up:recommendedName/up:fullName ?proteinName . }
+
+  # Check if the reaction involves sterols in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction . # Ensure the linked resource is a Rhea reaction
+    ?reaction rh:side/rh:contains/rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    # Check if the compound is a sterol (CHEBI:15889) or a subclass of sterol
+    ?chebi rdfs:subClassOf* CHEBI:15889 .
+  }
+
+  # Find drugs in WikiData that target these human enzymes
+  SERVICE <https://query.wikidata.org/sparql> {
+    ?drug wdt:P31 wd:Q793 . # Filter for items that are instances of 'drug' (Q793)
+    ?drug wdt:P129 ?wdTarget . # Find the target of the drug (P129: targets)
+
+    # Link the WikiData target item to the UniProt protein using the UniProt accession (P352)
+    ?wdTarget wdt:P352 ?uniprotAccession .
+
+    # Get the English label for the drug
+    ?drug rdfs:label ?drugLabel .
+    FILTER (lang(?drugLabel) = "en")
+  }
+
+  # Match the UniProt protein URI with the UniProt accession found in WikiData
+  # Extract the accession from the UniProt URI
+  BIND(STRAFTER(STR(?protein), "http://purl.uniprot.org/proteins/") AS ?uniprotAccessionFromUri)
+  FILTER (?uniprotAccessionFromUri = ?uniprotAccession)
+}

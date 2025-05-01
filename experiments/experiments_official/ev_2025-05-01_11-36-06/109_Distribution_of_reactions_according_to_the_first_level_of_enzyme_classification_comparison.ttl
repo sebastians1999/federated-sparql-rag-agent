@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# This query retrieves the distribution of Rhea reactions based on the first level
+# of the Enzyme Classification (EC) system.
+# It federates between the Rhea SPARQL endpoint (for reactions and their EC numbers)
+# and the UniProt SPARQL endpoint (for EC hierarchy and labels).
+SELECT ?ecClass (STR(?ecName) AS ?ecClassName) (COUNT(?rhea) AS ?rheaCount)
+WHERE {
+  # Query Rhea endpoint for reactions and their associated EC numbers
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    ?rhea rdfs:subClassOf rh:Reaction .
+    ?rhea rh:ec ?ecNumber . # Link reaction to EC number
+  }
+
+  # Query UniProt endpoint to find the first-level EC class for each EC number
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+    # Define the URIs for the 7 main EC classes
+    VALUES (?ecClass) {
+      (ec:1.-.-.-) # Oxidoreductases
+      (ec:2.-.-.-) # Transferases
+      (ec:3.-.-.-) # Hydrolases
+      (ec:4.-.-.-) # Lyases
+      (ec:5.-.-.-) # Isomerases
+      (ec:6.-.-.-) # Ligases
+      (ec:7.-.-.-) # Translocases
+    }
+    # Find which main class the reaction's EC number belongs to
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    # Get the preferred label (name) for the main EC class
+    ?ecClass skos:prefLabel ?ecName .
+  }
+}
+# Group results by the main EC class URI and name to count reactions per class
+GROUP BY ?ecClass ?ecName
+# Order by EC class URI for consistent results
+ORDER BY ?ecClass

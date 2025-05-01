@@ -311,6 +311,7 @@ class AgentEvaluator:
                             valid_metric_count_excluding_empty_result += 1
                             valid_metric_count_including_empty_result += 1
                             list_evaluated_queries_excluding_empty_result.append(item.get("file_path", ""))
+                            list_evaluated_queries_including_empty_result.append(item.get("file_path", ""))
                         
                         # Case: Empty ground truth but non-empty predicted 
                         elif gt_empty and not pred_empty:
@@ -347,7 +348,7 @@ class AgentEvaluator:
         }
         
         # Add test metadata
-        self.results_dict["size_of_test_set"] = len(self.updated_dataset)
+        self.results_dict["size_of_test_set"] = len(self.updated_dataset)+1
         self.results_dict["error_at_endpoints"] = error_at_endpoint
         self.results_dict["empty_results_count"] = empty_results_count
         self.results_dict["syntactically_valid_queries_count"] = syntactically_valid_queries_count

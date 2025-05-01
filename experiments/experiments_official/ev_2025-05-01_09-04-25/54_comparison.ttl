@@ -1,0 +1,74 @@
+
+# Natural Language Question
+# =======================
+Proteins with binding sites for ligands similar to heme
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT 
+  ?protein
+  ?mnemonic
+  ?proteinName
+  ?ligandSimilarityScore
+  ?ligand
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ssc sachem:compound ?ligand; 
+      sachem:score ?ligandSimilarityScore ;
+      sachem:similaritySearch ?sss .
+        # Smiles of Heme
+    ?sss    sachem:query "CC1=C(CCC([O-])=O)C2=[N+]3C1=Cc1c(C)c(C=C)c4C=C5C(C)=C(C=C)C6=[N+]5[Fe-]3(n14)n1c(=C6)c(C)c(CCC([O-])=O)c1=C2";
+      sachem:cutoff "8e-1"^^xsd:double ;
+      sachem:aromaticityMode sachem:aromaticityDetect ;
+      sachem:similarityRadius 1 ;
+      sachem:tautomerMode sachem:ignoreTautomers .
+  }
+  ?protein up:mnemonic ?mnemonic ;
+    up:recommendedName/up:fullName ?proteinName ;
+    up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation ;
+      up:ligand/rdfs:subClassOf ?ligand .
+}
+ORDER BY DESC(?ligandSimilarityScore)
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?protein ?ligandName
+WHERE {
+  # Find proteins with binding site annotations in UniProt
+  ?protein up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation .
+
+  # Get the ligand associated with the binding site
+  ?annotation up:ligand ?ligand .
+  ?ligand rdfs:subClassOf ?chebi . # Link ligand to its ChEBI identifier
+  ?ligand rdfs:label ?ligandName . # Get the ligand name
+
+  # Use the IDSM Sachem service to find ChEBI compounds similar to Heme (CHEBI:24867)
+  # The SMILES for Heme B (CHEBI:24867) is used for the similarity search.
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?similarChebi sachem:similarCompoundSearch [
+      sachem:query "C[C@@H]1C=C(C)C2=C(C=C3C(C)=C(C=C4C(C)=C(C=C1[N+]2=C4)[N]5=C(C=C(C=C5)[N]6=C3C=C(C=C6)[N]7=C(C=C(C=C7)[Fe]))C(=O)O)C(=O)O"
+      # Optional: Add sachem:threshold property to specify similarity threshold (default is often 0.8)
+      # sachem:threshold "0.8"^^xsd:float
+    ] .
+  }
+
+  # Filter the proteins whose ligand's ChEBI identifier matches one found by the similarity search
+  FILTER(?chebi = ?similarChebi)
+}

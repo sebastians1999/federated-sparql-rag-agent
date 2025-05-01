@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX fn: <http://www.w3.org/2005/xpath-functions#>
+
+SELECT ?uniprotEntry ?patentURI ?publicationNumber ?grantDate
+WHERE
+{
+  # Find UniProt entries that have patent citations
+  ?uniprotEntry up:annotation ?citation .
+  ?citation a up:Patent_Citation ;
+            skos:exactMatch ?patentURI . # Link the citation to the patent URI
+
+  # Extract the publication number from the patent URI
+  # This assumes a specific URI structure used by UniProt for EPO patents
+  BIND(SUBSTR(STR(?patentURI), 35) AS ?publicationNumber)
+
+  # Calculate the date 20 years ago from the current date
+  BIND(NOW() AS ?now)
+  # Adjust to UTC to avoid timezone issues during date calculation
+  BIND(fn:adjust-date-to-timezone(?now, "PT0H") AS ?nowUTC)
+  # Subtract 20 years duration from the current date
+  BIND(fn:subtract-dateTimes-yielding-date(?nowUTC, fn:yearsDuration("P20Y")) AS ?date20YearsAgo)
+
+  # Query the EPO patent database using a SERVICE clause
+  SERVICE <https://data.epo.org/linked-data/query>
+  {
+    # Find the patent application resource using the publication number
+    ?patentApplication patent:publicationNumber ?publicationNumber .
+
+    # Retrieve the grant date for the found patent application
+    ?patentApplication patent:grantDate ?grantDate .
+
+    # Ensure the grant date is treated as a date for comparison
+    BIND(xsd:date(?grantDate) AS ?grantDateAsDate)
+
+    # Filter the results to include only patents granted before the date 20 years ago
+    FILTER(?grantDateAsDate < ?date20YearsAgo)
+  }
+}

@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Start with the given SwissLipids ID
+  VALUES ?swisslipid { SWISSLIPID:000399814 }
+
+  # Find the equivalent ChEBI ID in SwissLipids
+  # SwissLipids links to ChEBI using owl:equivalentClass
+  ?swisslipid owl:equivalentClass ?chebi .
+
+  # Federated query to Rhea to find reactions involving the lipid or its descendants
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find all ChEBI entities that are the lipid (?chebi) or its descendants in the hierarchy
+    # rdfs:subClassOf* includes the starting node itself
+    ?descendantChebi rdfs:subClassOf* ?chebi .
+
+    # Find Rhea reactions involving these descendant ChEBI entities
+    # A compound in Rhea can link to ChEBI in several ways (chebi, reactivePart/chebi, underlyingChebi/chebi)
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    { ?compound rh:chebi ?descendantChebi }
+    UNION
+    { ?compound rh:reactivePart/rh:chebi ?descendantChebi }
+    UNION
+    { ?compound rh:underlyingChebi/rh:chebi ?descendantChebi }
+
+    # Get the Rhea ID and equation for the found reactions
+    ?rhea rh:accession ?rheaId .
+    ?rhea rh:equation ?equation .
+  }
+}
+ORDER BY ?rheaId
