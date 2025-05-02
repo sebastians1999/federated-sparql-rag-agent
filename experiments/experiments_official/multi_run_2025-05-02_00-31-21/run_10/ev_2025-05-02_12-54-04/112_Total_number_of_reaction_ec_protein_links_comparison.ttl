@@ -1,0 +1,49 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT
+  (COUNT(DISTINCT ?reaction) AS ?reactionCount) # Count distinct reactions
+  (COUNT(DISTINCT ?enzyme) AS ?enzymeCount)   # Count distinct EC numbers
+  (COUNT(DISTINCT ?protein) AS ?proteinCount)  # Count distinct proteins
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .  # Select reactions
+  ?reaction rh:ec ?enzyme .               # Reactions linked to EC numbers
+
+  SERVICE <https://sparql.uniprot.org/sparql> { # Query UniProt SPARQL endpoint
+    ?protein a up:Protein .              # Select proteins
+    ?protein up:enzyme ?enzyme .          # Proteins linked to EC numbers
+  }
+}

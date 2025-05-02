@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to search for chemical names related to "Japanese" and translate them to English using the ALLIE service.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?chebiName ?englishLabelStr
+WHERE {
+  # Find chemical entities in ChEBI
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    ?compound a chebi:CHEBI_24431 . # Assuming CHEBI_24431 represents chemical entities
+    ?compound rdfs:label ?chebiName .
+    FILTER (REGEX(?chebiName, "^Japanese")) # Filter for chemical names starting with "Japanese"
+  }
+  
+  # Translate the chemical name to English using the ALLIE service
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    ?x rdfs:label ?chebiName ;
+       rdfs:label ?englishLabel .
+    FILTER(lang(?englishLabel) = "en")
+  }
+  BIND (STR(?englishLabel) AS ?englishLabelStr) # Bind the English label to a variable
+}
