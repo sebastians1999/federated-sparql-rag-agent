@@ -1,0 +1,72 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+# Find Rhea reactions that involve Ceramide (SWISSLIPID:000399814) or its subclasses.
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  # Define the target lipid (Ceramide) using its SwissLipids ID.
+  VALUES ?startId { SWISSLIPID:000399814 }
+
+  # Find the equivalent ChEBI identifier for the given lipid in SwissLipids.
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?startId owl:equivalentClass ?chebi .
+  }
+
+  # Find all child CHEBI terms (more specific forms of the lipid)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?chebi rdfs:subClassOf* ?chebiClass .
+    ?chebiClass rdfs:subClassOf CHEBI:18059 . # Lipid
+  }
+  
+  # Find Rhea reactions that involve the lipid or its subclasses.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:equation ?equation .
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound rh:chebi ?chebiClass .
+    ?rhea rh:accession ?rheaID .
+  }
+}

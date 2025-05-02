@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+# Draft query to retrieve human metabolome information from UniProt and potentially other relevant databases.
+# This query focuses on retrieving proteins associated with metabolism in humans.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX keywords: <http://purl.uniprot.org/keywords/>
+
+SELECT DISTINCT ?protein ?proteinName ?geneName
+WHERE {
+  # Query UniProt for human proteins involved in metabolism
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 .  # Filter for Homo sapiens (Human)
+    ?protein up:classifiedWith keywords:1185 . # "Metabolism" keyword
+    ?protein up:recommendedName ?recName .
+    ?recName up:fullName ?proteinName .
+    OPTIONAL { ?protein up:encodedBy ?gene .
+             ?gene rdfs:label ?geneName.
+             }
+  }
+  # Consider federating with Rhea or SwissLipids if more detailed metabolite/reaction information is needed.
+  # SERVICE <https://sparql.rhea-db.org/sparql> {
+  #   ?reaction rh:participant ?metabolite .
+  #   ?reaction rh:enzyme ?protein .
+  # }
+  # SERVICE <https://sparql.swisslipids.org/sparql/> {
+  #   ?lipid sl:enzyme ?protein .
+  # }
+}

@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+# Assuming ALLIE translates Japanese to English, and we want to find UniProt entries related to the translated terms.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?proteinName
+WHERE {
+  # Subquery to get the English translation from ALLIE for a given Japanese term.
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # Assuming ALLIE service returns English label for a Japanese label.
+    # Replace "your_japanese_term" with the actual Japanese term you want to search.
+    # This is a placeholder, adjust the query based on ALLIE's actual schema.
+    VALUES (?japaneseTerm) {("your_japanese_term"@ja)}
+    ?allieEntry rdfs:label ?japaneseTerm .
+    ?allieEntry rdfs:label ?englishLabel .
+    FILTER (lang(?englishLabel) = "en")
+    BIND(STR(?englishLabel) AS ?searchTerm) # Binding the translated term for use outside the service
+  }
+  
+  # Use the translated English term to search UniProt.
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+    ?protein a up:Protein .
+    ?protein rdfs:label ?proteinName .
+    FILTER (CONTAINS(LCASE(?proteinName), LCASE(?searchTerm))) # Searching for the translated term in protein names.
+  }
+}
