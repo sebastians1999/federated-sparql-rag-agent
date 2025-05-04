@@ -1,0 +1,50 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+#https://idsm.elixir-czech.cz/sparql
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/sachem#>
+
+SELECT ?chebi ?rhea
+WHERE {
+  # 1. Find ChEBI entities with Cholestane skeleton in IDSM
+  ?chebi a chebi:ChemicalEntity .
+  ?chebi sachem:smiles ?smiles .
+  FILTER regex(?smiles, "[C]\[C]\[C]\[C]\[C]", "i") # Example filter, refine with actual Cholestane SMILES
+
+  # 2. Find Rhea undirected reactions involving these ChEBI entities
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea a rhea:Reaction .
+    ?rhea rhea:direction rhea:undirected .
+    ?rhea rhea:side/rhea:contains/rhea:compound/rhea:chebi ?chebi .
+  }
+}
+LIMIT 100

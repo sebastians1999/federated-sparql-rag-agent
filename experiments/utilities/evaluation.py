@@ -348,7 +348,7 @@ class AgentEvaluator:
         }
         
         # Add test metadata
-        self.results_dict["size_of_test_set"] = len(self.updated_dataset)+1
+        self.results_dict["size_of_test_set"] = len(self.updated_dataset)
         self.results_dict["error_at_endpoints"] = error_at_endpoint
         self.results_dict["empty_results_count"] = empty_results_count
         self.results_dict["syntactically_valid_queries_count"] = syntactically_valid_queries_count

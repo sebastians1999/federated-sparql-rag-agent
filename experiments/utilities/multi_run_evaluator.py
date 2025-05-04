@@ -17,7 +17,7 @@ class MultiRunEvaluator:
         self, 
         num_runs: int = 10,
         endpoint_sets: Dict = None,
-        experiment_dir: str = "experiments_official_sample_runs",
+        experiment_dir: str = "/Users/sebastian/Documents/Bachelor Thesis/sparql-rag-agent/sparql-rag-agent/experiments/experiments_official",
         project_name_langsmith: str = None,
         timeout: int = 300,
         tracked_token_nodes: List[str] = ["question_understanding", "sparql_query_construction"],
@@ -37,8 +37,7 @@ class MultiRunEvaluator:
         """
         self.num_runs = num_runs
         self.endpoint_sets = endpoint_sets
-        # Always prepend 'experiments/' to the experiment_dir to ensure it works from project root
-        self.experiment_dir = os.path.join("experiments", experiment_dir)
+        self.experiment_dir = experiment_dir
         self.project_name_langsmith = project_name_langsmith
         self.timeout = timeout
         self.tracked_token_nodes = tracked_token_nodes
@@ -110,7 +109,7 @@ class MultiRunEvaluator:
             await evaluator.run_all_tests()
             
             # Retrieve the metrics from the saved file
-            metrics_file = os.path.join("experiments", full_run_dir, 'metrics_dataset.json')
+            metrics_file = os.path.join(full_run_dir, 'metrics_dataset.json')
             try:
                 with open(metrics_file, 'r') as f:
                     metrics = json.load(f)
@@ -182,12 +181,12 @@ class MultiRunEvaluator:
             }
         
         # Save aggregate statistics
-        stats_file = os.path.join("experiments", self.run_dir, f"aggregate_statistics.json")
+        stats_file = os.path.join(self.run_dir, f"aggregate_statistics.json")
         with open(stats_file, "w") as f:
             json.dump(statistics, f, indent=2)
             
         # Also save the raw results from all runs
-        all_runs_file = os.path.join("experiments", self.run_dir, f"all_runs_data.json")
+        all_runs_file = os.path.join(self.run_dir, f"all_runs_data.json")
         with open(all_runs_file, "w") as f:
             json.dump(self.results, f, indent=2)
             
@@ -232,7 +231,7 @@ class MultiRunEvaluator:
                     metric_display = metric.replace("avg_result_", "").replace("_", " ").title()
                     print(f"  {metric_display}: {mean:.4f} (95% CI: [{ci_lower:.4f}, {ci_upper:.4f}], n={n}, std={std_dev:.4f})")
         
-        print(f"\nDetailed statistics saved to: {os.path.join('experiments', self.run_dir)}/aggregate_statistics.json")
+        print(f"\nDetailed statistics saved to: {os.path.join(self.run_dir)}/aggregate_statistics.json")
         
         return stats
 
