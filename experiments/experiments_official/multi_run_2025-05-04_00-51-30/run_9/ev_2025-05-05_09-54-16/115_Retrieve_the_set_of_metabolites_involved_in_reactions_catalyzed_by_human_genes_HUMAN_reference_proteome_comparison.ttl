@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Retrieve the set of metabolites involved in reactions catalyzed by human genes (HUMAN reference proteome)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?reaction
+  ?ecNumber
+  ?protein
+  ?ensemblTranscript
+  ?ensemblGene
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true .
+    ?protein up:organism taxon:9606 .
+    ?protein up:classifiedWith keywords:1185 .
+
+    ?protein rdfs:seeAlso ?ensemblTranscript .
+    ?ensemblTranscript a up:Transcript_Resource .
+    ?ensemblTranscript up:database <http://purl.uniprot.org/database/Ensembl> .
+    ?ensemblTranscript up:transcribedFrom ?ensemblGene .
+
+      {?protein up:enzyme ?ecNumber .}
+    UNION
+      {?protein up:domain/up:enzyme ?ecNumber .}
+    UNION
+      {?protein up:component/up:enzyme ?ecNumber .}
+  }
+
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi . # only considering small molecules participants
+}
+
+# Predicted Query
+# ==============
+#https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?metabolite ?metaboliteName
+WHERE {
+  # 1. Find human proteins in UniProt that are part of the reference proteome
+  ?protein up:organism taxon:9606 .
+  ?protein up:referenceProteome "true"^^xsd:boolean .
+
+  # 2. Find the reactions they catalyze and the metabolites involved in those reactions (in Rhea)
+  ?protein up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+    ?chebi rdfs:label ?metaboliteName .
+  }
+  BIND (?chebi AS ?metabolite) # Added to match ground truth
+}
