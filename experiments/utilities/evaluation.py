@@ -184,6 +184,8 @@ class AgentEvaluator:
                 print(f"Sending question {i+1}/{len(test_dataset)} to agent...")
                 result = await self.run_single_test(question)
                 print(f"Got result for question {i+1}/{len(test_dataset)}")
+
+                #print(result["final_state_response"])
                 
                 updated_item = {
                     # Meta data - access fields directly
@@ -332,7 +334,7 @@ class AgentEvaluator:
                 print(f"Error processing question {i+1}/{len(test_dataset)}: {str(e)}")
                 print("file_path:", item.get("file_path", ""))
                 print("Offending item:", item)
-                print("Stack trace:")
+                print("Stack trace:") 
                 traceback.print_exc()
                 
         

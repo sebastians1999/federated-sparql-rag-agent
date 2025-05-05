@@ -2,41 +2,65 @@ import time
 from typing import List, Dict, Any, Optional
 from SPARQLWrapper import SPARQLWrapper, JSON
 from typing import Optional, Any
-
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 # import logging 
 
 
 # logging.basicConfig(level=logging.INFO)
 
-def query_sparql_wrapper(
-    query: str,
-    endpoint_url: str,
-    post: bool = False,
-    timeout: Optional[int] = None
-) -> Any:
-    """
-    Execute a SPARQL query on a SPARQL endpoint using SPARQLWrapper.
+# def query_sparql_wrapper(
+#     query: str,
+#     endpoint_url: str,
+#     post: bool = False,
+#     timeout: Optional[int] = 300
+# ) -> Any:
+#     """
+#     Execute a SPARQL query on a SPARQL endpoint using SPARQLWrapper.
 
-    Returns 'error' if an exception occurs during the request.
-    """
-    sparql = SPARQLWrapper(endpoint_url)
-    sparql.setQuery(query)
-    sparql.setReturnFormat(JSON)
+#     Returns 'error' if an exception occurs during the request.
+#     """
+#     sparql = SPARQLWrapper(endpoint_url)
+#     sparql.setQuery(query)
+#     sparql.setReturnFormat(JSON)
     
-    if post:
-        sparql.setMethod('POST')
-    else:
-        sparql.setMethod('GET')
+#     if post:
+#         sparql.setMethod('POST')
+#     else:
+#         sparql.setMethod('GET')
     
-    if timeout is not None:
+#     if timeout is not None:
+#         sparql.setTimeout(timeout)
+    
+#     try:
+#         results = sparql.query().convert()
+#         return results
+#     except Exception as e:
+#         return e
+def query_sparql_wrapper(query, endpoint_url, post=False, timeout= None):
+    
+    def execute_query():
+        sparql = SPARQLWrapper(endpoint_url)
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        
+        if post:
+            sparql.setMethod('POST')
+        else:
+            sparql.setMethod('GET')
+            
+        # Still set the socket timeout
         sparql.setTimeout(timeout)
+        
+        return sparql.query().convert()
     
     try:
-        results = sparql.query().convert()
-        return results
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(execute_query)
+            return future.result(timeout=timeout + 10)
+    except TimeoutError:
+        return Exception(f"The read operation timed out ({timeout} seconds, external timeout)")
     except Exception as e:
         return e
-
 
 
 def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tuple = None) -> List[Dict]:

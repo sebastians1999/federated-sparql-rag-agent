@@ -112,7 +112,6 @@ async def generate_and_validate_blocks(state: State, config: RunnableConfig) -> 
 
                 candidate: Candidate = await llm.ainvoke(message)
 
-
                 syntax_validation = validate_sparql_syntax(candidate.pattern)
 
                 if not syntax_validation[0]:
@@ -120,7 +119,7 @@ async def generate_and_validate_blocks(state: State, config: RunnableConfig) -> 
                     block.failed_patterns.append({"pattern": candidate.pattern, "error_message": syntax_validation[1]})
                     continue
                 else:
-                    validation = query_sparql_wrapper(candidate.pattern, block.target_endpoint)
+                    validation = query_sparql_wrapper(candidate.pattern, block.target_endpoint, timeout=120)
                     # Check for specific format: {'head': {'link': []}, 'boolean': False}
                     if validation is not None and isinstance(validation, dict) and validation.get('boolean', None) is True:
                         block.validated_pattern = candidate.pattern
@@ -129,17 +128,15 @@ async def generate_and_validate_blocks(state: State, config: RunnableConfig) -> 
                     elif validation is not None and isinstance(validation, dict) and validation.get('boolean', None) is False:
                         block.attempt += 1
                         error_msg = "Validation failed: Empty result or ASK query returned False"
-                        if isinstance(validation, dict):
-                            error_msg += f" - Response structure: {validation}"
                         block.failed_patterns.append({"pattern": candidate.pattern, "error_message": error_msg})
                         continue
                     else: 
                         block.attempt += 1
-                        block.failed_patterns.append({"pattern": candidate.pattern, "error_message": validation})
+                        error_message = str(validation) if not isinstance(validation, str) else validation
+                        block.failed_patterns.append({"pattern": candidate.pattern, "error_message": error_message})
                         continue
 
-
-
+            
         return {
             "query_state": state.query_state,
             "steps": [

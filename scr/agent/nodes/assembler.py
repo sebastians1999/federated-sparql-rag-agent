@@ -9,7 +9,7 @@ from scr.agent.prompts.prompts import QUERY_ASSEMBLE_PROMPT
 from scr.agent.utils.llm_utils import get_llm
 from typing import List, Dict, Optional
 import re
-
+import gc
 
 
 async def assemble_query(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
@@ -74,6 +74,8 @@ async def assemble_query(state: State, config: RunnableConfig) -> Dict[str, List
         response_message = await llm.ainvoke(message)
 
         extracted_queries = extract_sparql_queries(response_message.content)
+
+        gc.collect()
 
         return {
             "structured_output": extracted_queries[-1] if extracted_queries else "",
