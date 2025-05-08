@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX cco: <http://rdf.ebi.ac.uk/terms/chembl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?enzyme ?chemblMoleculeLabel
+WHERE {
+  ?enzyme up:organism taxon:9606 .
+  ?enzyme up:annotation ?annotation .
+  ?annotation a up:Catalytic_Activity_Annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?reaction .
+  ?reaction rdfs:seeAlso ?rheaReaction .
+
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/idsm> {
+    ?activity cco:hasTarget ?target .
+    ?target cco:hasTargetComponent/cco:targetCmptXref ?enzyme .
+    ?enzyme a cco:UniprotRef .
+    ?activity cco:hasMolecule ?chemblMolecule .
+    ?chemblMolecule skos:prefLabel ?chemblMoleculeLabel .
+    ?chemblMolecule rdfs:label ?chemblMoleculeLabel .
+    ?compound rdfs:subClassOf* CHEBI:64583 .
+  }
+}

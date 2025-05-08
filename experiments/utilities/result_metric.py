@@ -18,11 +18,11 @@ def format_query_result_dataframe(
     timeout: Optional[int] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
-    print("Querying ground truth endpoint...")
+    print("Querying ground truth endpoint with timeout:", timeout , "seconds")
 
     ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint, timeout=timeout)
 
-    print("Querying predicted endpoint...")
+    print("Querying predicted endpoint with timeout:", timeout, "seconds")
     
     predicted = query_sparql_wrapper(predicted_query, predicted_endpoint, timeout=timeout)
 

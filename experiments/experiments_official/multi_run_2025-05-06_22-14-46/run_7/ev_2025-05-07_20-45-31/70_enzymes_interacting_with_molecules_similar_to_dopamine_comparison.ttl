@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+SELECT DISTINCT ?protein ?reaction ?chebi
+WHERE {
+  ?protein up:enzyme ?enzyme .
+  ?protein up:annotation ?annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?reaction .
+  ?reaction rdfs:label ?label .
+  FILTER (CONTAINS(LCASE(?label), "dopamine"))
+
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi | rh:reactivePart/rh:chebi | rh:underlyingChebi/rh:chebi) ?chebi .
+  }
+}

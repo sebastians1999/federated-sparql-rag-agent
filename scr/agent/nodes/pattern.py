@@ -119,7 +119,7 @@ async def generate_and_validate_blocks(state: State, config: RunnableConfig) -> 
                     block.failed_patterns.append({"pattern": candidate.pattern, "error_message": syntax_validation[1]})
                     continue
                 else:
-                    validation = query_sparql_wrapper(candidate.pattern, block.target_endpoint, timeout=120)
+                    validation = query_sparql_wrapper(candidate.pattern, block.target_endpoint, timeout=60)
                     # Check for specific format: {'head': {'link': []}, 'boolean': False}
                     if validation is not None and isinstance(validation, dict) and validation.get('boolean', None) is True:
                         block.validated_pattern = candidate.pattern
