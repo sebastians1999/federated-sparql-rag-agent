@@ -1,0 +1,53 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# This query retrieves patents cited in UniProtKB and attempts to link them to patent data in a hypothetical EPO endpoint using publication numbers.
+# Note: Since a real EPO SPARQL endpoint was not provided, a placeholder URL is used. Replace this with the actual EPO endpoint URL if available.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?epoPatentTitle
+WHERE {
+  # Query UniProtKB for entries with cited patents
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein ;
+                  up:citation ?citation .
+    ?citation up:publication ?patent .
+    ?patent rdfs:label ?patentPublicationNumber . # Assuming patent publication number is available as rdfs:label. Adapt if needed.
+    FILTER (REGEX(?patentPublicationNumber, "^[A-Z0-9]+$")) # Filter to ensure it looks like a patent number
+  }
+
+  # Query the hypothetical EPO endpoint for matching patents
+  SERVICE <http://example.org/epo/sparql> {  # Placeholder EPO endpoint.  REPLACE WITH ACTUAL EPO ENDPOINT IF AVAILABLE
+    ?epoPatent a <http://example.org/epo/Patent> ; # Assuming a Patent class in the EPO endpoint
+             <http://example.org/epo/publicationNumber> ?patentPublicationNumber ; # Assuming publication number property
+             <http://example.org/epo/title> ?epoPatentTitle . #Example title
+  }
+}

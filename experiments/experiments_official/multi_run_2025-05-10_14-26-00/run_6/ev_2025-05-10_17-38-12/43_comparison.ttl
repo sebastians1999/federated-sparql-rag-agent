@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+SELECT DISTINCT ?uniprotPatent ?epoPatent
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry rdf:type up:Protein .
+    ?uniprotEntry up:citation ?citation .
+    ?citation up:publication ?uniprotPatent .
+    FILTER (REGEX(STR(?uniprotPatent), "^US[0-9]+[A-Z]?[0-9]*|^EP[0-9]+[A-Z]?[0-9]*|^WO[0-9]+[A-Z]?[0-9]*|^JP[0-9]+|^DE[0-9]+"))
+  }
+  SERVICE <https://worldwide.espacenet.com/3.1/rest-services/sparql> {
+    ?epoPatent <http://www.w3.org/2000/01/rdf-schema#label> ?publicationNumber .
+    FILTER (STR(?publicationNumber) = STR(?uniprotPatent))
+    ?epoPatent <http://www.epo.org/rdf/ontology/2021/03/application> ?application .
+    ?application <http://www.epo.org/rdf/ontology/2021/03/grantDate> ?grantDate .
+    FILTER (?grantDate < (NOW() - "P20Y"^^xsd:duration))
+  }
+}

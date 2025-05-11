@@ -1,0 +1,49 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?uniprotEntry ?patentIdentifier ?citedPatent
+WHERE {
+  # Query UniProtKB for UniProt entries and their associated patent identifiers.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein .
+    ?uniprotEntry up:citation ?citation .
+    ?citation rdfs:label ?patentIdentifier . # Assuming patent identifier is stored as a label.  This might need adjustment based on the actual UniProt schema.
+    FILTER (REGEX(?patentIdentifier, "^[A-Z0-9]+$", "i")) # Filter to ensure it looks like a patent identifier
+  }
+  
+  # Query Opencitations for patents with matching identifiers
+  SERVICE <https://opencitations.net/sparql> {
+    BIND(STR(?patentIdentifier) AS ?doi) # Opencitations uses DOIs, assuming patent ID can be converted
+    ?citedPatent <http://purl.org/spar/cito/cites> ?doi .
+  }
+}

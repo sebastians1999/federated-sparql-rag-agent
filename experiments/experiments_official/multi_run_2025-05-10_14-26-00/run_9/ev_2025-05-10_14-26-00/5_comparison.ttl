@@ -1,0 +1,62 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swissbioportal.org/sparql
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  VALUES ?lipid {
+    <http://purl.uniprot.org/uniprot/SWISSLIPID:000399814>
+    <http://purl.obolibrary.org/obo/CHEBI_17761>
+  }
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaID rdfs:subClassOf* rhea:Reaction .
+    {
+      ?rheaID rhea:equation ?equation .
+      ?rheaID rhea:has_participant ?participant .
+      FILTER (?participant = ?lipid)
+    }
+    UNION
+    {
+      ?rheaID rhea:equation ?equation .
+      ?rheaID rhea:has_participant ?participantCHEBI .
+      ?participantCHEBI rdfs:subClassOf* ?lipid .
+    }
+  }
+}

@@ -1,0 +1,94 @@
+
+# Natural Language Question
+# =======================
+Retrieve the set of metabolites involved in reactions catalyzed by human genes (HUMAN reference proteome)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?reaction
+  ?ecNumber
+  ?protein
+  ?ensemblTranscript
+  ?ensemblGene
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true .
+    ?protein up:organism taxon:9606 .
+    ?protein up:classifiedWith keywords:1185 .
+
+    ?protein rdfs:seeAlso ?ensemblTranscript .
+    ?ensemblTranscript a up:Transcript_Resource .
+    ?ensemblTranscript up:database <http://purl.uniprot.org/database/Ensembl> .
+    ?ensemblTranscript up:transcribedFrom ?ensemblGene .
+
+      {?protein up:enzyme ?ecNumber .}
+    UNION
+      {?protein up:domain/up:enzyme ?ecNumber .}
+    UNION
+      {?protein up:component/up:enzyme ?ecNumber .}
+  }
+
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi . # only considering small molecules participants
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?metaboliteName ?geneName
+WHERE {
+  # Find human proteins in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein ;
+             up:organism uniprot:9606 ;  # Homo sapiens (human)
+             rdfs:label ?geneName ;
+             up:database ?rheaRef . # Find cross-references to Rhea
+    ?rheaRef up:databaseType " Rhea" .
+    ?rheaRef rdfs:seeAlso ?rheaId .
+    FILTER CONTAINS(str(?rheaRef), "rhea")
+  }
+
+  # Find reactions in Rhea associated with the UniProt proteins
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:equation ?equation .
+    FILTER STRSTARTS(str(?reaction), str(rhea:)) # Ensure URI is from Rhea
+    BIND(iri(replace(str(?reaction), "http://rdf.rhea-db.org/", "", "i")) AS ?rheaNum)
+    FILTER (STR(?rheaNum) = SUBSTR(STR(?rheaId), 30)) # compare rhea id from uniprot to rhea id in rhea
+
+    # Find metabolites involved in the reaction (using ChEBI)
+    {
+      ?equation rdfs:label ?metaboliteName .
+    }
+    UNION
+    {
+      ?equation rhea:side ?side .
+      ?side rdfs:label ?metaboliteName .
+    }
+  }
+}

@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sl: <http://swisslipids.org/rdf#>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Find reactions that involve sphingolipids in SwissLipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?reaction a sl:Reaction ;
+              sl:reactionHasParticipant ?participant .
+    ?participant sl:participantCompound ?sphingolipid .
+    ?sphingolipid a sl:Lipid ; # Ensure it's a lipid
+                 rdfs:label ?sphingolipidName .
+    FILTER (CONTAINS(LCASE(?sphingolipidName), "sphingolipid")) # Filter for sphingolipids
+
+    # Find the enzyme that catalyzes the reaction
+    ?enzyme sl:enzymeForReaction ?reaction ;
+            rdfs:label ?enzymeName .
+  }
+
+  # Use UniProt to filter for human enzymes
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme uniprot:organism <http://purl.uniprot.org/taxonomy/9606> . # Filter for Homo sapiens (human)
+  }
+}

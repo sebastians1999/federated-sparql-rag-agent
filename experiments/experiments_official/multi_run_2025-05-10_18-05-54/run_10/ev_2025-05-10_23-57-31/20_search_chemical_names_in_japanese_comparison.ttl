@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to search for chemical names related to "Japanese" and translate them to English using ALLIE.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chemicalNameEn
+WHERE {
+  # Subquery to find ChEBI IDs related to "Japanese" chemicals.  This assumes that such chemicals might be linked via some property.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?chebiEntity rdfs:label ?chemicalName .
+    FILTER (REGEX(?chemicalName, "^Japanese", "i")) # Filter chemical names starting with "Japanese" (case-insensitive).
+    BIND(SUBSTR(STR(?chebiEntity), 30) AS ?chebiID) # Extract the ChEBI ID from the entity URI.
+  }
+
+  # Use the found ChEBI IDs to query for English translations using ALLIE.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Assuming ALLIE provides translations via a specific property, replace allie:translation with the correct property if needed.
+    # This part requires knowledge of the ALLIE vocabulary.  If ALLIE is not directly accessible, this SERVICE block might need adjustment.
+    # The following is a placeholder and needs to be adapted based on the actual ALLIE data structure.
+    BIND(IRI(CONCAT("http://purl.obolibrary.org/obo/CHEBI_", ?chebiID)) AS ?chebiEntityFull) # Reconstruct the full ChEBI entity URI
+    OPTIONAL {
+      ?chebiEntityFull rdfs:label ?chemicalNameEn . # Attempt to retrieve the English name directly.  Replace rdfs:label with the correct property if needed.
+      FILTER (lang(?chemicalNameEn) = "en") # Filter for English language.
+    }
+    FILTER (BOUND(?chemicalNameEn)) # Ensure that an English name was found.
+  }
+}

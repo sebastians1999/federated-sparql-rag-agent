@@ -1,0 +1,83 @@
+
+# Natural Language Question
+# =======================
+Select all approved reactions with CHEBI:17815 (a 1,2-diacyl-sn-glycerol) or one of its descendant. Display links to UniProtKB/Swiss-Prot entries via EC numbers if the link rhea-ec exists.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX CHEBI:<http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  distinct
+    ?reaction
+    ?enzyme
+    (count(distinct ?protein) as ?proteinCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+
+  OPTIONAL {?reaction rh:ec ?enzyme .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein up:reviewed true .
+      ?protein up:enzyme ?enzyme.
+    }
+  } .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+}
+GROUP BY ?reaction ?enzyme
+ORDER BY ?reaction
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Prefixes for commonly used namespaces
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+# Select the reaction URI
+SELECT DISTINCT ?reactionURI ?ecNumber ?uniprotEntry
+WHERE {
+  # Find reactions that have CHEBI:17815 or its descendants as a participant
+  {
+    SELECT DISTINCT ?reactionURI
+    WHERE {
+      # Start from Rhea reactions
+      ?reactionURI rdf:type rhea:Reaction .
+      ?reactionURI rhea:status "approved" . # Filter for approved reactions
+
+      # Find reaction participants that are CHEBI entities or their descendants
+      ?reactionURI rhea: Rhea_has_participant ?participant .
+      {
+        # Either the participant is directly CHEBI:17815
+        FILTER (?participant = chebi:17815)
+      }
+      UNION
+      {
+        # Or the participant is a descendant of CHEBI:17815
+        ?participant rdfs:subClassOf+ chebi:17815 .
+      }
+    }
+  }
+
+  # Optional: Link to EC numbers and UniProt entries via SERVICE clause
+  OPTIONAL {
+    ?reactionURI rhea:ec ?ecNumber .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?uniprotEntry <http://purl.uniprot.org/core/annotation> ?ecNumber .
+    }
+  }
+}

@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Proteins with binding sites for ligands similar to heme
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT 
+  ?protein
+  ?mnemonic
+  ?proteinName
+  ?ligandSimilarityScore
+  ?ligand
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ssc sachem:compound ?ligand; 
+      sachem:score ?ligandSimilarityScore ;
+      sachem:similaritySearch ?sss .
+        # Smiles of Heme
+    ?sss    sachem:query "CC1=C(CCC([O-])=O)C2=[N+]3C1=Cc1c(C)c(C=C)c4C=C5C(C)=C(C=C)C6=[N+]5[Fe-]3(n14)n1c(=C6)c(C)c(CCC([O-])=O)c1=C2";
+      sachem:cutoff "8e-1"^^xsd:double ;
+      sachem:aromaticityMode sachem:aromaticityDetect ;
+      sachem:similarityRadius 1 ;
+      sachem:tautomerMode sachem:ignoreTautomers .
+  }
+  ?protein up:mnemonic ?mnemonic ;
+    up:recommendedName/up:fullName ?proteinName ;
+    up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation ;
+      up:ligand/rdfs:subClassOf ?ligand .
+}
+ORDER BY DESC(?ligandSimilarityScore)
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?proteinName
+WHERE {
+  # Find proteins with binding sites
+  ?protein a up:Protein .
+  ?protein rdfs:label ?proteinName .
+  ?protein up:annotation ?bindingSiteAnnotation .
+  ?bindingSiteAnnotation a up:Binding_Site .
+  ?bindingSiteAnnotation rdfs:comment ?bindingSiteDescription .
+
+  # Filter for binding sites that mention ligands (this is a simplification, a more precise approach would require a more detailed ontology)
+  FILTER (CONTAINS(LCASE(?bindingSiteDescription), "ligand"))
+
+  #Potentially federate with ChEBI to find ligands similar to Heme.  However, this requires more detailed information about the UniProt and ChEBI ontologies and how they relate to each other.  A simple text search is not sufficient.
+  #SERVICE <https://sparql.rhea-db.org/sparql> {
+  #  #Find ligands similar to Heme
+  #  ?ligand rdfs:label "Heme" .
+  #}
+}
+LIMIT 100

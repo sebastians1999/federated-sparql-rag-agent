@@ -25,13 +25,13 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         
     Returns:
         Dict containing structured_output and steps
-    """
+    """                 
     
-    try:
+    try:                             
 
         configuration = Configuration.from_runnable_config(config)
 
-        USER_PROMPT = "{input}\n\nThink step by step." 
+        USER_PROMPT = """{{input}}\n\nThink step by step.""" 
 
 
         # Use per-task LLM config for SPARQL construction
@@ -40,7 +40,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         prompt_template = ChatPromptTemplate(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("human", "{{input}}")
+                ("human", USER_PROMPT)
             ],
             input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
             template_format="jinja2"

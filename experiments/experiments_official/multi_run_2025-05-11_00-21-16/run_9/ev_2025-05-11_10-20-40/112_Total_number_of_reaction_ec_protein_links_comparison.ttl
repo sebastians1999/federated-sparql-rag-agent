@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Query Rhea DB for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+  }
+  
+  # Query UniProt for proteins and their EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    ?protein rdfs:seeAlso ?ecNumber . # Assuming rdfs:seeAlso links to external resources like EC numbers
+    FILTER (REGEX(STR(?ecNumber), "^http://purl.uniprot.org/enzyme/")) # Filter to ensure it's an EC number
+  }
+  
+  # Attempt to link reactions and proteins.  This is the trickiest part, as the direct link may not exist.
+  # This assumes that there might be some cross-reference between Rhea and UniProt, possibly via EC number.
+  # The following is a placeholder and needs to be refined based on actual data.
+  
+  # Attempt to link reactions to proteins via EC number (this is a hypothetical link and needs validation)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     ?reaction rhea:equation ?equation . # Get the equation of the reaction
+     FILTER (CONTAINS(STR(?equation), STR(?ecNumber))) # Check if the equation string contains the EC number string
+  }
+}

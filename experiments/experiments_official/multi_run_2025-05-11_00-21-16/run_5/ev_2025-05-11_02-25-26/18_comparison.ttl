@@ -1,0 +1,57 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?reaction ?chebiName
+WHERE {
+  # Subquery to get ChEBI IDs with Cholestane skeleton from IDSM Sachem
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    PREFIX ids: <https://idsm.elixir-czech.cz/vocab/>
+    PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+    SELECT DISTINCT ?chebiID ?chebiName WHERE {
+      ?compound ids:smiles ?smiles .
+      ?compound ids:instanceOf chebi:35516 . # Cholestane skeleton
+      BIND(STRAFTER(STR(?compound), "https://idsm.elixir-czech.cz/chebi/CHEBI:") AS ?chebiID)
+      ?compound rdfs:label ?chebiName .
+    }
+  } # End of IDSM Sachem subquery
+
+  # Query Rhea DB for reactions involving the ChEBI IDs
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:equation ?equation .
+    {
+      ?equation rhea:has_reactant chebi:?chebiID .
+    } UNION {
+      ?equation rhea:has_product chebi:?chebiID .
+    }
+  } # End of Rhea DB query
+}

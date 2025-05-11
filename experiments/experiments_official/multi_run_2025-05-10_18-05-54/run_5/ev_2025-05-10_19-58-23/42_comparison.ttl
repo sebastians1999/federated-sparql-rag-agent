@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Attempt to retrieve patent identifiers from UniProtKB and potentially link them to other databases.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?patentIdentifier ?entry
+WHERE {
+  # Query UniProtKB for entries with patent cross-references.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?entry a up:Protein .
+    ?entry rdfs:seeAlso ?patentIdentifier . # Assuming rdfs:seeAlso might link to patent identifiers.
+    FILTER (REGEX(STR(?patentIdentifier), "^(EP|US)[0-9]+")) # Filter for common patent number formats.
+  }
+  
+  #OPTIONAL {
+  #  SERVICE <https://sparql.rhea-db.org/sparql> {
+  #    # Attempt to find related information in RheaDB using the patent identifier.
+  #    # This part is speculative as RheaDB might not directly link to patents.
+  #    ?reaction ?predicate ?patentIdentifier .
+  #  }
+  #}
+  
+  #OPTIONAL {
+  #  SERVICE <https://sparql.swisslipids.org/sparql/> {
+  #    # Attempt to find related information in SwissLipids using the patent identifier.
+  #    # This part is speculative as SwissLipids might not directly link to patents.
+  #    ?lipid ?predicate ?patentIdentifier .
+  #  }
+  #}
+}

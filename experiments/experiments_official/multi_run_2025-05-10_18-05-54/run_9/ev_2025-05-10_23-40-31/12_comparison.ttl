@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated query to retrieve Rhea reactions linked to protein sequences in UniProtKB
+
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?rheaReaction
+WHERE {
+  # Query UniProtKB for proteins (enzymes and transporters)
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    # Optional: Filter for enzymes or transporters if specific classes exist in UniProt
+    # This part depends on the actual UniProt ontology.  If there are specific classes
+    # for enzymes or transporters, they should be used here.  Otherwise, this part
+    # can be omitted to retrieve all proteins.
+    # Example (if enzyme class exists): ?protein a uniprot:Enzyme .
+    # Example (if transporter class exists): ?protein a uniprot:Transporter .
+    ?protein uniprot:encodedBy ?gene . # Assuming a link to gene
+  }
+  
+  # Query Rhea for reactions involving the gene/protein
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rhea:equation ?equation .
+    # Assuming there is a direct link or a path between Rhea reactions and genes/proteins.
+    # This might involve intermediate properties depending on the Rhea ontology.
+    # The following is a placeholder and needs to be adjusted based on the actual Rhea schema.
+    ?rheaReaction rhea:hasParticipant ?participant .
+    # Assuming the participant is linked to a gene or protein identifier.
+    # This part needs to be adjusted based on the actual Rhea schema.
+    FILTER (STRSTARTS(STR(?participant), "http://identifiers.org/uniprot")) # Filter to ensure the participant is a UniProt identifier
+  }
+}

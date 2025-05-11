@@ -12,11 +12,11 @@ async def main():
     """
     endpoint_sets = { "SwissLipids": [], "Uniprot": [], "Rhea": [] }
     experiment_dir = "experiments_official"
-    project_name = "pattern_assembler_v1.0_gemini-2.0-flash"
+    project_name = "cot_vanilla_v1.0_construction_v1.1_gemini-2.0-flash"
     timeout = 600
-    tracked_token_nodes = ["question_understanding", "planning", "pattern", "assembler"]
+    tracked_token_nodes = ["question_understanding", "sparql_query_construction"]
     dataset_dir = "/Users/sebastian/Documents/Bachelor Thesis/sparql-rag-agent/sparql-rag-agent/experiments/federated_sparql_dataset/examples_federated_19.04.2025"
-    num_runs = 4
+    num_runs = 5
     
     evaluator = MultiRunEvaluator(
         num_runs=num_runs,

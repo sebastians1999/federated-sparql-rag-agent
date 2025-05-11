@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated SPARQL query to connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?epoPatent
+WHERE {
+  # Query UniProtKB for entries with patent cross-references.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein ; # Assuming UniProt entries are of type Protein.
+                  up:citation ?citation . # Get the citation
+    ?citation rdf:type up:Patent ; # Filter for patent citations
+              up:publicationNumber ?patentPublicationNumber . # Get the publication number
+  }
+  
+  # Attempt to link to the EPO patent database using the publication number.
+  # Replace <EPO_SPARQL_ENDPOINT> with the actual endpoint URL if available.
+  # This assumes the EPO database has a property to link patents via publication number.
+  SERVICE <EPO_SPARQL_ENDPOINT> {
+    ?epoPatent <epo:publicationNumber> ?patentPublicationNumber . # Assuming epo:publicationNumber exists.
+  }
+}

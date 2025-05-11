@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# Endpoint: https://sparql.uniprot.org/sparql
+SELECT DISTINCT ?metabolite ?metaboliteName
+WHERE {
+  {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein a <http://purl.uniprot.org/core/Protein> .
+      ?protein <http://purl.uniprot.org/core/organism> <http://purl.uniprot.org/taxonomy/9606> .
+      ?protein <http://purl.uniprot.org/core/annotation> ?annotation .
+      ?annotation a <http://purl.uniprot.org/core/Annotation> .
+      ?annotation <http://purl.uniprot.org/core/about> ?metabolite .
+      ?metabolite a <http://purl.obolibrary.org/obo/CHEBI_24431> . #CHEBI:24431 is Metabolite
+      OPTIONAL {
+        ?metabolite <http://www.w3.org/2000/01/rdf-schema#label> ?metaboliteName .
+      }
+    }
+  }
+  UNION
+  {
+    SERVICE <https://sparql.swissbioportal.org/sparql> {
+      ?metabolite a <http://purl.obolibrary.org/obo/CHEBI_24431> .
+      ?metabolite <http://www.w3.org/2000/01/rdf-schema#label> ?metaboliteName .
+      ?association <http://semanticscience.org/resource/SIO_000628> ?metabolite . #SIO_000628 is "is substance that is metabolized by"
+      ?association <http://semanticscience.org/resource/SIO_000628> ?protein .
+      ?protein <http://purl.uniprot.org/core/organism> <http://purl.uniprot.org/taxonomy/9606> .
+    }
+  }
+}
+LIMIT 100

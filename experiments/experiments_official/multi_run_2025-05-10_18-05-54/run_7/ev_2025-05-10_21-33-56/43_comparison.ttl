@@ -1,0 +1,69 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated SPARQL query to connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?patentGrantDate
+WHERE {
+  # Query UniProtKB for entries with patent citations
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein .
+    ?uniprotEntry up:citation ?citation .
+    ?citation up:publication ?patent .
+    ?patent rdfs:label ?patentPublicationNumber . # Assuming patent publication number is stored as label
+    FILTER (REGEX(?patentPublicationNumber, "^[A-Z0-9]+$")) # Filter to ensure it looks like a patent number
+  }
+  
+  # Query EPO for patent grant date based on publication number
+  # This assumes there is an EPO SPARQL endpoint available and a suitable schema
+  # Since there isn't a provided EPO endpoint, this part is commented out.
+  # SERVICE <EPO_SPARQL_ENDPOINT> {
+  #   ?patentURI a <EPO_PATENT_CLASS> . # Replace with the correct class
+  #   ?patentURI <EPO_PUBLICATION_NUMBER_PROPERTY> ?patentPublicationNumber . # Replace with the correct property
+  #   ?patentURI <EPO_GRANT_DATE_PROPERTY> ?patentGrantDate . # Replace with the correct property
+  #   FILTER (?patentGrantDate < (NOW() - "P20Y"^^xsd:duration)) # Filter for patents granted more than 20 years ago
+  # }
+  
+  #BIND(STRDT(?patentPublicationNumber, xsd:string) AS ?patentPublicationNumberString)
+  #FILTER(CONTAINS(?patentPublicationNumberString, "WO"))
+  
+  #FILTER(CONTAINS(?patentPublicationNumber, "WO"))
+  
+  #FILTER(xsd:integer(?patentGrantDate) < ((YEAR(NOW()) - 20)))
+  
+  #FILTER (?patentGrantDate < (NOW() - "P20Y"^^xsd:duration))
+}

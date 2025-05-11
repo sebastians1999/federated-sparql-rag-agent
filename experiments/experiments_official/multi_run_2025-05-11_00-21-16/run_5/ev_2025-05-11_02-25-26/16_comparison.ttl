@@ -1,0 +1,85 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Find UniProt entries that are enzymes
+  ?enzyme a up:Protein .
+  ?enzyme rdfs:subClassOf <http://purl.uniprot.org/core/Enzyme> . # additional check to ensure it is an enzyme
+
+  ?enzyme rdfs:label ?enzymeName .
+
+  # Federate with SwissLipids to find reactions involving the specified lipid
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    PREFIX sl: <http://swisslipids.org/rdf#>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+    # Find reactions involving the specified lipid
+    ?reaction sl:has_substrate <http://swisslipids.org/rdf/SWISSLIPID:000399814> . # SWISSLIPID:000399814 is the identifier for the lipid
+
+    # Link the SwissLipids reaction to a UniProt reaction identifier (if available)
+    OPTIONAL {
+      ?reaction sl:xref ?uniprotReaction .
+    }
+  }
+
+  # Link UniProt enzyme to the reaction (using a reaction identifier if available)
+  OPTIONAL {
+    ?enzyme up:catalyticActivity ?reactionReference . # Try to link enzyme to reaction via catalytic activity
+  }
+
+  # Attempt to link via cross-references if direct catalytic activity link is not available
+  OPTIONAL {
+     ?enzyme up:database ?dbXref .
+     ?dbXref rdf:type up:ReactionReference .
+     ?dbXref rdfs:seeAlso ?uniprotReaction .
+  }
+
+  # Filter to ensure there is some link between the enzyme and the lipid reaction
+  FILTER (BOUND(?reactionReference) || BOUND(?uniprotReaction))
+}

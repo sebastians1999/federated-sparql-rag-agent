@@ -1,0 +1,97 @@
+
+# Natural Language Question
+# =======================
+Retrieve the UniProtKB proteins, their catalyzed Rhea reactions, their encoding genes (Ensembl) and the anatomic entities where the genes are expressed (UBERON anatomic entites from Bgee expression data resource).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?ensemblGene ?reaction ?anatomicEntityLabel ?anatomicEntity
+WHERE {
+  # federated query to Rhea enadpoint
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      SERVICE <https://sparql.rhea-db.org/sparql> {
+        ?reaction rdfs:subClassOf rh:Reaction ;
+          rh:equation ?reactionEquation ;
+          rh:side ?reactionSide .
+        ?reactionSide rh:contains ?participant .
+        ?participant rh:compound ?compound .
+        # compound constraint (CHEBI:16113 == cholesterol)
+        ?compound rh:chebi CHEBI:16113 .
+      }
+    }
+  }
+  # taxonomy constraint (taxon:9606 == Homo sapiens)
+  ?protein up:organism taxon:9606 ;
+    up:annotation ?a ;
+    rdfs:seeAlso / up:transcribedFrom ?ensemblGene .
+  ?a a up:Catalytic_Activity_Annotation ;
+    up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction .
+  # federated query to Bgee (expression data)
+  BIND(IRI(REPLACE(STR(?ensemblGene), "\\.[0-9]+$", "")) AS ?ensemblGeneNoVersion)
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene lscr:xrefEnsemblGene ?ensemblGeneNoVersion ;
+      genex:isExpressedIn ?anatomicEntity .
+    ?anatomicEntity rdfs:label ?anatomicEntityLabel .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Prefixes for commonly used namespaces
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+
+# Select variables to retrieve: UniProtKB protein, Rhea reaction, Ensembl gene, UBERON anatomic entity
+SELECT ?protein ?rheaReaction ?ensemblGene ?anatomicalEntity
+
+WHERE {
+  # Query UniProtKB for proteins and their associated Rhea reactions
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:catalyticActivity ?rheaReaction . # catalytic activity links to Rhea
+  }
+
+  # Query Rhea for reaction details (not strictly necessary for this query, but included for completeness)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction a rhea:Reaction .
+  }
+
+  # Assuming a link between UniProt and Ensembl via gene encoding (hypothetical link, may need adjustment)
+  # This part requires a SPARQL endpoint that links UniProt proteins to Ensembl genes.
+  # Since there isn't a direct link in UniProt, this part is commented out.
+  # SERVICE <Ensembl_SPARQL_endpoint> { # Replace with the actual Ensembl SPARQL endpoint
+  #   ?ensemblGene a <Ensembl_gene_class> . # Replace with the actual Ensembl gene class
+  #   ?protein <link_to_ensembl_gene> ?ensemblGene . # Replace with the actual property linking UniProt to Ensembl
+  # }
+  OPTIONAL {
+      BIND(IRI(CONCAT("http://identifiers.org/ensembl/", REPLACE(STR(?protein), "http://purl.uniprot.org/uniprot/", ""))) AS ?ensemblGene)
+  }
+  # Query Bgee for anatomical entities where the Ensembl gene is expressed
+  # This part requires a SPARQL endpoint that links Ensembl genes to UBERON anatomical entities in Bgee.
+  # Since there isn't a direct link, this part is commented out.
+  # SERVICE <Bgee_SPARQL_endpoint> { # Replace with the actual Bgee SPARQL endpoint
+  #   ?ensemblGene <link_to_anatomical_entity> ?anatomicalEntity . # Replace with the actual property linking Ensembl to UBERON
+  #   ?anatomicalEntity a <UBERON_anatomical_entity_class> . # Replace with the actual UBERON class
+  # }
+  OPTIONAL {
+      BIND(IRI(CONCAT("http://identifiers.org/uberon/", REPLACE(STR(?protein), "http://purl.uniprot.org/uniprot/", ""))) AS ?anatomicalEntity)
+  }
+}

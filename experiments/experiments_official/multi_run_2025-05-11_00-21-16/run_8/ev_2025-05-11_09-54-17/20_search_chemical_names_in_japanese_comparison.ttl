@@ -1,0 +1,41 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chemicalName
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find chemical entities in ChEBI with names starting with "Japanese"
+    ?chemical a chebi:24431 . # CHEBI chemical entity
+    ?chemical rdfs:label ?chemicalName .
+    FILTER regex(?chemicalName, "^Japanese", "i") # Case-insensitive match
+  }
+}

@@ -1,0 +1,56 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT COUNT(DISTINCT ?reaction) AS ?totalLinks
+WHERE {
+  # Query Rhea for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+
+  # Query UniProt for proteins and their EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein ;
+             uniprot:annotation ?annotation .
+    ?annotation a uniprot:EC_Annotation ;
+                rdfs:label ?ecNumber .
+  }
+
+  # Assuming there's a way to link Rhea reactions to EC numbers (proteins)
+  # This is a placeholder and needs to be adjusted based on the actual schema
+  # The link might be through a common ChEBI identifier or similar
+  # This part is speculative and requires schema knowledge
+  FILTER (CONTAINS(STR(?reaction), ?ecNumber)) # This is a very loose filter and needs refinement
+}

@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?rheaReaction ?rheaReactionId ?protein ?proteinAccession
+WHERE {
+  # Query Rhea for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rdf:type rhea:Reaction .
+    ?rheaReaction rhea:id ?rheaReactionId .
+    # Assuming Rhea reactions are linked to UniProt proteins via some property, e.g., rhea:enzyme
+    # This is a placeholder, the actual property might be different and needs to be verified in Rhea's schema
+    ?rheaReaction rhea:enzyme ?protein .
+  }
+  
+  # Query UniProt for protein sequences that are enzymes or transporters
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    ?protein uniprot:accession ?proteinAccession .
+    # Filter for enzymes and transporters.  This might need adjustment based on UniProt's ontology.
+    # This is a simplified filter; a more precise filter might be needed based on UniProt's annotation properties.
+    FILTER (REGEX(?proteinAccession, "^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$")) # added a filter to get only valid uniprot accessions
+  }
+}

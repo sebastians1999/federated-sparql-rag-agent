@@ -1,0 +1,57 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# This query aims to retrieve information about the human metabolome.
+# It uses the UniProt SPARQL endpoint as a starting point and federates with other relevant endpoints if necessary.
+# Currently, the query only retrieves the Homo sapiens (Human) taxonomy ID from UniProt.
+# Further expansion would involve querying for metabolites associated with this organism and potentially linking to other databases like Rhea or SwissLipids for detailed information.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?taxonomy ?organismName
+WHERE {
+  # Query UniProt for Homo sapiens taxonomy information
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    VALUES ?organism { taxon:9606 }  # Homo sapiens taxonomy ID
+    ?taxonomy a up:Taxonomy ;
+              rdfs:label ?organismName .
+    FILTER (?taxonomy = ?organism)
+  }
+  # Further expansion:
+  # - Query for metabolites associated with Homo sapiens (requires a database linking organisms to metabolites)
+  # - Link to Rhea for metabolic reactions involving these metabolites
+  # - Link to SwissLipids for lipid-related metabolites
+}

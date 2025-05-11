@@ -1,0 +1,85 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swissbioportal.org/sparql
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  {
+    VALUES ?lipid { <http://identifiers.org/swisslipids:SWISSLIPID:000399814> }
+    SERVICE <https://sparql.swissbioportal.org/sparql> {
+      ?lipidClass rdfs:subClassOf* ?lipid .
+      ?compound a ?lipidClass .
+    }
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      {
+        ?rheaID rdfs:label ?equation ;
+                 rhea:equation ?equation .
+        ?rheaID rhea:hasParticipant ?compound .
+      }
+      UNION
+      {
+        ?rheaID rdfs:label ?equation ;
+                 rhea:equation ?equation .
+        ?rheaID rhea:hasMediator ?compound .
+      }
+    }
+  }
+  UNION
+  {
+    VALUES ?ceramide { <http://purl.obolibrary.org/obo/CHEBI_17761> }
+    SERVICE <https://sparql.swissbioportal.org/sparql> {
+      ?ceramideClass rdfs:subClassOf* ?ceramide .
+      ?compound a ?ceramideClass .
+    }
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      {
+        ?rheaID rdfs:label ?equation ;
+                 rhea:equation ?equation .
+        ?rheaID rhea:hasParticipant ?compound .
+      }
+      UNION
+      {
+        ?rheaID rdfs:label ?equation ;
+                 rhea:equation ?equation .
+        ?rheaID rhea:hasMediator ?compound .
+      }
+    }
+  }
+}

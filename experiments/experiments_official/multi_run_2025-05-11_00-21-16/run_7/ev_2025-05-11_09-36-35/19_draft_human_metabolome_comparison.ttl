@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?metaboliteName ?metaboliteID ?proteinName ?geneName
+WHERE {
+  # Query UniProt for human proteins and related metabolites
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 .  # Filter for Homo sapiens (human)
+    ?protein rdfs:label ?proteinName .
+    
+    # Assuming some relation between protein and metabolite exists, e.g., enzyme catalyzing a reaction
+    # Replace with the actual property if known.  This is a placeholder.
+    ?protein up:annotation ?annotation .
+    ?annotation rdfs:comment ?metaboliteName . #Assumes metabolite name is in annotation comment
+    BIND(STRBEFORE(?metaboliteName, " ") AS ?metaboliteID) #Extracting metabolite ID
+    
+    OPTIONAL { ?protein up:encodedBy ?gene . ?gene rdfs:label ?geneName . }
+  }
+  
+  #Potentially query RheaDB for reactions involving human proteins and metabolites
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+      #This part is highly speculative and requires knowledge of RheaDB schema
+      #FILTER (CONTAINS(STR(?reaction), ?metaboliteID))
+  }
+  
+  #Potentially query SwissLipids for lipid metabolites
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+      #This part is highly speculative and requires knowledge of SwissLipids schema
+      #FILTER (CONTAINS(STR(?lipid), ?metaboliteName))
+  }
+}

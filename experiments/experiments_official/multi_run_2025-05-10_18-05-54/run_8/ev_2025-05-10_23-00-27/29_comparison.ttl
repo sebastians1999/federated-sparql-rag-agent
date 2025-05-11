@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# The user is asking to search for Japanese abbreviations and long forms in UniProt.
+# Since ALLIE is an abbreviation/long form service, and the user wants to search UniProt using Japanese,
+# this query will focus on finding UniProt entries that might have Japanese-related information.
+# However, without a direct link between ALLIE and UniProt in the provided context,
+# the query will primarily search UniProt for entries associated with "Japanese" as a keyword or organism.
+# Further refinement would be needed if ALLIE data were directly accessible via a SPARQL endpoint or API.
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?protein ?proteinName ?organismName
+WHERE {
+  # Find proteins associated with the term "Japanese" in UniProt taxonomy.
+  # This is a broad search and may need refinement based on specific Japanese terms or identifiers.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:1185717 .  # Japanobotrychium
+    ?protein rdfs:label ?proteinName .
+    
+    # Get the organism name
+    taxon:1185717 rdfs:label ?organismName .
+  }
+}

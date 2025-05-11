@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?rheaReaction ?protein
+WHERE {
+  # Select Rhea reactions
+  ?rheaReaction a rhea:Reaction . # Assuming rhea:Reaction is the class for Rhea reactions
+
+  # Find the relationship between Rhea reactions and UniProt entries.
+  # Assuming rhea:equation links to a reaction equation, and that equation
+  # might have participants that are UniProt proteins. This is an assumption
+  # and might need adjustment based on the actual Rhea schema.
+  ?rheaReaction rhea:equation ?equation .
+  ?equation rhea:hasParticipant ?participant .
+
+  # Now, federate to UniProt to find proteins that are linked to the participants.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein ; # Select UniProt proteins
+             rdfs:seeAlso ?participant . # Assuming rdfs:seeAlso or similar links to Rhea participants
+  }
+}

@@ -1,0 +1,70 @@
+
+# Natural Language Question
+# =======================
+Proteins with binding sites for ligands similar to heme
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT 
+  ?protein
+  ?mnemonic
+  ?proteinName
+  ?ligandSimilarityScore
+  ?ligand
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ssc sachem:compound ?ligand; 
+      sachem:score ?ligandSimilarityScore ;
+      sachem:similaritySearch ?sss .
+        # Smiles of Heme
+    ?sss    sachem:query "CC1=C(CCC([O-])=O)C2=[N+]3C1=Cc1c(C)c(C=C)c4C=C5C(C)=C(C=C)C6=[N+]5[Fe-]3(n14)n1c(=C6)c(C)c(CCC([O-])=O)c1=C2";
+      sachem:cutoff "8e-1"^^xsd:double ;
+      sachem:aromaticityMode sachem:aromaticityDetect ;
+      sachem:similarityRadius 1 ;
+      sachem:tautomerMode sachem:ignoreTautomers .
+  }
+  ?protein up:mnemonic ?mnemonic ;
+    up:recommendedName/up:fullName ?proteinName ;
+    up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation ;
+      up:ligand/rdfs:subClassOf ?ligand .
+}
+ORDER BY DESC(?ligandSimilarityScore)
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?protein ?proteinName ?ligand ?ligandName
+WHERE {
+  # Find proteins in UniProt that have a binding site
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein rdfs:label ?proteinName .
+    ?protein up:interaction ?interaction .
+    ?interaction up:bindingSite ?bindingSite .
+    ?bindingSite rdfs:label ?bindingSiteLabel .
+  }
+
+  # Find ligands in ChEBI that are similar to heme
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?ligand rdfs:subClassOf* chebi:CHEBI_147291 .  # CHEBI_147291 is the ChEBI ID for Fe(II)-heme i(2-)
+    ?ligand rdfs:label ?ligandName .
+  }
+
+  # Optional: Filter for proteins that interact with ligands similar to heme.  This part might not be directly available as a direct link, so we'll rely on the class relationship.
+  # This assumes that if a protein has a binding site and there are ligands similar to heme, we can infer a relationship.  A more precise link would require more specific properties in the knowledge graph.
+  #FILTER CONTAINS(LCASE(?bindingSiteLabel), "heme") #An alternative way to filter for heme binding sites if direct interaction property is not available
+}

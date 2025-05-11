@@ -18,9 +18,7 @@ Potential entities extracted from the user question {{potential_entities}}
 
 Potential classes extracted from the user question  {{potential_classes}}
 
-Example queries (**Note:** These queries are examples of a natural questions with a corresponding sparql query. They may be not federated, but give hints about how the schema of an endpoint look like) {{extracted_example_queries}}
-
-The following are SPARQL endpoint descriptions where the federated sparql query can be executed on or can federate with: 
+The following are SPARQL endpoint descriptions where the federated sparql query can be executed on or can federate with:
 
 ---
 UniProt SPARQL
@@ -60,9 +58,9 @@ Generate a **federated SPARQL query** to answer the user question, utilising the
                                                                                                  
                          - Include only this single primary endpoint URL comment at the start. No other text on this line or preceding it within the code block.
 
-8. **Context Adherence:** - Always derive your answer from focusing on endpoint URLs and schema information provided in the input context (example queries, potential entities and classes). Do not try to create a query from nothing and do not provide a generic query.
+8. **Context Adherence:** - Always derive your answer from focusing on endpoint URLs and schema information provided in the input context. Do not try to create a query from nothing and do not provide a generic query.
 
-                          - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.                                                                                   
+                          - Due to the nature of federated sparql queries it might be that some are not included in the input context. In this case reason about for which endpoints (databases) it would make sense to federate with.                                           
 """
 )
 

@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Find reactions involving the metabolite CHEBI:83137 and their catalyzing enzymes
+
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?reaction ?reactionLabel ?enzyme ?enzymeLabel
+WHERE {
+  # Find reactions that have CHEBI:83137 as a participant
+  {
+    ?reaction rhea: Rhea_has_participant chebi:83137 .
+  }
+  UNION
+  {
+    ?reaction rhea: Rhea_has_side ?side .
+    ?side rhea: Rhea_has_participant chebi:83137 .
+  }
+
+  ?reaction rdfs:label ?reactionLabel .
+
+  # OPTIONAL: Find enzymes catalyzing the reaction.  This assumes Rhea has enzyme annotation.
+  OPTIONAL {
+    ?reaction rhea: Rhea_has_catalyst ?enzyme .
+    ?enzyme rdfs:label ?enzymeLabel .
+  }
+}

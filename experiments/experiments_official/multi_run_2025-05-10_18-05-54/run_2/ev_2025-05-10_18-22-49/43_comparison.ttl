@@ -1,0 +1,56 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?epoPatent WHERE {
+  # Query UniProtKB for entries with patent citations
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein ; # Assuming UniProt entries are of type Protein
+                  up:citation ?citation .
+    ?citation up:publicationNumber ?patentPublicationNumber .
+    FILTER (REGEX(?patentPublicationNumber, "^[A-Z0-9]+$")) # Filter to ensure it looks like a patent publication number
+  }
+
+  # Query EPO patent database for patents with matching publication numbers and grant date more than 20 years ago
+  SERVICE <https://ops.epo.org/3.2/rest-services/register> {
+    # Assuming there's a way to query EPO by publication number and filter by grant date.  This is a placeholder.
+    # Replace with the actual EPO query mechanism.  The following is illustrative.
+    BIND(URI(CONCAT("http://data.epo.org/patent/", ?patentPublicationNumber)) AS ?epoPatent) # Example URI construction
+    #FILTER (?grantDate < (NOW() - YEAR("20"^^xsd:integer))) # Example date filter - needs actual EPO property
+  }
+}

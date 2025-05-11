@@ -1,0 +1,53 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Hypothetical federated query to connect UniProtKB entries with patent information based on publication numbers.
+# Note: This query assumes the existence of a patent endpoint and a property linking UniProt entries to patent publication numbers.
+# It also assumes a property in the patent endpoint that identifies the publication number.
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?uniprotEntry ?patentPublicationNumber ?patentTitle
+WHERE {
+  # Query UniProt for entries and their associated patent publication numbers.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein .
+    ?uniprotEntry rdfs:seeAlso ?patentResource . # Assuming rdfs:seeAlso links to patent resources
+    ?patentResource up:publication ?patentPublicationNumber . # Assuming up:publication gives the publication number
+  }
+
+  # Query the hypothetical patent endpoint for patent details based on the publication number.
+  SERVICE <http://patents.example.org/sparql> { # Replace with the actual patent endpoint URL
+    ?patent a <http://patents.example.org/ontology/Patent> . # Assuming a Patent class
+    ?patent <http://patents.example.org/ontology/publicationNumber> ?patentPublicationNumber . # Assuming a publicationNumber property
+    ?patent <http://purl.org/dc/terms/title> ?patentTitle . # Get the title of the patent
+  }
+}

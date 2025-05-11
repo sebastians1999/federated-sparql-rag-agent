@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Query Rhea for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+  
+  # Query UniProt for proteins and their EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein ;
+             uniprot:annotation ?annotation .
+    ?annotation rdf:type uniprot:EC_Annotation ;
+                rdfs:label ?ecNumber .
+  }
+  
+  # Attempt to link reactions and proteins via EC numbers.  This assumes that
+  # Rhea reactions might have EC number annotations or that the reaction participants
+  # (enzymes) are linked to proteins in UniProt via EC numbers.  This is the
+  # trickiest part, as the direct link might not exist and requires inference.
+  # The following attempts to find reactions that are catalyzed by enzymes
+  # that have the same EC number as proteins in UniProt.
+  
+  # This part is highly speculative and depends on the specific data model
+  # in Rhea and UniProt.  It might require more sophisticated linking
+  # strategies or different properties.  It's included as a starting point.
+  
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     ?reaction rhea:enzyme ?enzyme .
+     ?enzyme rdfs:label ?ecNumber . # Assuming enzymes are labeled with EC numbers
+  }
+  
+  FILTER(CONTAINS(?ecNumber, "ec")) #Filtering by the user provided entity
+}

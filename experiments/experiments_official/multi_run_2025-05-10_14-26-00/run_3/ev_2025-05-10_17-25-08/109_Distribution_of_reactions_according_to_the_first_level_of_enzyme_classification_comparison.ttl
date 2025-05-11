@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# Endpoint: https://sparql.swissbiopics.org/
+
+SELECT ?enzymeLevel1 (COUNT(?reaction) AS ?reactionCount)
+WHERE {
+  SERVICE <https://sparql.swissbiopics.org/> {
+    ?enzyme rdfs:subClassOf* <http://purl.obolibrary.org/obo/CHEBI_16708> .  # Enzyme class
+    ?enzyme rdfs:label ?enzymeLabel .
+    BIND(SUBSTR(STR(?enzymeLabel), 1, 1) AS ?enzymeLevel1) # Extract first character as level 1
+  }
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf* <http://rdf.rhea-db.org/45248> . # Reaction class
+    ?reaction rdfs:label ?reactionLabel .
+  }
+  # Assuming a link between enzymes and reactions exists (replace with actual property if available)
+  # Example: ?enzyme someProperty ?reaction .
+  #FILTER (CONTAINS(STR(?reactionLabel), STR(?enzymeLabel))) . # Example filter based on labels
+}
+GROUP BY ?enzymeLevel1
+ORDER BY DESC(?reactionCount)

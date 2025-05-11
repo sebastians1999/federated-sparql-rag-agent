@@ -1,0 +1,65 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to search for chemical names related to "Japanese" and translate them to English using ALLIE.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?chemicalName ?englishTranslation
+WHERE {
+  # Subquery to find chemical entities related to "Japanese"
+  {
+    SELECT DISTINCT ?chemical
+    WHERE {
+      # You might need to adjust this part based on how "Japanese" relates to chemicals in the data.
+      # This is a placeholder; replace with the appropriate relationship if available.
+      # Example: Assuming there's a property linking chemicals to organisms/regions.
+      ?chemical rdfs:label ?chemicalName . # Get the label of the chemical
+      FILTER (REGEX(?chemicalName, "Japanese", "i")) # Filter for chemicals with "Japanese" in their name (case-insensitive)
+    }
+  }
+
+  # Attempt to translate the chemical name to English using ALLIE (if available).
+  # This part assumes that there is a way to link to ALLIE or another translation service.
+  # Since direct translation via SPARQL is not possible, this is a conceptual representation.
+  # In reality, you would need to use an external service or a dataset containing translations.
+  BIND(STR(?chemicalName) AS ?chemicalNameToTranslate) # Bind the chemical name to a variable
+
+  # Placeholder for translation service.  This needs to be replaced with actual translation logic.
+  # Example: If there were a property indicating the English translation:
+  # ?chemical :englishTranslation ?englishTranslation .
+  # Or, if there were a service to query:
+  # SERVICE <http://example.org/translationService> {
+  #   ?translationRequest :input ?chemicalNameToTranslate .
+  #   ?translationRequest :output ?englishTranslation .
+  # }
+
+  # For now, just return the original chemical name as the "translation" if no translation service is available.
+  BIND(?chemicalName AS ?englishTranslation) # If no translation is available, return the original name.
+}

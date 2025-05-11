@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated query to retrieve Rhea reactions linked to protein sequences in UniProtKB.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?rheaReaction
+WHERE {
+  # Query UniProtKB for proteins (enzymes and transporters)
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    # Assuming enzymes and transporters are proteins with specific annotations or functions
+    # This part might need refinement based on specific enzyme/transporter properties in UniProt
+    ?protein rdfs:seeAlso ?rheaURL . # Look for cross-references to Rhea
+    FILTER (REGEX(STR(?rheaURL), "rhea-db.org/")) # Filter to ensure it's a Rhea URL
+  }
+  
+  # Extract the Rhea ID from the URL
+  BIND(STRAFTER(STR(?rheaURL), "rhea-db.org/reaction/") AS ?rheaId)
+  
+  # Construct the Rhea reaction URI
+  BIND(URI(CONCAT("http://rdf.rhea-db.org/reaction/", ?rheaId)) AS ?rheaReaction)
+}

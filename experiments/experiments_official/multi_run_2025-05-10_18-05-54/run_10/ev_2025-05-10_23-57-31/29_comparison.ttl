@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# The user is asking to use ALLIE service to search for abbreviations/long forms in Japanese and English, and then use the results to search in UniProt.
+# Since I cannot directly interact with the ALLIE service, I will focus on how to query UniProt given that we have abbreviations/long forms.
+# This query assumes we want to find UniProt entries that have a keyword matching either the abbreviation or the long form.
+# Note: This is a simplified approach as direct integration with ALLIE is not possible within this framework.
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?proteinName
+WHERE {
+  # Replace "abbreviation_or_long_form" with the actual abbreviation or long form obtained from ALLIE.
+  # This example uses a placeholder.  In a real application, you would substitute this with the ALLIE result.
+  VALUES (?keyword) {("abbreviation_or_long_form")}
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein rdfs:label ?proteinName . # Get the protein name/label
+    ?protein up:keyword ?keywordResource . # Link to keyword resource
+    ?keywordResource rdfs:label ?keyword . # Get the keyword label
+
+    FILTER (CONTAINS(LCASE(?keyword), LCASE(?keyword))) # Case-insensitive matching of the keyword
+  }
+}

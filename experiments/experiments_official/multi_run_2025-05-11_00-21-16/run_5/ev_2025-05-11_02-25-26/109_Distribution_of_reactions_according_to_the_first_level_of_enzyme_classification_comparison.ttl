@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?enzymeClass (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Query Rhea for reactions involving enzymes
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:equation ?equation .
+    ?reaction rhea:catalyzedBy ?enzyme .
+  }
+  
+  # Attempt to retrieve enzyme classification from UniProt.  This might not be directly available and may require further linking.
+  # The following is a placeholder and might need adjustment based on UniProt's schema.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    OPTIONAL {
+      ?enzyme rdfs:seeAlso ?uniprotEnzyme .  # Assuming rdfs:seeAlso links to UniProt.  Adjust if needed.
+      ?uniprotEnzyme <http://purl.uniprot.org/core/enzymeClassification> ?enzymeClass . # Assuming this property exists.  Adjust if needed.
+    }
+  }
+  
+  # Filter out reactions where enzyme classification is missing (if needed)
+  FILTER (BOUND(?enzymeClass))
+}
+GROUP BY ?enzymeClass
+ORDER BY DESC(?reactionCount)

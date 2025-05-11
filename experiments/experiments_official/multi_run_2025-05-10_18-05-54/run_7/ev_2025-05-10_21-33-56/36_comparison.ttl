@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+Find the orthologous proteins for UniProtKB entry P05067 using the <a href="http://www.orthod.org">OrthoDB database</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?orthoGroup
+  ?scientificName
+  ?functionComment
+  ?prefferedGeneName
+  ((STRLEN(?value) - ?medianLength) as ?deviationFromMedianLength)
+WHERE
+{
+  uniprotkb:P05067 a up:Protein ;
+        up:organism/up:scientificName ?scientificName ;
+        rdfs:seeAlso ?orthoGroup ;
+        up:encodedBy/skos:prefLabel ?prefferedGeneName ;
+          up:sequence/rdf:value ?value .
+  OPTIONAL {
+    ?protein up:annotation ?functionAnnotation .
+    ?functionAnnotation a up:Function_Annotation ;
+      rdfs:comment ?functionComment .
+  }
+  SERVICE <https://sparql.orthodb.org/sparql>{
+    ?orthoGroup orthodb:ogMedianProteinLength ?medianLength .
+    ?orthoGroup orthodb:hasMember ?xref .
+    ?xref orthodb:xref/orthodb:xrefResource uniprotkb:P05067 .
+  }
+}
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Find orthologous proteins for UniProtKB entry P05067
+
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?geneName ?organismName
+WHERE {
+  # Define the UniProtKB entry of interest
+  VALUES ?uniprotEntry { <http://purl.uniprot.org/uniprot/P05067> }
+
+  # Query UniProt for the gene and organism associated with the UniProt entry
+  ?uniprotEntry up:gene ?gene .
+  ?gene rdfs:label ?geneName .
+  ?uniprotEntry up:organism ?organism .
+  ?organism rdfs:label ?organismName .
+
+  # Assuming OrthoDB has ortholog relationships, though direct federation isn't possible without OrthoDB endpoint.
+  # This part would ideally query OrthoDB if a SPARQL endpoint was available, linking via gene name or similar.
+  # Since there is no OrthoDB endpoint, this part is illustrative and requires manual adaptation.
+  # SERVICE <OrthoDB_SPARQL_ENDPOINT> {  # Replace with actual OrthoDB endpoint if available
+  #   ?ortholog orthodb:geneName ?geneName . # Assuming OrthoDB uses gene names
+  #   ?ortholog orthodb:protein ?protein .    # Assuming OrthoDB has protein identifiers
+  # }
+  # Placeholder for ortholog protein. Adapt this part when OrthoDB endpoint is available.
+  BIND("Ortholog Protein - Requires OrthoDB SPARQL endpoint" AS ?protein)
+}

@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to search for chemical names related to "Japanese" and translate them to English using ALLIE.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?chemicalName ?englishTranslation
+WHERE {
+  # Subquery to find chemical entities related to "Japanese" from Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:comment ?chemicalName .
+    FILTER (REGEX(?chemicalName, "Japanese", "i")) # Filter for chemical names containing "Japanese" (case-insensitive)
+  }
+
+  # Attempt to translate the chemical name to English using ALLIE (example service, replace if needed)
+  # This part assumes there's a service that can translate chemical names.  Adjust as needed.
+  SERVICE <http://translator.linkeddata.es/sparql> { # Replace with actual ALLIE endpoint if available
+    # This is a placeholder.  ALLIE's actual query structure would go here.
+    # Example:
+    #   SELECT ?englishTranslation WHERE {
+    #     ?translation a <http://www.w3.org/2002/07/owl#Translation> .
+    #     ?translation <http://www.w3.org/2000/01/rdf-schema#label> ?englishTranslation .
+    #     ?translation <http://example.org/sourceText> ?chemicalName . # Assuming a property linking to the source text
+    #     FILTER (LANG(?englishTranslation) = "en")
+    #   }
+    BIND(STR("Translation not available via SPARQL") AS ?englishTranslation) # Placeholder since a real ALLIE query is not possible without knowing its schema
+  }
+}

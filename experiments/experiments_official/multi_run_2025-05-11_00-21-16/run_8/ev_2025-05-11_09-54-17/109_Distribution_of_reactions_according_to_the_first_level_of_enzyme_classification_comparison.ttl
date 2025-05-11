@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?enzymeClass (COUNT(?reaction) AS ?reactionCount)
+WHERE {
+  # Get reactions from Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+
+  # Try to link reactions to UniProt to get enzyme information.  This is an assumption, as Rhea may not directly link to EC numbers.
+  # We're assuming a predicate like 'rhea:enzyme' or similar exists that links to a UniProt ID.  If not, this part will need adjustment.
+  OPTIONAL {
+    ?reaction rdfs:seeAlso ?uniprotID .  # Assuming rdfs:seeAlso links to UniProt.  Adjust if needed.
+    FILTER (STRSTARTS(STR(?uniprotID), "http://purl.uniprot.org/uniprot/")) # Filter to ensure it's a UniProt ID
+
+    # Query UniProt for EC number.
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?uniprotResource <http://purl.uniprot.org/core/api/keyword> ?enzymeClassResource . # Assuming this property links to EC.  Adjust if needed.
+      ?enzymeClassResource rdf:type <http://purl.uniprot.org/core/taxonomy/Enzyme> . # Assuming this is the type for enzyme classes
+      ?enzymeClassResource rdfs:label ?enzymeClass . # Get the label of the enzyme class
+      FILTER(REGEX(?uniprotResource, SUBSTR(STR(?uniprotID), 31))) # Filter to match the UniProt ID from Rhea
+    }
+  }
+
+  # If no UniProt link is found, we'll have unbound ?enzymeClass.  We can group these as "Unclassified".
+  BIND(IF(BOUND(?enzymeClass), ?enzymeClass, "Unclassified") AS ?finalEnzymeClass)
+}
+GROUP BY ?enzymeClass
+ORDER BY DESC(?reactionCount)

@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sl: <http://swisslipids.org/rdf#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Find enzymes associated with sphingolipids in SwissLipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?lipid sl:class 'Sphingolipids' . # Assuming 'Sphingolipids' is a valid class in SwissLipids
+    ?enzyme sl:participatesIn ?lipidMetabolism .
+    ?enzyme rdfs:label ?enzymeName .
+  }
+
+  # Filter for human enzymes using UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme up:organism taxon:9606 .  # 9606 is the NCBI taxonomy ID for Homo sapiens
+  }
+
+  # Optional: Check if the enzyme is annotated in ChEMBL (requires a ChEMBL SPARQL endpoint)
+  # SERVICE <ChEMBL_SPARQL_ENDPOINT> {
+  #   ?enzyme chembl:target ?target . # Example: Replace with the correct ChEMBL properties
+  #   ?target rdfs:label ?targetName .
+  #   FILTER (CONTAINS(LCASE(?targetName), "enzyme"))
+  # }
+}

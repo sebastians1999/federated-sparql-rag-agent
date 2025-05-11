@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+# Federated query to retrieve Rhea reactions associated with a given lipid (SWISSLIPID:000399814, Ceramide) and its child concepts.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://www.swisslipids.org/rdf#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Find the lipid and its child concepts in SwissLipids
+  {
+    # Get the specified lipid
+    VALUES ?lipid { <http://www.swisslipids.org/rdf/SWISSLIPID:000399814> }
+    ?lipid rdfs:label ?lipidLabel .
+  }
+  UNION
+  {
+    #Alternatively, get the ceramide from CHEBI
+    VALUES ?chebiEntity { chebi:CHEBI_17761 } #Ceramide CHEBI ID
+    # Find lipids in SwissLipids that are related to the ChEBI entity
+    ?lipid sl:related_to ?chebiEntity .
+    ?lipid rdfs:label ?lipidLabel .
+  }
+
+  # Find reactions in Rhea that involve the lipid or its child concepts
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaId rdfs:label ?equation .
+    ?rheaId rdfs:comment ?comment .
+    FILTER (CONTAINS(LCASE(?comment), LCASE(?lipidLabel)))
+  }
+}

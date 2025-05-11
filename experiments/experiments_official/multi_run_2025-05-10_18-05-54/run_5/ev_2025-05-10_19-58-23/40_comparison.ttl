@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to retrieve human enzymes that metabolize sphingolipids
+
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?enzymeName ?enzymeUri
+WHERE {
+  # Find human enzymes in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzymeUri a up:Protein .
+    ?enzymeUri up:organism taxon:9606 .  # Homo sapiens (human)
+    ?enzymeUri rdfs:label ?enzymeName .
+    # Filter for enzymes (EC numbers)
+    FILTER (REGEX(?enzymeName, "enzyme", "i")) # Case-insensitive search for "enzyme" in the label
+  }
+
+  # Find sphingolipids in ChEBI
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+      ?lipid a <http://purl.obolibrary.org/obo/CHEBI_64583> . # Assuming sphingolipids are instances of CHEBI_64583 or a subclass
+  }
+
+  # Find reactions in Rhea involving both the enzyme and sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:label ?reactionLabel .
+    ?reaction <http://purl.obolibrary.org/obo/RO_0002333> ?enzymeUri . # Enzyme participates in the reaction
+    ?reaction <http://purl.obolibrary.org/obo/RO_0002333> ?lipid . # Lipid participates in the reaction
+  }
+}

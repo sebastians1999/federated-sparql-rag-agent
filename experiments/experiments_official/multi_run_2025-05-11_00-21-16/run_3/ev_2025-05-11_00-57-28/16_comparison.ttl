@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Query UniProt for enzymes
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme a up:Protein .
+    ?enzyme rdfs:label ?enzymeName .
+    ?reaction up:catalyticActivity ?enzyme . # Enzymes catalyze reactions
+    ?reaction rdfs:seeAlso ?swisslipidsReaction . # Link to SwissLipids reaction
+  }
+
+  # Query SwissLipids for reactions involving the specified lipid
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?swisslipidsReaction a <http://www.swisslipids.org/rdf/SwissLipids#Reaction> .
+    ?swisslipidsReaction <http://www.swisslipids.org/rdf/SwissLipids#substrate> ?lipid .
+    ?swisslipidsReaction <http://www.swisslipids.org/rdf/SwissLipids#product> ?product .
+    ?lipid <http://www.swisslipids.org/rdf/SwissLipids#identifier> "SWISSLIPID:000399814" . # Filter for the specified lipid
+  }
+}

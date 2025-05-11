@@ -1,0 +1,72 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzyme ?reaction
+WHERE {
+  # Find reactions in Rhea that involve dopamine as a participant
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea: Rhea-has-participant chebi:18253 .  # CHEBI ID for dopamine
+  }
+
+  # Find the enzyme that catalyzes the reaction.  Try to find it directly in Rhea first.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:rheaId ?rheaId .
+    OPTIONAL {
+      ?reaction rhea:enzyme ?enzyme .
+    }
+  }
+  
+  # If the enzyme isn't directly linked in Rhea, try linking to UniProt via Rhea xref.
+  OPTIONAL {
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rhea:xref ?uniprotResource .
+      FILTER CONTAINS(STR(?uniprotResource), "uniprot")
+    }
+    
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?uniprotResource uniprot:enzyme ?enzyme .
+    }
+  }
+  
+  # Filter out reactions that don't have an enzyme annotation
+  FILTER (BOUND(?enzyme))
+}

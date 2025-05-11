@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated SPARQL query to retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?enzymeName ?enzymeUri
+WHERE {
+  # Find human enzymes in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzymeUri a up:Protein .
+    ?enzymeUri up:organism taxon:9606 .  # Homo sapiens (human)
+    ?enzymeUri rdfs:label ?enzymeName .
+    # Filter for enzymes (EC numbers)
+    ?enzymeUri up:annotation ?annotation .
+    ?annotation a up:EC_classification .
+  }
+  
+  # Find reactions in Rhea that involve sphingolipids as substrates or products
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:comment ?reactionName .
+    ?reaction rdfs:seeAlso ?chebiResource .
+    FILTER (CONTAINS(str(?chebiResource), "purl.obolibrary.org/obo/CHEBI_")) # Ensure it's a CHEBI resource
+    FILTER (CONTAINS(str(?reactionName), "sphingolipid")) # Reaction name contains sphingolipid
+  }
+  
+  # Find enzymes in SwissLipids that are involved in sphingolipid metabolism
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?lipidEnzyme a <http://www.swisslipids.org/rdf/SwissLipids#Enzyme>.
+    ?lipidEnzyme <http://www.swisslipids.org/rdf/SwissLipids#catalyzes> ?lipidReaction .
+    ?lipidReaction <http://www.swisslipids.org/rdf/SwissLipids#has_substrate> ?sphingolipid .
+    ?sphingolipid a <http://www.swisslipids.org/rdf/SwissLipids#Sphingolipid> .
+    ?lipidEnzyme rdfs:label ?lipidEnzymeName .
+    FILTER (CONTAINS(str(?lipidEnzymeName), ?enzymeName)) # Check if the enzyme name matches the UniProt enzyme name
+  }
+  
+  # Optional: Attempt to link to ChEMBL (This part might require a separate ChEMBL SPARQL endpoint if available)
+  # SERVICE <ChEMBL_SPARQL_ENDPOINT> {  # Replace with the actual ChEMBL endpoint if available
+  #   ?chemblEnzyme a <ChEMBL_Enzyme_Class> . # Replace with the actual ChEMBL enzyme class
+  #   ?chemblEnzyme rdfs:label ?enzymeName .
+  #   FILTER (CONTAINS(str(?enzymeName), ?enzymeName)) # Check if the enzyme name matches the UniProt enzyme name
+  # }
+}
