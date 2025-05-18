@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?uniprotEntry ?patentPublicationNumber ?patentTitle
+WHERE {
+  # Query UniProtKB for entries with cited patents
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprotEntry a up:Protein ; # Assuming we are interested in proteins
+                  up:citation ?citation .
+    ?citation up:publication ?publication .
+    ?publication rdfs:label ?patentPublicationNumber . # Assuming the publication label is the patent number
+    FILTER (REGEX(?patentPublicationNumber, "^[A-Z0-9]+$", "i")) # Filter to ensure it looks like a patent number
+  }
+
+  # Query Espacenet for patent information based on the publication number
+  SERVICE <http://ops.epo.org/3.2/rest-services/espacenet/sparql> {
+    ?patent a <http://www.epo.org/rdf/ontology/espacenet#Patent> ;
+            <http://www.epo.org/rdf/ontology/espacenet#publicationNumber> ?patentPublicationNumber ;
+            <http://purl.org/dc/terms/title> ?patentTitle .
+  }
+}

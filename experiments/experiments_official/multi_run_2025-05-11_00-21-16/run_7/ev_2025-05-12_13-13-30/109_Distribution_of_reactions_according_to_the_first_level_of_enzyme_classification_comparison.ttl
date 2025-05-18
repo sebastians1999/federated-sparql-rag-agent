@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?firstLevelEC (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Get all Rhea reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+    # Try to find a link to UniProt via a Rhea property (e.g., related enzyme)
+    OPTIONAL { ?reaction rhea:enzyme ?enzyme . }  # Adjust property if needed.  This is an assumption.
+  }
+
+  # If we found an enzyme, query UniProt for the EC number
+  OPTIONAL {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?enzyme uniprot:ec ?ecNumber .  # Assuming uniprot:ec is the correct property. Adjust if needed.
+    }
+  }
+
+  # Extract the first level of the EC number
+  BIND(IF(BOUND(?ecNumber), SUBSTR(STR(?ecNumber), 1, 1), "Unclassified") AS ?firstLevelEC)  # Handle cases where EC number is missing
+}
+GROUP BY ?firstLevelEC
+ORDER BY DESC(?reactionCount)

@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Query Rhea for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+    ?reaction rhea:equation ?equation . # Assuming rhea:equation links to the reaction equation
+  }
+  
+  # Query UniProt for proteins and their EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    ?protein rdfs:seeAlso ?ecNumber . # Assuming rdfs:seeAlso links to external resources like EC numbers
+    FILTER (REGEX(STR(?ecNumber), "^http://purl\\.uniprot\\.org/enzyme/")) # Filter to ensure it's an EC number
+  }
+
+  # Attempt to link reactions and proteins via EC numbers.  This is the trickiest part, as the direct link might not exist.
+  # We're assuming that Rhea reactions might have enzyme annotations that correspond to the EC numbers in UniProt.
+  # This part might need adjustment based on the actual data structure.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:enzyme ?enzyme . # Assuming rhea:enzyme links to the enzyme involved in the reaction
+    FILTER (STR(?enzyme) = STR(?ecNumber)) # Attempt to match the enzyme URI with the EC number URI.  This is a simplification.
+  }
+}

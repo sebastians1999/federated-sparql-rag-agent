@@ -1,0 +1,65 @@
+
+# Natural Language Question
+# =======================
+Lipids affected by human enzymes
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?swisslipid  {
+  ?swisslipid owl:equivalentClass ?chebi .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+	?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?metabolite . 
+  }
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?catalyticActivityAnnotation up:catalyticActivity/up:catalyzedReaction ?rhea .
+    ?protein up:annotation ?catalyticActivityAnnotation ;
+             up:organism taxon:9606 .
+  }
+}
+LIMIT 1
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://swisslipids.org/rdf#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?lipidName ?enzymeName
+WHERE {
+  # Find lipids in SwissLipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?lipid rdf:type sl:Lipid .
+    ?lipid rdfs:label ?lipidName .
+  }
+
+  # Attempt to find reactions in RheaDB involving these lipids.  This is an optional step as not all lipids may have Rhea mappings.
+  OPTIONAL {
+    SERVICE <https://sparql.rhea-db.org/sparql/> {
+      ?reaction rdfs:label ?reactionName .
+      ?reaction rdfs:comment ?reactionComment .
+      FILTER (contains(lcase(?reactionComment), lcase(?lipidName))) # Check if the reaction comment mentions the lipid.  This is a heuristic.
+      ?reaction rhea:equation ?equation .
+    }
+  }
+
+  # Find human enzymes in UniProt that might be involved in these reactions (or related to the lipids).
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+    ?enzyme a up:Protein .
+    ?enzyme up:organism <http://purl.uniprot.org/taxonomy/9606> .  # Human
+    ?enzyme rdfs:label ?enzymeName .
+    # Attempt to link enzymes to reactions or lipids.  This is a heuristic and might not always be accurate.
+    FILTER (contains(lcase(?enzymeName), lcase(?lipidName)) || contains(lcase(?enzymeName), lcase(?reactionName)))
+  }
+}

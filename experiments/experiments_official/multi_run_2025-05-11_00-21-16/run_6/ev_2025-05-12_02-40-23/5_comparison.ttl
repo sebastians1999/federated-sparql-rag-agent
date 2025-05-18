@@ -1,0 +1,90 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://swisslipids.org/rdf#>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Query SwissLipids for the given lipid and its related lipids
+  {
+    SELECT DISTINCT ?lipid
+    WHERE {
+      VALUES ?givenLipid { <http://swisslipids.org/rdf/SWISSLIPID:000399814> } # SWISSLIPID:000399814
+      ?givenLipid rdfs:label ?givenLipidLabel .
+      FILTER (contains(lcase(?givenLipidLabel), "ceramide")) # Ceramide
+
+      # Include the given lipid itself
+      BIND(?givenLipid AS ?lipid)
+    }
+  }
+
+  # Query Rhea for reactions involving the lipids found in SwissLipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    PREFIX rhea: <http://rdf.rhea-db.org/>
+    PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+    ?reaction rhea:equation ?equation .
+    ?reaction rhea:id ?rheaId .
+
+    # Filter reactions involving the lipid or its related lipids as reactants or products
+    {
+      ?reaction rhea:has_reactant ?reactant .
+      ?reactant rhea:chebi ?chebiReactant .
+      FILTER(STRSTARTS(str(?chebiReactant), "http://purl.obolibrary.org/obo/CHEBI_"))
+      FILTER (?chebiReactant IN (SELECT ?chebi WHERE {
+          VALUES ?lipidValue {?lipid}
+          ?lipidValue sl:chebi ?chebi .
+      }))
+    }
+    UNION
+    {
+      ?reaction rhea:has_product ?product .
+      ?product rhea:chebi ?chebiProduct .
+      FILTER(STRSTARTS(str(?chebiProduct), "http://purl.obolibrary.org/obo/CHEBI_"))
+      FILTER (?chebiProduct IN (SELECT ?chebi WHERE {
+          VALUES ?lipidValue {?lipid}
+          ?lipidValue sl:chebi ?chebi .
+      }))
+    }
+  }
+}

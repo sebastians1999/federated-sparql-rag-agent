@@ -16,7 +16,7 @@ async def main():
     timeout = 600
     tracked_token_nodes = ["question_understanding", "sparql_query_construction"]
     dataset_dir = "/Users/sebastian/Documents/Bachelor Thesis/sparql-rag-agent/sparql-rag-agent/experiments/federated_sparql_dataset/examples_federated_19.04.2025"
-    num_runs = 5
+    num_runs = 3
     
     evaluator = MultiRunEvaluator(
         num_runs=num_runs,

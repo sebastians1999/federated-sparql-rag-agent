@@ -1,0 +1,50 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?chebi_name_en
+WHERE {
+  # Query ChEBI for chemical entities
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?chebi_uri rdfs:label ?chebi_name .
+    FILTER STRSTARTS(LCASE(?chebi_name), "japanese") # Filter for names starting with "japanese" (case-insensitive)
+    
+    # Attempt to find an English translation using skos:prefLabel
+    OPTIONAL {
+      ?chebi_uri skos:prefLabel ?chebi_name_en .
+      FILTER (LANG(?chebi_name_en) = "en") # Filter for English labels
+    }
+    
+    # If no direct English label is found, return the original name
+    BIND(IF(BOUND(?chebi_name_en), ?chebi_name_en, ?chebi_name) AS ?chebi_name_en)
+  }
+}

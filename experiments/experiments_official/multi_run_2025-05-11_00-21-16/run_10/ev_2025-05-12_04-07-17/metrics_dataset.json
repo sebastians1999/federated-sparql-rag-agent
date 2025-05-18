@@ -1,0 +1,41 @@
+{
+  "SP-BLEU": 0.04834543900834182,
+  "METEOR": 0.29876570681814096,
+  "num_none_queries": 0,
+  "size_of_test_set": 32,
+  "error_at_endpoints": 7,
+  "empty_results_count": 13,
+  "syntactically_valid_queries_count": 21,
+  "avg_result_including_empty_result_precision": 0.0,
+  "avg_result_including_empty_result_recall": 0.0,
+  "avg_result_including_empty_result_f1": 0.0,
+  "number_of_query_results_evaluated_including_empty_result": 14,
+  "list_evaluated_queries_including_empty_result": [
+    "SwissLipids/6.ttl",
+    "SwissLipids/5.ttl",
+    "UniProt/43_patents_used_in_uniprot_granted_twenty_years_in_the_past.ttl",
+    "UniProt/67_draft_human_metabolome.ttl",
+    "UniProt/36_orthologous_proteins_via_orthodb.ttl",
+    "UniProt/60_enzymes_working_on_substrate_with_Cholestene_backbone.ttl",
+    "UniProt/38_find_gene_region_in_wikidata_for_known_entry.ttl",
+    "UniProt/117_biosodafrontend_glioblastoma_orthologs_rat.ttl",
+    "UniProt/116_biosodafrontend_rabit_mouse_orthologs.ttl",
+    "Rhea/94_Select_all_approved_reactions_with_CHEBI_or_one_of_its_descendant_optional_UniProtKB_reviewed_EC.ttl",
+    "Rhea/11.ttl",
+    "Rhea/12.ttl",
+    "Rhea/112_Total_number_of_reaction_ec_protein_links.ttl",
+    "Rhea/115_Retrieve_the_set_of_metabolites_involved_in_reactions_catalyzed_by_human_genes_HUMAN_reference_proteome.ttl"
+  ],
+  "avg_result_excluding_empty_result_precision": 0.0,
+  "avg_result_excluding_empty_result_recall": 0.0,
+  "avg_result_excluding_empty_result_f1": 0.0,
+  "number_of_query_results_evaluated_excluding_empty_result": 1,
+  "list_evaluated_queries_excluding_empty_result": [
+    "Rhea/112_Total_number_of_reaction_ec_protein_links.ttl"
+  ],
+  "avg_result_all_precision": 0.0,
+  "avg_result_all_recall": 0.0,
+  "avg_result_all_f1": 0.0,
+  "number_of_query_results_evaluated_all": 32,
+  "list_evaluated_queries_all": []
+}

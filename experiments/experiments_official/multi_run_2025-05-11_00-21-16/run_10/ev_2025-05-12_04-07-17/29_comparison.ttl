@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Search UniProt for proteins related to a term (assumed to be translated from Japanese using ALLIE).
+# This query assumes the user has already used ALLIE to translate their Japanese query into a term suitable for UniProt.
+# The query searches for the term in various fields, including protein name, gene name, and keywords.
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+
+SELECT ?protein ?proteinName ?geneName ?keyword
+WHERE {
+  ?protein a up:Protein .
+  ?protein rdfs:label ?proteinName . # Protein name
+
+  # Optional: Check for gene name
+  OPTIONAL { ?protein up:encodedBy ?gene .
+             ?gene rdfs:label ?geneName .
+           }
+  # Optional: Check for keywords
+  OPTIONAL { ?protein up:keyword ?keywordResource .
+             ?keywordResource rdfs:label ?keyword .
+           }
+
+  # Filter: Search for the translated term in protein name, gene name, or keyword.
+  FILTER (CONTAINS(LCASE(?proteinName), "translated_term") ||  # Replace "translated_term" with the actual translated term from ALLIE
+          (BOUND(?geneName) && CONTAINS(LCASE(?geneName), "translated_term")) ||
+          (BOUND(?keyword) && CONTAINS(LCASE(?keyword), "translated_term"))
+         )
+}

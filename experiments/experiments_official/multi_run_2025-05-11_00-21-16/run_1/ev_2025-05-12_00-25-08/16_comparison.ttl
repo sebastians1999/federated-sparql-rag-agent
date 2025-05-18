@@ -1,0 +1,72 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Query SwissLipids to find Rhea reactions involving the specified lipid
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    PREFIX sl: <http://www.swisslipids.org/rdf#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    
+    ?lipid sl:identifier "SWISSLIPID:000399814" . # Specify the lipid identifier
+    ?lipid sl:name ?lipidName .
+    FILTER (REGEX(?lipidName, "Ceramide", "i")) . # Ensure the lipid name contains "Ceramide" (case-insensitive)
+    
+    ?reaction sl:refersTo ?lipid . # Find reactions related to the lipid
+  }
+
+  # Query Rhea to find UniProt enzymes catalyzing the reactions
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    PREFIX rhea: <http://rdf.rhea-db.org/>
+    ?rhea_reaction rhea:equation ?reaction . # Link Rhea reaction to the reaction from SwissLipids
+    ?rhea_reaction rhea:enzyme ?enzyme . # Find enzymes catalyzing the Rhea reaction
+  }
+
+  # Retrieve enzyme information from UniProt
+  ?enzyme a up:Protein . # Ensure it's a protein
+  ?enzyme rdfs:label ?enzymeName . # Get the enzyme name
+}

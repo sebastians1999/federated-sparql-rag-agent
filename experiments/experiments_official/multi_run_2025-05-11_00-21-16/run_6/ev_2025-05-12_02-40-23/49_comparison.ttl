@@ -1,0 +1,84 @@
+
+# Natural Language Question
+# =======================
+Retrieve the UniProtKB proteins, their catalyzed Rhea reactions, their encoding genes (Ensembl) and the anatomic entities where the genes are expressed (UBERON anatomic entites from Bgee expression data resource).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?ensemblGene ?reaction ?anatomicEntityLabel ?anatomicEntity
+WHERE {
+  # federated query to Rhea enadpoint
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      SERVICE <https://sparql.rhea-db.org/sparql> {
+        ?reaction rdfs:subClassOf rh:Reaction ;
+          rh:equation ?reactionEquation ;
+          rh:side ?reactionSide .
+        ?reactionSide rh:contains ?participant .
+        ?participant rh:compound ?compound .
+        # compound constraint (CHEBI:16113 == cholesterol)
+        ?compound rh:chebi CHEBI:16113 .
+      }
+    }
+  }
+  # taxonomy constraint (taxon:9606 == Homo sapiens)
+  ?protein up:organism taxon:9606 ;
+    up:annotation ?a ;
+    rdfs:seeAlso / up:transcribedFrom ?ensemblGene .
+  ?a a up:Catalytic_Activity_Annotation ;
+    up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction .
+  # federated query to Bgee (expression data)
+  BIND(IRI(REPLACE(STR(?ensemblGene), "\\.[0-9]+$", "")) AS ?ensemblGeneNoVersion)
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene lscr:xrefEnsemblGene ?ensemblGeneNoVersion ;
+      genex:isExpressedIn ?anatomicEntity .
+    ?anatomicEntity rdfs:label ?anatomicEntityLabel .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+
+SELECT DISTINCT ?protein ?proteinName ?rheaReaction ?gene ?anatomicalEntity
+WHERE {
+  # Get UniProtKB proteins
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein rdfs:label ?proteinName .
+    # Link to Rhea reactions
+    OPTIONAL { ?protein up:catalyticActivity ?rheaReaction . }
+    # Link to Ensembl gene identifiers
+    OPTIONAL { ?protein up:encodedBy ?gene .  }
+  }
+
+  # No direct link from UniProt to Ensembl, assuming gene is Ensembl ID
+  # Get anatomical entities from Bgee where the gene is expressed
+  SERVICE <https://sparql.swisslipids.org/sparql/> {  #SwissLipids endpoint does not contain gene expression data, so it is not useful here.
+      #Assuming Bgee has a SPARQL endpoint and uses UBERON
+      #SERVICE <BGEE_SPARQL_ENDPOINT> {  #Replace with actual Bgee endpoint if available
+      #  ?expression a <BGEE_EXPRESSION_CLASS> . #Replace with actual Bgee expression class
+      #  ?expression <BGEE_GENE_PROPERTY> ?gene . #Replace with actual Bgee gene property
+      #  ?expression <BGEE_ANATOMICAL_ENTITY_PROPERTY> ?anatomicalEntity . #Replace with actual Bgee anatomical entity property
+      #}
+      # Placeholder since Bgee SPARQL endpoint details are not available
+      BIND("Bgee endpoint not available" AS ?anatomicalEntity)
+  }
+}

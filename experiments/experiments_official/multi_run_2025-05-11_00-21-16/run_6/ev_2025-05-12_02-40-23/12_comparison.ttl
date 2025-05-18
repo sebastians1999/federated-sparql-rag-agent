@@ -1,0 +1,57 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?rheaReaction
+WHERE {
+  # Find Rhea reactions
+  ?rheaReaction a rhea:Reaction .
+
+  # Federate with UniProt to find proteins (enzymes or transporters) linked to the Rhea reaction
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    # Assuming there's a property in UniProt that links proteins to Rhea reactions.
+    # This is a placeholder and needs to be replaced with the actual property if it exists.
+    # Example:  ?protein uniprot:rheaReaction ?rheaReaction .  (This is just an example, verify the actual property)
+    # Assuming the link is through an external cross-reference, e.g., xref
+    ?protein rdfs:seeAlso ?rheaReaction . # This is a general cross-reference property; refine if possible
+    # Filter for enzymes and transporters (this might need adjustment based on UniProt's vocabulary)
+    # Example: FILTER (EXISTS { ?protein rdf:type uniprot:Enzyme . })
+  }
+}
