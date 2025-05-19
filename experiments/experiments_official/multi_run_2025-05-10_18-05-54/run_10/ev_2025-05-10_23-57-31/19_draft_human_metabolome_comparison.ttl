@@ -1,0 +1,91 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# This query is a draft and may not be fully executable due to the lack of a specific SPARQL endpoint for metabolome data.
+# It provides a conceptual outline for retrieving human metabolome information by federating with relevant databases.
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?metabolite ?metaboliteName
+WHERE {
+  # Query UniProt for human proteins involved in metabolism
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 .  # Human taxon
+    ?protein rdfs:comment ?comment .
+    FILTER (CONTAINS(LCASE(?comment), "metabolism")) # Filter for proteins related to metabolism
+
+    # Attempt to link proteins to metabolites (this part is speculative and depends on available data)
+    # This assumes a hypothetical property 'up:participatesInMetabolicReaction' that links proteins to reactions
+    # and 'up:producesMetabolite' that links reactions to metabolites.  These properties may not exist.
+    OPTIONAL {
+      ?protein up:participatesInMetabolicReaction ?reaction .
+      ?reaction up:producesMetabolite ?metabolite .
+    }
+  }
+
+  # Query Rhea for metabolites involved in reactions (if the above UniProt query yields reactions)
+  OPTIONAL {
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rdfs:label ?reactionLabel . # Assuming reactions have labels
+      ?reaction rdfs:comment ?reactionComment .
+      FILTER (CONTAINS(STR(?reactionLabel), "metabolism") || CONTAINS(STR(?reactionComment), "metabolism"))
+      ?reaction rhea:equation ?equation . # Assuming reactions have equations
+      ?equation rhea:contains ?metabolite .
+      ?metabolite rdfs:label ?metaboliteName .
+    }
+  }
+
+  # Further refine by querying SwissLipids if relevant (e.g., if lipid metabolism is of interest)
+  OPTIONAL {
+    SERVICE <https://sparql.swisslipids.org/sparql/> {
+      ?lipid a sl:Lipid .
+      ?lipid rdfs:label ?lipidName .
+      FILTER (CONTAINS(LCASE(?lipidName), "metabolite")) # Filter for lipids that are also metabolites
+      BIND(?lipidName AS ?metaboliteName) # Use lipid name as metabolite name
+      BIND(?lipid AS ?metabolite) # Use lipid URI as metabolite URI
+    }
+  }
+
+  # If no direct links are found, try to infer metabolites from protein names/descriptions
+  # This is a very broad approach and may yield many false positives.
+  # It's included as a last resort if the other SERVICE clauses don't return results.
+  FILTER (!BOUND(?metabolite)) # Only proceed if ?metabolite is not already bound
+  BIND(IF(BOUND(?comment), ?comment, "") AS ?metaboliteName) # Use protein comment as metabolite name (if available)
+  BIND(URI(CONCAT("http://example.org/metabolite/",MD5(?metaboliteName))) AS ?metabolite) # Create a dummy URI
+}

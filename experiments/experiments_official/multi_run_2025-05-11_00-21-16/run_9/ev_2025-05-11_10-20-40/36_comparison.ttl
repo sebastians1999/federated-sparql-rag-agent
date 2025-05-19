@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+Find the orthologous proteins for UniProtKB entry P05067 using the <a href="http://www.orthod.org">OrthoDB database</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?orthoGroup
+  ?scientificName
+  ?functionComment
+  ?prefferedGeneName
+  ((STRLEN(?value) - ?medianLength) as ?deviationFromMedianLength)
+WHERE
+{
+  uniprotkb:P05067 a up:Protein ;
+        up:organism/up:scientificName ?scientificName ;
+        rdfs:seeAlso ?orthoGroup ;
+        up:encodedBy/skos:prefLabel ?prefferedGeneName ;
+          up:sequence/rdf:value ?value .
+  OPTIONAL {
+    ?protein up:annotation ?functionAnnotation .
+    ?functionAnnotation a up:Function_Annotation ;
+      rdfs:comment ?functionComment .
+  }
+  SERVICE <https://sparql.orthodb.org/sparql>{
+    ?orthoGroup orthodb:ogMedianProteinLength ?medianLength .
+    ?orthoGroup orthodb:hasMember ?xref .
+    ?xref orthodb:xref/orthodb:xrefResource uniprotkb:P05067 .
+  }
+}
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX uniprot: <http://purl.uniprot.org/uniprot/>
+
+# Find orthologous proteins for UniProtKB entry P05067
+SELECT ?protein ?geneName ?organism
+WHERE {
+  # Focus on the UniProt entry P05067
+  VALUES (?protein) { (uniprot:P05067) }
+
+  # Get the gene name associated with the protein
+  ?protein up:gene ?gene .
+  ?gene rdfs:label ?geneName .
+
+  # Get the organism associated with the protein
+  ?protein up:organism ?organismResource .
+  ?organismResource rdfs:label ?organism .
+
+  #OPTIONAL {
+  # Attempt to find orthologs directly within UniProt, if available.  This might not directly link to OrthoDB.
+  #  ?protein up:annotation ?annotation .
+  #  ?annotation rdf:type up:OrthologAnnotation .
+  #  ?annotation rdfs:seeAlso ?ortholog .
+  #}
+  
+  # The above OPTIONAL block is commented out because UniProt's SPARQL endpoint might not directly expose OrthoDB orthologs.
+  # If UniProt *did* have direct links, the commented section would retrieve them.
+  # Instead, the query returns the gene name and organism, which can be used to search OrthoDB externally.
+}

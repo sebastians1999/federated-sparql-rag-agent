@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Select all approved reactions with CHEBI:17815 (a 1,2-diacyl-sn-glycerol) or one of its descendant. Display links to UniProtKB/Swiss-Prot entries via EC numbers if the link rhea-ec exists.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX CHEBI:<http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  distinct
+    ?reaction
+    ?enzyme
+    (count(distinct ?protein) as ?proteinCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+
+  OPTIONAL {?reaction rh:ec ?enzyme .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein up:reviewed true .
+      ?protein up:enzyme ?enzyme.
+    }
+  } .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+}
+GROUP BY ?reaction ?enzyme
+ORDER BY ?reaction
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.swissbioportal.org/sparql
+SELECT DISTINCT ?reaction ?uniprotLink WHERE {
+  SERVICE <https://sparql.swissbioportal.org/sparql> {
+    ?compound rdfs:subClassOf* <http://purl.obolibrary.org/obo/CHEBI_17815> .
+  }
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea: Rhea_has_a_participant ?compound .
+    ?reaction rhea:status rhea:Approved .
+    OPTIONAL {
+      ?reaction rhea:ec ?ecNumber .
+      SERVICE <https://sparql.uniprot.org/sparql> {
+        ?uniprotLink <http://purl.uniprot.org/core/annotation> ?ecNumber .
+      }
+    }
+  }
+}

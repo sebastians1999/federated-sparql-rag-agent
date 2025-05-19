@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?metabolite ?metaboliteName
+WHERE {
+  # Find human proteins in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 .  # Homo sapiens
+    ?protein rdfs:seeAlso ?rheaReaction . # Link to Rhea
+  }
+
+  # Get reaction participants from Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rdfs:sameAs ?rheaId .
+    ?rheaId rhea:equation ?equation .
+    {
+      ?equation rhea:left ?participant .
+    } UNION {
+      ?equation rhea:right ?participant .
+    }
+    ?participant rdfs:label ?metaboliteName .
+    ?participant rdfs:seeAlso ?metabolite . # Get metabolite URI
+    FILTER (STRSTARTS(STR(?metabolite), STR(chebi:))) # Filter for ChEBI metabolites
+  }
+}

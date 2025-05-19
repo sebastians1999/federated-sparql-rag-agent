@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?firstLevelEnzymeClassification (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Get reactions from Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+    # Assuming there's a property linking reactions to enzymes.  This might need adjustment.
+    OPTIONAL { ?reaction rhea:enzyme ?enzyme . }
+  }
+
+  # Federate with UniProt to get enzyme classification.  This assumes UniProt contains enzyme classification data.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    OPTIONAL {
+      ?enzyme uniprot:classifiedWith ?enzymeClass .  # Assuming a property like 'classifiedWith' exists.  Adjust as needed.
+      # Extract the first level of the enzyme classification.  This is a placeholder.
+      # The exact method depends on how the enzyme classification is represented in UniProt.
+      # Example: If enzymeClass is a string like "1.2.3.4", you might use SUBSTR.
+      BIND (SUBSTR(STR(?enzymeClass), 1, 1) AS ?firstLevelEnzymeClassification) # Example using SUBSTR
+    }
+  }
+  FILTER (BOUND(?firstLevelEnzymeClassification)) # only keep results where we have a first level enzyme classification
+}
+GROUP BY ?firstLevelEnzymeClassification
+ORDER BY DESC(?reactionCount)

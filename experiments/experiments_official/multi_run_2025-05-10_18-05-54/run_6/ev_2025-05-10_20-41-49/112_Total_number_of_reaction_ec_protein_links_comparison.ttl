@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated query to count the number of reaction, protein, and EC number links.
+# This query assumes that Rhea DB contains reaction data and UniProt contains protein and EC number data.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Query Rhea DB for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+  }
+  
+  # Query UniProt for proteins and their EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    ?protein uniprot:annotation ?ec .
+    ?ec rdf:type uniprot:EC_number . # Assuming EC number is linked via annotation
+  }
+  
+  # Assuming a link exists between Rhea reactions and UniProt proteins via some predicate.
+  # This is a placeholder and needs to be replaced with the actual predicate if it exists.
+  # The following line is commented out because the actual predicate is unknown.
+  # ?reaction <somePredicate> ?protein .
+  
+  # Filter for reactions, proteins, and EC numbers.  This part needs to be adapted based on the actual data model.
+  # This query assumes that there is a direct or indirect link between reactions, proteins, and EC numbers.
+  # The exact nature of this link needs to be determined based on the data in Rhea DB and UniProt.
+}

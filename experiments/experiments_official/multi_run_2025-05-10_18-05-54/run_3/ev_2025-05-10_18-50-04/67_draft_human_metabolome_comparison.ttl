@@ -1,0 +1,62 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# This query aims to retrieve information about the human metabolome.
+# It federates with UniProt to retrieve information about human proteins and potentially link them to metabolic pathways or metabolites.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?protein ?proteinName ?gene ?organism
+WHERE {
+  # Query UniProt for human proteins
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 .  # Homo sapiens (human)
+    ?protein rdfs:label ?proteinName .
+    OPTIONAL { ?protein up:encodedBy ?gene . } # Get gene name if available
+    BIND("Homo sapiens" AS ?organism)
+  }
+  # Consider federating with Rhea or SwissLipids if more specific metabolite or reaction information is needed.
+  # For example, if we wanted to find reactions catalyzed by these proteins:
+  # SERVICE <https://sparql.rhea-db.org/sparql> {
+  #   ?reaction rhea:enzyme ?protein .
+  #   ?reaction rdfs:label ?reactionName .
+  # }
+  # Or if we wanted to find lipids associated with these proteins (if such a link exists in SwissLipids):
+  # SERVICE <https://sparql.swisslipids.org/sparql/> {
+  #   ?lipid sl:relatedToProtein ?protein .
+  #   ?lipid rdfs:label ?lipidName .
+  # }
+}

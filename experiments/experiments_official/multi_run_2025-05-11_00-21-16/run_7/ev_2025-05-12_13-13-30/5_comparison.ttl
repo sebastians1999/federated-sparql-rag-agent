@@ -1,0 +1,72 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://swisslipids.org/rdf#>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Query SwissLipids for the specified lipid and its related forms
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    VALUES ?lipid { <http://swisslipids.org/rdf/SWISSLIPID:000399814> } # SWISSLIPID:000399814
+    ?lipid rdfs:label ?lipidLabel .
+  }
+  
+  # Query Rhea DB for reactions involving the lipid
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    ?reaction rdfs:label ?equation ;
+              <http://purl.obolibrary.org/obo/RO_0002351> ?rheaId . # has participant
+    
+    # Filter reactions that involve the lipid (either as input or output)
+    {
+      ?reaction <http://purl.obolibrary.org/obo/RHEA_has_input> ?input .
+      ?input rdfs:label ?lipidLabel .
+      FILTER (CONTAINS(lcase(?lipidLabel), lcase("Ceramide")))
+    }
+    UNION
+    {
+      ?reaction <http://purl.obolibrary.org/obo/RHEA_has_output> ?output .
+      ?output rdfs:label ?lipidLabel .
+      FILTER (CONTAINS(lcase(?lipidLabel), lcase("Ceramide")))
+    }
+  }
+}

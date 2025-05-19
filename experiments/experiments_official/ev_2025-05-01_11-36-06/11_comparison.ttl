@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first class of the enzyme classification (federated query)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Query 11
+# Retrieve the count of reactions mapped to each level (main class) of the enzyme classification
+#
+# This query mimics the Filter section of the Rhea website (Browse all reactions)
+# https://www.rhea-db.org/rhea?query=
+SELECT ?ecClass (STR(?ecName) AS ?ecClassName) (COUNT(?rhea) AS ?rheaCount)
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-)}
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:ec ?ecNumber .
+} GROUP BY ?ecClass ?ecName
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+# Select the first level EC classes, their names, and the count of associated reactions
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  # Query UniProt to get the first level EC classes and their labels
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Define the URIs for the 7 main EC classes
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    # Find EC numbers that are subclasses of these main classes
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    # Get the preferred label for the main EC class
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  # Query Rhea to find reactions linked to these EC numbers
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Select all Rhea reactions
+    ?reaction rdfs:subClassOf rh:Reaction .
+    # Link the reaction to an EC number
+    ?reaction rh:ec ?ecNumber .
+  }
+}
+# Group the results by the first level EC class and its name
+GROUP BY ?ecClass ?ecName
+# Order the results by EC class URI
+ORDER BY ?ecClass

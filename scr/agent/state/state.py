@@ -6,6 +6,9 @@ from langchain_core.documents import Document
 from typing import Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
+from pydantic import BeforeValidator
+import json
+import ast
 
 
 class StepOutput(BaseModel):
@@ -48,6 +51,53 @@ class StructuredQuestion(BaseModel):
     )
 
 
+class Candidate(BaseModel):
+    pattern: str = Field(default="")
+
+class BlockState(BaseModel):
+    endpoint: str = Field(default="")
+    iri_map: Dict[str, str] = Field(default_factory=dict)
+    validated_pattern: str = Field(default="")
+    failed_patterns: List[Dict[str, str]] = Field(default_factory=lambda: [])
+    attempt: int = Field(default=1)
+    final: bool = Field(default=False)
+    target_endpoint: str = Field(default="")
+
+def parse_string_to_dict(v: Any) -> dict:
+    """Parse a string to a dictionary if it's a string."""
+    if isinstance(v, str):
+        try:
+             return ast.literal_eval(v)
+        except (SyntaxError, ValueError):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid JSON string: {v}")
+    return v
+
+class QueryPlan(BaseModel):
+
+    iri_map: Annotated[Dict[str, str], BeforeValidator(parse_string_to_dict)] = Field(default_factory=dict)
+    """Mapping of entities identified in user question to ontology IRIs from provided context (or own knowledge)."""
+
+    early_select: List[str] = Field(default_factory=list)
+    """List of early select variables (early draft SELECT)."""
+
+    federated_endpoints: List[str] = Field(default_factory=list)
+    """List of endpoints that are used in the query."""
+    target_endpoint: str = Field(default="")
+    """Target endpoint where the final query is executed."""
+
+class QueryState(BaseModel):
+    question: str = Field(default="")
+    blocks: List[BlockState] = Field(default_factory=list)
+    global_iri_map: Dict[str, str] = Field(default_factory=dict)
+    joins: Dict[str, str] = Field(default_factory=dict)
+    final_query: str = Field(default="")
+    query_plan: QueryPlan = Field(default_factory=QueryPlan)
+    done: bool = Field(default=False)
+
+
 @dataclass
 class BaseState:
     """Base state with messages field."""
@@ -79,6 +129,12 @@ class State(BaseState):
 
     extracted_classes: List[str] = field(default_factory=list)
     """List of classes extracted from the question."""
+
+    extracted_example_queries: List[str] = field(default_factory=list)
+    """List of example queries extracted from the question."""
+
+    query_state: QueryState = field(default_factory=QueryState)
+    """The query state."""
 
     structured_output: str = field(default="")
     """The final structured output (e.g., SPARQL query)."""

@@ -1,0 +1,51 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated SPARQL query to find ChEBIs with a Cholestane skeleton and match them to Rhea undirected reactions.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?chebiEntity ?rheaReaction
+WHERE {
+  # Find ChEBI entities with a Cholestane skeleton using the IDSM Sachem endpoint.
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    SELECT DISTINCT ?chebiEntity WHERE {
+      ?chebiEntity a chebi:22886 . #CHEBI:22886 is the class for chemical entity
+      ?chebiEntity chebi:35516 . #CHEBI:35516 is the entity for Cholestane skeleton
+    }
+  }
+
+  # Match the found ChEBI entities to Rhea undirected reactions using the Rhea DB endpoint.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rhea:equation ?equation .
+    ?equation rhea:contains ?chebiEntity .
+  }
+}

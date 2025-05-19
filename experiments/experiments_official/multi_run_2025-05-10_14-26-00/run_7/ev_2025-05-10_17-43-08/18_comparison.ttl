@@ -1,0 +1,56 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# <https://idsm.elixir-czech.cz/sparql>
+SELECT DISTINCT ?chebi ?reaction
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    ?chebi a <http://purl.obolibrary.org/obo/CHEBI_24431> ; # ChEBI
+           <http://www.w3.org/2000/01/rdf-schema#label> ?label ;
+           <http://semanticscience.org/resource/SIO_000300> ?smiles . # has SMILES
+    FILTER CONTAINS(?smiles, "C[C@H]1CC[C@@H]2[C@@H]3[C@@H](CC[C@@]4([C@H](C[C@@H](C4)CC3)C)C)[C@@H]2[C@H]1C(C)C(C)C") # Cholestane skeleton
+  }
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:label ?reactionLabel .
+    {
+      ?reaction rhea:equation ?equation .
+      FILTER (CONTAINS(STR(?equation), STR(?label)))
+    }
+    UNION
+    {
+      ?reaction rhea:right ?rightParticipant .
+      ?rightParticipant rdfs:label ?label
+    }
+    UNION
+    {
+      ?reaction rhea:left ?leftParticipant .
+      ?leftParticipant rdfs:label ?label
+    }
+  }
+}

@@ -1,0 +1,79 @@
+
+# Natural Language Question
+# =======================
+Rabbit's proteins encoded by genes that are orthologous to Mouse's HBB-Y gene and their cross reference links to Uniprot
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?PROTEIN_1 ?PROTEIN_2 ?UNIPROT_XREF_1 ?UNIPROT_XREF_2 WHERE {
+	?taxon_1 up:commonName 'Mouse' .
+	?taxon_2 up:commonName 'Rabbit' .
+	SERVICE <https://sparql.omabrowser.org/sparql/> {
+		?cluster a orth:OrthologsCluster .
+		?cluster orth:hasHomologousMember ?node1 .
+		?cluster orth:hasHomologousMember ?node2 .
+		?node2 orth:hasHomologousMember* ?PROTEIN_2 .
+		?node1 orth:hasHomologousMember* ?PROTEIN_1 .
+		?PROTEIN_1 a orth:Protein .
+		?PROTEIN_1 orth:organism/obo:RO_0002162 ?taxon_1 ;
+			rdfs:label 'HBB-Y' ;
+			lscr:xrefUniprot ?UNIPROT_XREF_1 .
+		?PROTEIN_2 a orth:Protein .
+		?PROTEIN_2 orth:organism/obo:RO_0002162 ?taxon_2 .
+		?PROTEIN_2 lscr:xrefUniprot ?UNIPROT_XREF_2 .
+		FILTER ( ?node1 != ?node2 )
+	}
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX orthodb: <http://purl.orthodb.org/>
+
+SELECT DISTINCT ?rabbitProtein ?rabbitProteinAccession ?rabbitGene
+WHERE {
+  # Define taxon IDs for Mouse (Mus musculus) and Rabbit (Oryctolagus cuniculus)
+  BIND(taxon:10090 AS ?mouseTaxon)
+  BIND(taxon:9986 AS ?rabbitTaxon)
+
+  # 1. Find the Mouse gene named "HBB-Y" in UniProt
+  ?mouseGene a up:Gene ;
+             up:organism ?mouseTaxon ;
+             skos:prefLabel "HBB-Y" . # Assuming "HBB-Y" is the preferred label for the gene
+
+  # 2. Find the protein encoded by the Mouse gene
+  ?mouseProtein up:encodedBy ?mouseGene .
+
+  # 3. Find the OrthoDB group linked to the Mouse protein via rdfs:seeAlso
+  ?mouseProtein rdfs:seeAlso ?orthoGroup .
+  FILTER(STRSTARTS(STR(?orthoGroup), "http://purl.orthodb.org/")) # Ensure the linked resource is from OrthoDB
+
+  # 4. Use the OrthoDB service to find members of this orthologous group
+  SERVICE <https://sparql.orthodb.org/sparql> {
+    ?orthoGroup orthodb:hasMember ?orthoMemberId .
+    # Link the OrthoDB member ID back to its UniProt resource URI
+    ?orthoMemberId orthodb:xref/orthodb:xrefResource ?rabbitProtein .
+  }
+
+  # 5. Back in UniProt, filter the orthologous members to be from Rabbit
+  ?rabbitProtein up:organism ?rabbitTaxon .
+
+  # 6. Find the gene encoding the Rabbit protein
+  ?rabbitProtein up:encodedBy ?rabbitGene .
+
+  # Get the UniProt accession for the Rabbit protein (serving as the UniProt cross-reference link)
+  BIND(STRAFTER(STR(?rabbitProtein), "http://purl.uniprot.org/uniprot/") AS ?rabbitProteinAccession)
+}

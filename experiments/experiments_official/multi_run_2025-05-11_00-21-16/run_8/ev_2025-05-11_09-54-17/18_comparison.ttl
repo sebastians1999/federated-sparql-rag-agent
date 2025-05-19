@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?reaction ?chebiID ?chebiName
+WHERE {
+  # Subquery to get ChEBI IDs from IDSM Sachem that contain the Cholestane skeleton
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    PREFIX ids: <https://idsm.elixir-czech.cz/vocab/>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+    
+    SELECT DISTINCT ?chebiID ?chebiName WHERE {
+      ?compound a ids:CompoundEntity ;
+                ids:smiles ?smiles ;
+                skos:exactMatch ?chebiID . # Get the ChEBI ID
+      FILTER CONTAINS(?smiles, "C[C@H]1") # Filter for Cholestane skeleton.  This is a simplified SMILES fragment.
+      ?chebiID skos:prefLabel ?chebiName .
+      FILTER (STRSTARTS(STR(?chebiID), "http://purl.obolibrary.org/obo/CHEBI_"))
+    }
+  } # End of IDSM Sachem service
+
+  # Use the ChEBI IDs to find Rhea undirected reactions
+  ?reaction rhea:equation ?equation .
+  {
+    ?reaction rhea:left ?participant .
+    ?participant rhea:compound ?chebiID .
+  }
+  UNION
+  {
+    ?reaction rhea:right ?participant .
+    ?participant rhea:compound ?chebiID .
+  }
+}
+LIMIT 100

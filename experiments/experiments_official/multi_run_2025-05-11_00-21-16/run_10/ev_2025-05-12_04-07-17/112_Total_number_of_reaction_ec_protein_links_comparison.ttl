@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT (COUNT(DISTINCT ?reactionProteinPair) AS ?totalLinks)
+WHERE {
+  # Subquery to find proteins associated with EC numbers in UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    SELECT DISTINCT ?protein ?ecNumber WHERE {
+      ?protein a uniprot:Protein .
+      ?protein uniprot:annotation ?annotation .
+      ?annotation rdf:type uniprot:EC_Annotation .
+      ?annotation uniprot:ecNumber ?ecNumber .
+    }
+  }
+
+  # Subquery to find reactions associated with EC numbers in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    SELECT DISTINCT ?reaction ?ecNumber WHERE {
+      ?reaction a rhea:Reaction .
+      ?reaction rhea:equation ?equation . #Not really needed, but to ensure we are dealing with a reaction
+      ?reaction rhea:ec ?ecNumber .
+    }
+  }
+
+  # Join the results on the EC number to link reactions and proteins
+  BIND(IRI(CONCAT(STR(?reaction), STR(?protein))) AS ?reactionProteinPair) # Create a unique identifier for each reaction-protein pair
+}

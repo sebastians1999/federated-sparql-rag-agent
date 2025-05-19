@@ -1,0 +1,47 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?enzyme wdt:P703 wd:Q5 .  # enzyme is an instance of protein
+      ?enzyme wdt:P733 wd:Q159786 . # enzyme has function enzyme
+      ?enzyme rdfs:label ?enzymeName .
+      FILTER (CONTAINS(LCASE(?enzymeName), "enzyme"))
+      ?enzyme wdt:P703 wd:Q5 . #instance of human
+    }
+  }
+  FILTER (CONTAINS(LCASE(?enzymeName), "sphingolipid")) #metabolizes sphingolipids
+}

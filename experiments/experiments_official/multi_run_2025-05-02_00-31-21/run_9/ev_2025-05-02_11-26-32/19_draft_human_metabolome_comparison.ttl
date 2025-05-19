@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+# Draft query to retrieve information about the human metabolome, federating between UniProt and Rhea.
+# It retrieves metabolites involved in reactions catalyzed by human enzymes.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX keywords: <http://purl.uniprot.org/keywords/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi ?chebiName ?reaction ?ecNumber ?protein
+WHERE {
+  # Subquery to find human proteins (enzymes) and their associated EC numbers from UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true .
+    ?protein up:organism taxon:9606 .  # Human
+    # Retrieve proteins that are classified as enzymes
+    ?protein up:classifiedWith keywords:1185 .
+    
+    # Enzymes can be directly associated with an EC number, or through domains or components
+    { ?protein up:enzyme ?ecNumber . }
+    UNION
+    { ?protein up:domain/up:enzyme ?ecNumber . }
+    UNION
+    { ?protein up:component/up:enzyme ?ecNumber . }
+  }
+  
+  # Subquery to find reactions from Rhea that are catalyzed by the EC numbers found in UniProt
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    ?reaction rdfs:subClassOf rh:Reaction .
+    ?reaction rh:status rh:Approved .
+    ?reaction rh:ec ?ecNumber .
+    ?reaction rh:side ?reactionSide .
+    ?reactionSide rh:contains ?participant .
+    ?participant rh:compound ?compound .
+    ?compound rh:chebi ?chebi . # only considering small molecules participants
+    ?chebi rdfs:label ?chebiName .
+  }
+}

@@ -1,0 +1,96 @@
+
+# Natural Language Question
+# =======================
+For the human entry P05067 (Amyloid-beta precursor protein) find the gene start ends in WikiData
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+SELECT 
+	?protein 
+	?begin
+	?end
+	?chromosome
+	?assembly
+WHERE {
+    {
+        BIND(uniprotkb:P05067 AS ?proteinIRI)
+        BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+    }
+    SERVICE <https://query.wikidata.org/sparql> {
+        ?wp wdt:P352 ?protein ;
+            wdt:P702 ?wg . 
+        ?wg p:P644   ?wgss .
+        ?wgss ps:P644        ?begin ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        ?wg p:P645 ?wgse .
+        ?wgse ps:P645        ?end ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        FILTER(lang(?assembly) = "en")
+  } 
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX identifiers: <http://identifiers.org/>
+
+SELECT ?geneWikidata ?geneStart ?geneEnd
+WHERE {
+  # Query UniProt to find the gene encoded by the protein P05067
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find the UniProt entry for P05067
+    <http://purl.uniprot.org/uniprot/P05067> up:encodedBy ?geneUniProt .
+
+    # From the UniProt gene resource, find cross-references to external databases
+    # We look for NCBI Gene or Ensembl identifiers which can be used to link to Wikidata
+    ?geneUniProt rdfs:seeAlso ?ncbiGeneURI .
+    FILTER(STRSTARTS(STR(?ncbiGeneURI), "http://identifiers.org/ncbigene/"))
+    BIND(STRAFTER(STR(?ncbiGeneURI), "http://identifiers.org/ncbigene/") AS ?ncbiGeneId)
+
+    # Optionally, get Ensembl ID as an alternative link
+    OPTIONAL {
+      ?geneUniProt rdfs:seeAlso ?ensemblURI .
+      FILTER(STRSTARTS(STR(?ensemblURI), "http://identifiers.org/ensembl/"))
+      BIND(STRAFTER(STR(?ensemblURI), "http://identifiers.org/ensembl/") AS ?ensemblId)
+    }
+  }
+
+  # Query Wikidata to find the gene item using the NCBI Gene ID or Ensembl ID
+  # and retrieve its start and end positions
+  SERVICE <https://query.wikidata.org/sparql> {
+    # Find the Wikidata item that has the matching NCBI Gene ID (P351)
+    ?geneWikidata wdt:P351 ?ncbiGeneId . # NCBI Gene ID
+
+    # Or find the Wikidata item with the matching Ensembl ID (P594) if available
+    OPTIONAL { ?geneWikidata wdt:P594 ?ensemblId . }
+
+    # Retrieve the gene start (P644) and end (P645) locations from the Wikidata item
+    ?geneWikidata wdt:P644 ?geneStart ; # Gene start location
+                  wdt:P645 ?geneEnd .   # Gene end location
+
+    # Optional: Filter to ensure the item is a gene (instance of Q7187)
+    # ?geneWikidata wdt:P31 wd:Q7187 .
+
+    # Optional: Filter to ensure the gene is found in Homo sapiens (Q15978631)
+    # This adds robustness but might not be strictly necessary if the NCBI Gene ID is unique
+    # ?geneWikidata wdt:P703 wd:Q15978631 .
+  }
+}

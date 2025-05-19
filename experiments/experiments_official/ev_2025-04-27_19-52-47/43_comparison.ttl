@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+#https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?uniprotEntry ?publicationNumber # Cannot select ?grantDate without EPO endpoint
+WHERE {
+  # Step 7a: Find patent cross-references and publication numbers in UniProt
+  # Reasoning: UniProt entries (proteins) have cross-references (rdfs:seeAlso)
+  # to external databases. We filter for the 'Patent' database and extract
+  # the accession number, which serves as the publication number.
+  ?uniprotEntry rdfs:seeAlso ?patentXref .
+  ?patentXref up:database <http://purl.uniprot.org/database/Patent> . # Filter for Patent database (Step 3)
+  ?patentXref up:accession ?publicationNumber . # Get the publication number (Step 3, Step 6)
+
+  # --- IMPORTANT LIMITATION ---
+  # Step 4, 7b, 8, 9, 10: Connect to EPO and filter by grant date
+  # Reasoning: To fulfill the request completely, a SERVICE call to a SPARQL endpoint
+  # for the EPO patent database is required. This endpoint would be used to:
+  # 1. Find the patent record using the publication number (?publicationNumber) (Step 6).
+  # 2. Retrieve the grant date (?grantDate) from that record (Step 7b).
+  # 3. Apply the filter to keep only patents with a grant date more than 20 years ago (Step 10).
+  #
+  # The necessary EPO endpoint URI and the property used for the grant date
+  # are NOT provided in the context (Step 4). Therefore, the full federated query
+  # including the date filter cannot be constructed with the available information.
+  #
+  # A conceptual representation of the missing part would look like this:
+  # SERVICE <http://missing.epo.endpoint/sparql> { # Step 8
+  #   # Find the patent record by publication number (Step 7b)
+  #   ?epoPatentRecord ?somePropertyLinkingToPublicationNumber ?publicationNumber . # Property unknown
+  #   # Get the grant date (must be xsd:date or xsd:dateTime) (Step 7b)
+  #   ?epoPatentRecord ?grantDateProperty ?grantDate . # Property unknown
+  #
+  #   # Filter by grant date (more than 20 years ago) (Step 10)
+  #   FILTER (?grantDate < (NOW() - "P20Y"^^xsd:dayTimeDuration))
+  # }
+  # ----------------------------
+}
+# Note: The current query only retrieves UniProt entries and the publication
+# numbers of cited patents (Step 2). It does NOT filter by grant date from EPO
+# as the necessary endpoint and schema information are missing.

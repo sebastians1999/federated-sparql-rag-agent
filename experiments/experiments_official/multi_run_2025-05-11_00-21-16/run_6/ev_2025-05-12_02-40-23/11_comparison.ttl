@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first class of the enzyme classification (federated query)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Query 11
+# Retrieve the count of reactions mapped to each level (main class) of the enzyme classification
+#
+# This query mimics the Filter section of the Rhea website (Browse all reactions)
+# https://www.rhea-db.org/rhea?query=
+SELECT ?ecClass (STR(?ecName) AS ?ecClassName) (COUNT(?rhea) AS ?rheaCount)
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-)}
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:ec ?ecNumber .
+} GROUP BY ?ecClass ?ecName
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?firstEcClass (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Find reactions in RheaDB
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+    OPTIONAL { ?reaction rhea:enzyme ?enzymeUri . }  # Try to find enzyme URI directly linked to the reaction
+  }
+
+  # If enzyme URI is available, extract UniProt ID. Otherwise, try to find it via reaction participants.
+  BIND (IF(BOUND(?enzymeUri), SUBSTR(str(?enzymeUri), 32), "")) AS ?uniprotIdRhea
+
+  # Query UniProt for EC number based on UniProt ID from RheaDB or reaction participants
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein rdf:type <http://purl.uniprot.org/core/Protein> .
+    OPTIONAL { ?protein <http://purl.uniprot.org/core/ecNumber> ?ecNumber . }
+    FILTER (STRSTARTS(str(?protein), "http://purl.uniprot.org/uniprot/")) # Ensure it's a UniProt URI
+    BIND (SUBSTR(str(?protein), 33) AS ?uniprotIdUniProt) # Extract UniProt ID
+
+    # Link UniProt ID from RheaDB to UniProt
+    FILTER (?uniprotIdRhea = ?uniprotIdUniProt)
+  }
+
+  # Extract the first EC class
+  BIND (IF(BOUND(?ecNumber), STRBEFORE(?ecNumber, "."), "")) AS ?firstEcClass
+
+  FILTER (BOUND(?firstEcClass) && ?firstEcClass != "") # Filter out reactions without EC number
+}
+GROUP BY ?firstEcClass
+ORDER BY DESC(?reactionCount)

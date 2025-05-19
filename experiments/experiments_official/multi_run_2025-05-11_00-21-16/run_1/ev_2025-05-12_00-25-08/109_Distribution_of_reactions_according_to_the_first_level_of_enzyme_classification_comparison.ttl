@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT ?firstLevelEC (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Find Rhea reactions and the corresponding UniProt protein accessions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+    ?reaction rhea:catalyzedBy ?protein .
+  }
+
+  # Get the EC number from UniProt using the protein accession
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein uniprot:ecNumber ?ecNumber .
+    FILTER (STRSTARTS(str(?protein), "http://purl.uniprot.org/uniprot/")) # Ensure ?protein is a UniProt accession
+  }
+
+  # Extract the first level of the EC number
+  BIND(SUBSTR(STR(?ecNumber), 30, 1) AS ?firstLevelEC) # Assuming EC number is in the format "ec:1.2.3.4" and the uniprot:ecNumber property returns the full URI. Adjust the substring indices if needed.
+}
+GROUP BY ?firstLevelEC
+ORDER BY ?firstLevelEC

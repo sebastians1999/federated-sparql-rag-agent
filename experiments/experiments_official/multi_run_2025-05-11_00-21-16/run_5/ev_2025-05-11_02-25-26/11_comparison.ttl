@@ -1,0 +1,80 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first class of the enzyme classification (federated query)
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Query 11
+# Retrieve the count of reactions mapped to each level (main class) of the enzyme classification
+#
+# This query mimics the Filter section of the Rhea website (Browse all reactions)
+# https://www.rhea-db.org/rhea?query=
+SELECT ?ecClass (STR(?ecName) AS ?ecClassName) (COUNT(?rhea) AS ?rheaCount)
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-)}
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:ec ?ecNumber .
+} GROUP BY ?ecClass ?ecName
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?firstClass (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Get reactions from Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+
+  # Attempt to link reactions to UniProt enzymes.  This might require some assumptions
+  # about how Rhea represents enzyme involvement.  Here, I'm assuming a direct link
+  # via a 'catalyzedBy' property (this might need adjustment based on Rhea's actual schema).
+  OPTIONAL {
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rhea:enzyme ?enzyme .  # Adjust property if needed
+    }
+  }
+
+  #If there is no direct link, try to find the enzyme via reactants or products
+  OPTIONAL {
+   SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rhea:reactant ?reactant .
+      ?reactant rdfs:seeAlso ?enzyme .
+    }
+  }
+  OPTIONAL {
+   SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rhea:product ?product .
+      ?product rdfs:seeAlso ?enzyme .
+    }
+  }
+
+  # Get EC number from UniProt for the enzyme
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme uniprot:ecNumber ?ecNumber .
+  }
+
+  # Extract the first class from the EC number
+  BIND(SUBSTR(STR(?ecNumber), 1, 1) AS ?firstClass)
+}
+GROUP BY ?firstClass
+ORDER BY ?firstClass

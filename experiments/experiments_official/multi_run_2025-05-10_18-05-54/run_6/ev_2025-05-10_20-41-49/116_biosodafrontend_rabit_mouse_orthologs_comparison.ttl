@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Rabbit's proteins encoded by genes that are orthologous to Mouse's HBB-Y gene and their cross reference links to Uniprot
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?PROTEIN_1 ?PROTEIN_2 ?UNIPROT_XREF_1 ?UNIPROT_XREF_2 WHERE {
+	?taxon_1 up:commonName 'Mouse' .
+	?taxon_2 up:commonName 'Rabbit' .
+	SERVICE <https://sparql.omabrowser.org/sparql/> {
+		?cluster a orth:OrthologsCluster .
+		?cluster orth:hasHomologousMember ?node1 .
+		?cluster orth:hasHomologousMember ?node2 .
+		?node2 orth:hasHomologousMember* ?PROTEIN_2 .
+		?node1 orth:hasHomologousMember* ?PROTEIN_1 .
+		?PROTEIN_1 a orth:Protein .
+		?PROTEIN_1 orth:organism/obo:RO_0002162 ?taxon_1 ;
+			rdfs:label 'HBB-Y' ;
+			lscr:xrefUniprot ?UNIPROT_XREF_1 .
+		?PROTEIN_2 a orth:Protein .
+		?PROTEIN_2 orth:organism/obo:RO_0002162 ?taxon_2 .
+		?PROTEIN_2 lscr:xrefUniprot ?UNIPROT_XREF_2 .
+		FILTER ( ?node1 != ?node2 )
+	}
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Prefixes for commonly used namespaces
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+# Select the protein identifiers and their corresponding UniProt cross-references
+SELECT DISTINCT ?rabbitProtein ?uniprotCrossReference
+WHERE {
+  # Subquery to find the UniProt IDs of mouse proteins that are HBB-Y
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    SELECT DISTINCT ?mouseProtein
+    WHERE {
+      ?mouseProtein a up:Protein .
+      ?mouseProtein up:organism taxon:129386 . # Mouse taxon
+      FILTER (CONTAINS(STR(?mouseProtein), "HBB-Y")) # Filter for HBB-Y gene
+    }
+  }
+
+  # Find rabbit proteins orthologous to the mouse HBB-Y protein
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?rabbitProtein a up:Protein .
+    ?rabbitProtein up:organism taxon:2697570 . # Rabbit taxon
+    ?rabbitProtein up:sequence ?sequence . # Get the sequence of the rabbit protein
+
+    # Find orthologous proteins based on sequence similarity (this is a simplification; a proper orthology mapping would be preferable if available)
+    FILTER EXISTS {
+      ?mouseProtein up:sequence ?mouseSequence .
+      FILTER (STR(?sequence) = STR(?mouseSequence)) # Compare sequences
+    }
+
+    # Optionally fetch cross-references to UniProt (assuming a direct link exists)
+    OPTIONAL {
+      ?rabbitProtein rdfs:seeAlso ?uniprotCrossReference .
+      FILTER (CONTAINS(STR(?uniprotCrossReference), "uniprot.org")) # Filter for UniProt cross-references
+    }
+  }
+}

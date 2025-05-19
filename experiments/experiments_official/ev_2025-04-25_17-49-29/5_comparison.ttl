@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+# Federated query to retrieve Rhea IDs and equations for reactions involving a specific lipid (SWISSLIPID:000399814, Ceramide) and its more specific forms.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://www.swisslipids.org/rdf#>
+
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  # Find more specific lipids (subClassOf) of the given lipid in SwissLipids
+  {
+    SELECT DISTINCT ?lipid
+    WHERE {
+      VALUES ?givenLipid { <http://www.swisslipids.org/rdf/SWISSLIPID:000399814> } # SWISSLIPID:000399814 is the identifier for Ceramide
+      ?lipid rdfs:subClassOf* ?givenLipid .
+    }
+  }
+
+  # Find reactions in RheaDB that involve the lipid or its more specific forms
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    PREFIX rhea: <http://rdf.rhea-db.org/>
+    PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+    ?rheaID rhea:equation ?equation .
+    ?rheaID rhea:hasParticipant ?participant .
+    ?participant rdfs:seeAlso ?chebiEntity . # Link to ChEBI
+
+    # Filter for reactions involving the lipid or its more specific forms
+    FILTER EXISTS {
+      # Map SwissLipids IDs to ChEBI IDs using a SPARQL VALUES clause.
+      # This assumes a mapping exists between SwissLipids and ChEBI for the lipids.
+      # If no direct mapping exists, a more complex approach involving external data sources or reasoning might be needed.
+      VALUES ?lipidChEBI {
+        <http://purl.obolibrary.org/obo/CHEBI_17761> # Example ChEBI ID for Ceramide.  This needs to be verified and expanded.
+      }
+      FILTER (?chebiEntity IN (?lipidChEBI))
+    }
+  }
+}

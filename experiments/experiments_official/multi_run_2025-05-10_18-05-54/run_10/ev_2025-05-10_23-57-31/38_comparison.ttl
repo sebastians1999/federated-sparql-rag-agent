@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+For the human entry P05067 (Amyloid-beta precursor protein) find the gene start ends in WikiData
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+SELECT 
+	?protein 
+	?begin
+	?end
+	?chromosome
+	?assembly
+WHERE {
+    {
+        BIND(uniprotkb:P05067 AS ?proteinIRI)
+        BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+    }
+    SERVICE <https://query.wikidata.org/sparql> {
+        ?wp wdt:P352 ?protein ;
+            wdt:P702 ?wg . 
+        ?wg p:P644   ?wgss .
+        ?wgss ps:P644        ?begin ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        ?wg p:P645 ?wgse .
+        ?wgse ps:P645        ?end ;
+          pq:P1057/wdt:P1813 ?chromosome ;
+          pq:P659/rdfs:label ?assembly .
+        FILTER(lang(?assembly) = "en")
+  } 
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# Federated query to retrieve gene start and end positions for human Amyloid-beta precursor protein (P05067) from Wikidata.
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT ?geneStart ?geneEnd
+WHERE {
+  # Find the human protein with UniProt ID P05067
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    SELECT ?protein ?gene WHERE {
+      ?protein a up:Protein .
+      ?protein up:database <http://purl.uniprot.org/database/Swiss-Prot> .
+      ?protein up:accession "P05067" .
+      ?protein up:organism <http://purl.uniprot.org/taxonomy/9606> . # Human
+      ?protein up:encodedBy ?gene .
+    }
+  }
+  
+  # Find the Wikidata ID for the gene
+  SERVICE <https://query.wikidata.org/sparql> {
+    OPTIONAL {
+      ?geneWikidata wdt:P703 wd:Q5 .  # Gene is found in Homo sapiens (human)
+      ?geneWikidata wdt:P351 ?gene .    # UniProt ID of the gene
+      OPTIONAL { ?geneWikidata wdt:P644 ?geneStart . } # Gene start position
+      OPTIONAL { ?geneWikidata wdt:P645 ?geneEnd . }   # Gene end position
+    }
+  }
+}

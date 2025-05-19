@@ -1,0 +1,22 @@
+{
+  "SP-BLEU": 0.09280487007078927,
+  "METEOR": 0.2963189532737452,
+  "num_none_queries": 1,
+  "size_of_test_set": 28,
+  "error_at_endpoints": 4,
+  "avg_result_precision": 0.3153909888288906,
+  "avg_result_recall": 0.3328921468811512,
+  "avg_result_f1": 0.32339026168427254,
+  "number_of_query_results_evaluated": 9,
+  "list_evaluated_queries": [
+    "SwissLipids/16.ttl",
+    "SwissLipids/6.ttl",
+    "SwissLipids/34.ttl",
+    "UniProt/51_all_proteins_linked_to_arachidonate.ttl",
+    "UniProt/67_draft_human_metabolome.ttl",
+    "UniProt/36_orthologous_proteins_via_orthodb.ttl",
+    "Rhea/11.ttl",
+    "Rhea/109_Distribution_of_reactions_according_to_the_first_level_of_enzyme_classification.ttl",
+    "Rhea/19_draft_human_metabolome.ttl"
+  ]
+}

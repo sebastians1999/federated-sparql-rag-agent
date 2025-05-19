@@ -1,0 +1,87 @@
+
+# Natural Language Question
+# =======================
+Which are the proteins associated with glioblastoma and the orthologs expressed in the rat brain?
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX sio: <http://semanticscience.org/resource/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX genex: <http://purl.org/genex#>
+SELECT DISTINCT ?protein ?orthologous_protein ?gene ?annotation_text WHERE {
+  {
+  	SELECT ?protein ?annotation_text WHERE {
+      ?protein a up:Protein ;
+          up:organism taxon:9606 ;
+          up:annotation ?annotation .
+      ?annotation rdfs:comment ?annotation_text .
+      ?annotation a up:Disease_Annotation .
+      FILTER CONTAINS (?annotation_text, "glioblastoma")
+    }
+  }
+  SERVICE <https://sparql.omabrowser.org/sparql/> {
+    SELECT ?orthologous_protein ?protein ?gene WHERE {
+    ?protein_OMA a orth:Protein .
+    ?orthologous_protein a orth:Protein .
+    ?cluster a orth:OrthologsCluster .
+    ?cluster orth:hasHomologousMember ?node1 .
+    ?cluster
+    orth:hasHomologousMember ?node2 .
+    ?node2 orth:hasHomologousMember* ?protein_OMA .
+    ?node1 orth:hasHomologousMember* ?orthologous_protein .
+    ?orthologous_protein orth:organism/obo:RO_0002162 taxon:10116 . # rattus norvegicus
+    ?orthologous_protein sio:SIO_010079 ?gene .
+    ?protein_OMA lscr:xrefUniprot ?protein .
+    FILTER(?node1 != ?node2)
+		}
+	}
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene genex:isExpressedIn ?a .
+    ?a rdfs:label "brain" .
+    ?gene orth:organism ?s . 
+    ?s obo:RO_0002162 taxon:10116.
+	}
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX orthodb: <http://purl.orthodb.org/>
+
+SELECT DISTINCT ?protein ?geneName ?orthologProtein ?orthologGeneName
+WHERE {
+  # Find proteins associated with Glioblastoma
+  ?protein up:annotation ?diseaseAnnotation .
+  ?diseaseAnnotation up:disease ?disease .
+  ?disease skos:prefLabel "Glioblastoma" . #  Glioblastoma
+
+  # Get the gene name of the protein
+  ?protein up:encodedBy ?gene .
+  ?gene skos:prefLabel ?geneName .
+
+  # Find orthologs in Rat brain
+  SERVICE <https://sparql.orthodb.org/sparql> {
+    ?orthoGroup orthodb:hasMember ?proteinXref .
+    ?proteinXref orthodb:xref/orthodb:xrefResource ?protein .
+    ?orthoGroup orthodb:hasMember ?orthologXref .
+    ?orthologXref orthodb:xref/orthodb:xrefResource ?orthologProtein .
+    ?orthologProtein up:organism ?ratTaxonomy .
+    ?ratTaxonomy skos:prefLabel "Rat brain" . # Rat brain
+  }
+  
+  # Get the gene name of the ortholog protein
+  ?orthologProtein up:encodedBy ?orthologGene .
+  ?orthologGene skos:prefLabel ?orthologGeneName .
+}

@@ -1,0 +1,54 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# http://allie.dbcls.jp/sparql/
+
+SELECT DISTINCT ?longForm
+WHERE {
+  SERVICE <http://allie.dbcls.jp/sparql/> {
+    ?resource <http://purl.org/dc/terms/title> "Japanese"@en .
+    ?resource <http://www.w3.org/2000/01/rdf-schema#label> ?longForm .
+  }
+  
+  # You might need to further filter or connect to UniProt data here, 
+  # depending on how ALLIE represents the data and what you want to retrieve from UniProt.
+  # This example assumes you want to find UniProt entries related to the long forms.
+  # SERVICE <https://sparql.uniprot.org/sparql> {
+  #   ?uniprotEntry ?predicate ?longForm . # Adjust this pattern based on UniProt's schema
+  # }
+}

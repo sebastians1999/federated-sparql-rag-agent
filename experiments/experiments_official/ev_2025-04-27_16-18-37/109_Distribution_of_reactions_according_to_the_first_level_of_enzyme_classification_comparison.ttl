@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+#https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?ecClass1 ?ecClassName (COUNT(?reaction) AS ?reactionCount)
+WHERE {
+  # Find all reactions in Rhea that have an associated EC number
+  ?reaction rh:ec ?ecString .
+
+  # Use SERVICE to query UniProt for information about the EC number
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Construct the URI for the full EC number in UniProt format
+    BIND(uri(concat("http://purl.uniprot.org/enzyme/", ?ecString)) AS ?ecURI)
+
+    # Extract the first level of the EC number (e.g., "1" from "1.1.1.1")
+    # Find the position of the first dot
+    BIND(STRPOS(?ecString, ".") AS ?dotPos)
+    # Extract the substring before the first dot
+    BIND(SUBSTR(?ecString, 1, ?dotPos - 1) AS ?ecClass1String)
+    # Construct the URI for the first level EC class
+    BIND(uri(concat("http://purl.uniprot.org/enzyme/", ?ecClass1String)) AS ?ecClass1)
+
+    # Get the human-readable name for the first level EC class
+    ?ecClass1 rdfs:label ?ecClassName .
+  }
+}
+GROUP BY ?ecClass1 ?ecClassName
+ORDER BY ?ecClass1

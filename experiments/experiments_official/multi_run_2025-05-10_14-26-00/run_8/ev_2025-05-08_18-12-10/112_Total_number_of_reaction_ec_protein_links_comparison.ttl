@@ -1,0 +1,65 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# Endpoint: The primary endpoint where you want to initiate the query.  Replace with the correct URL.
+# Example: https://sparql.uniprot.org/sparql
+# Replace with the correct endpoint URL
+SELECT (COUNT(*) AS ?totalLinks)
+WHERE {
+  {
+    # Query for links within Endpoint 1 (e.g., Rhea)
+    SERVICE <ENDPOINT_URL_1> {  # Replace with the actual endpoint URL
+      ?reaction rdf:type rhea:Reaction .  # Assuming Rhea for reactions; adjust if needed
+      ?reaction ?reactionProperty ?ec .      # Replace ?reactionProperty with the actual property linking reactions to EC numbers
+      ?ec rdf:type <EC_CLASS> . # Replace <EC_CLASS> with the actual EC class URI
+    }
+  }
+  UNION
+  {
+    # Query for links within Endpoint 2 (e.g., UniProt)
+    SERVICE <ENDPOINT_URL_2> {  # Replace with the actual endpoint URL
+      ?protein rdf:type <PROTEIN_CLASS> . # Replace <PROTEIN_CLASS> with the actual protein class URI
+      ?protein ?proteinProperty ?ec .    # Replace ?proteinProperty with the actual property linking proteins to EC numbers
+      ?ec rdf:type <EC_CLASS> . # Replace <EC_CLASS> with the actual EC class URI
+    }
+  }
+  UNION
+  {
+    # Query for links between Endpoint 1 and Endpoint 2
+    SERVICE <ENDPOINT_URL_1> {
+      ?reaction rdf:type rhea:Reaction .
+      ?reaction ?reactionProperty ?protein . # Replace ?reactionProperty with the actual property linking reactions to proteins
+    }
+    SERVICE <ENDPOINT_URL_2> {
+      ?protein rdf:type <PROTEIN_CLASS> .
+      ?protein ?proteinProperty ?ec . # Replace ?proteinProperty with the actual property linking proteins to EC numbers
+      ?ec rdf:type <EC_CLASS> . # Replace <EC_CLASS> with the actual EC class URI
+    }
+  }
+}

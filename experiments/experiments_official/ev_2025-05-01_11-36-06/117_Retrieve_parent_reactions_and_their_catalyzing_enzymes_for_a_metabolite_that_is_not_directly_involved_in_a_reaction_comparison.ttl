@@ -1,0 +1,94 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT DISTINCT ?parentReaction ?parentEquation ?ecNumber ?protein WHERE {
+  # Find ChEBI compounds that are subclasses of CHEBI:83137 (butanoate).
+  # This interprets "not directly involved" as involving a compound that is a subclass
+  # of the specified metabolite, rather than the metabolite itself.
+  ?chebiSubclass rdfs:subClassOf+ CHEBI:83137 .
+
+  # Find Rhea compounds linked to these ChEBI subclasses.
+  ?compound rh:chebi ?chebiSubclass .
+
+  # Find reactions involving these Rhea compounds.
+  ?involvedReaction rdfs:subClassOf rh:Reaction .
+  ?involvedReaction rh:status rh:Approved . # Only consider approved reactions
+  ?involvedReaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+
+  # Find the parent reactions of these involved reactions.
+  ?involvedReaction rdfs:subClassOf ?parentReaction .
+  ?parentReaction rdfs:subClassOf rh:Reaction .
+  ?parentReaction rh:status rh:Approved . # Only consider approved parent reactions
+  ?parentReaction rh:equation ?parentEquation . # Get the equation for the parent reaction
+
+  # Find EC numbers associated with the parent reactions.
+  ?parentReaction rh:ec ?ecNumber .
+
+  # Find proteins in UniProt that catalyze these reactions (via EC number).
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true . # Optional: filter for reviewed proteins
+    # Link protein to EC number using various properties
+    { ?protein up:enzyme ?ecNumber }
+    UNION
+    { ?protein up:domain/up:enzyme ?ecNumber }
+    UNION
+    { ?protein up:component/up:enzyme ?ecNumber }
+  }
+}

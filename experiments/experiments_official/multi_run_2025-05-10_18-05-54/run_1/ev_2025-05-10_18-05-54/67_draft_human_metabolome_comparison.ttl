@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+# This query is a draft and may not be fully executable due to the lack of a specific SPARQL endpoint for the "human metabolome".
+# It provides a general structure for querying metabolome-related information, which can be adapted based on available endpoints.
+# The query attempts to find information related to the human metabolome by querying UniProt and potentially other relevant databases.
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?metabolite ?description
+WHERE {
+  # Query UniProt for proteins related to human and metabolism
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism <http://purl.uniprot.org/taxonomy/9606> .  # Human
+    ?protein rdfs:comment ?comment .
+    FILTER (contains(lcase(?comment), "metabolism"))
+    BIND(?comment AS ?description) # consider the comment as a description of the metabolite
+    BIND(?protein AS ?metabolite) # consider the protein as a metabolite
+  }
+  
+  #OPTIONAL: Potentially query other metabolome databases (e.g., HMDB) if a SPARQL endpoint is available
+  #SERVICE <HMDB_SPARQL_ENDPOINT> {
+  #  ?metabolite hmdb:name ?name .
+  #  ?metabolite hmdb:description ?description .
+  #  FILTER (contains(lcase(?description), "human"))
+  #}
+}

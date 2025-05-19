@@ -18,11 +18,11 @@ def format_query_result_dataframe(
     timeout: Optional[int] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
-    print("Querying ground truth endpoint...")
+    print("Querying ground truth endpoint with timeout:", timeout , "seconds")
 
     ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint, timeout=timeout)
 
-    print("Querying predicted endpoint...")
+    print("Querying predicted endpoint with timeout:", timeout, "seconds")
     
     predicted = query_sparql_wrapper(predicted_query, predicted_endpoint, timeout=timeout)
 
@@ -107,9 +107,24 @@ def calculate_column_metrics_with_label_similarity(
 
     print("[calculate_column_metrics_with_label_similarity] Calculating metrics for file:", file_path)
 
-    if df_ground_truth.empty or df_predicted.empty:
-        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}
 
+    gt_empty = getattr(df_ground_truth, "empty", True)
+    pred_empty = getattr(df_predicted, "empty", True)
+    
+    if gt_empty and pred_empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0,
+                "predicted_query_result_is_empty": True,
+                "ground_truth_query_result_is_empty": True}
+    elif gt_empty and not pred_empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0,
+                "predicted_query_result_is_empty": False,
+                "ground_truth_query_result_is_empty": True}
+    elif pred_empty and not gt_empty:
+        return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0,
+                "predicted_query_result_is_empty": True,
+                "ground_truth_query_result_is_empty": False}
+
+    
 
     gt_labels = list(df_ground_truth.columns)
     pred_labels = list(df_predicted.columns)
@@ -176,8 +191,8 @@ def calculate_column_metrics_with_label_similarity(
     for row in df_predicted[pred_matched_cols].astype(str).fillna("").values.tolist():
         pred_tuples.add(tuple(row))
         
-    print("gt_tuples:", gt_tuples)
-    print("pred_tuples:", pred_tuples)
+    print("gt_tuples:", list(gt_tuples)[:3])
+    print("pred_tuples:", list(pred_tuples)[:3])
     
     if not gt_tuples or not pred_tuples:
         print("no tuples found")
@@ -188,4 +203,4 @@ def calculate_column_metrics_with_label_similarity(
     recall = tp / len(gt_tuples)
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
-    return {"precision": precision, "recall": recall, "f1_score": f1}
+    return {"precision": precision, "recall": recall, "f1_score": f1, "predicted_query_result_is_empty": False, "ground_truth_query_result_is_empty": False}

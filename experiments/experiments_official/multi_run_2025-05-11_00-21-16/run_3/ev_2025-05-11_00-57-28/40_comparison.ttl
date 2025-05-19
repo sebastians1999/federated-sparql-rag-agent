@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX sl: <http://www.swisslipids.org/rdf/SwissLipids#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?enzymeUniProtID
+WHERE {
+  # Find enzymes in SwissLipids that are involved in sphingolipid metabolism
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?enzyme sl:catalyzes ?reaction .
+    ?reaction sl:has_substrate ?sphingolipid .
+    ?sphingolipid rdfs:label ?sphingolipidLabel .
+    FILTER (CONTAINS(lcase(?sphingolipidLabel), "sphingolipid")) # Filter for sphingolipids
+    ?enzyme rdfs:label ?enzymeLabel .
+  }
+
+  # Use the enzyme label to find corresponding UniProt entries
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzymeUniProt up:recommendedName ?recName .
+    ?enzymeUniProt rdfs:label ?enzymeLabel .
+    FILTER regex(?enzymeLabel, ?enzymeLabel, "i") # Case-insensitive match
+    ?org up:scientificName "Homo sapiens" . # Filter for human proteins
+    ?protein up:organism ?org .
+    ?protein rdfs:seeAlso ?enzymeUniProt .
+    BIND(SUBSTR(str(?protein), 32) AS ?enzymeUniProtID) # Extract UniProt ID
+  }
+}

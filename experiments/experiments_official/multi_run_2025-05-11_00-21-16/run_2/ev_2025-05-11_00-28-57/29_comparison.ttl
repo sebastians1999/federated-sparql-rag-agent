@@ -1,0 +1,58 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Query UniProt for entries related to terms potentially obtained from ALLIE.
+# Since I don't have direct access to ALLIE, I'm assuming the user provides relevant terms.
+# This query searches for these terms within UniProt properties like rdfs:label, up:scientificName, or skos:prefLabel.
+SELECT DISTINCT ?entity ?label
+WHERE {
+  ?entity a up:Protein .  # Assuming we are interested in proteins.  Adjust if needed.
+  ?entity rdfs:label ?label .
+  # Example: Search for proteins with labels containing "provided_term_from_ALLIE".
+  # Replace "provided_term_from_ALLIE" with the actual term you get from ALLIE.
+  FILTER (CONTAINS(LCASE(?label), "provided_term_from_ALLIE"))
+  # You can add more FILTER clauses to search in other properties, e.g., scientific name:
+  # OPTIONAL { ?entity up:scientificName ?scientificName . }
+  # FILTER (CONTAINS(LCASE(?scientificName), "another_term_from_ALLIE"))
+}
+# The query can be expanded to include more properties and FILTER conditions as needed.

@@ -1,0 +1,50 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# Endpoint: https://sparql.swissbiopics.org/sparql
+SELECT ?enzymeClassLevel1 (COUNT(?reaction) AS ?reactionCount)
+WHERE {
+  ?enzyme rdfs:subClassOf* ?enzymeClassLevel1 .
+  ?enzymeClassLevel1 rdf:type owl:Class .
+  FILTER(REGEX(STR(?enzymeClassLevel1), "^http://purl\\.uniprot\\.org/enzyme/"))
+
+  ?reaction a rdfs:Class . # Assuming reactions are defined as classes
+  ?reaction rdfs:domain ?enzyme . # Assuming reactions are linked to enzymes via rdfs:domain
+
+  FILTER(STRSTARTS(STR(?enzymeClassLevel1), "http://purl.uniprot.org/enzyme/1.")) # Filter for first level enzyme classes
+}
+GROUP BY ?enzymeClassLevel1
+ORDER BY ?enzymeClassLevel1

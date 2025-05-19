@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>  # Assuming UniProt uses this for EC numbers
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalReactions) (COUNT(DISTINCT ?protein) AS ?totalProteins) (COUNT(DISTINCT ?ecNumber) AS ?totalECNumbers)
+WHERE {
+  # Get reactions and associated EC numbers from RheaDB
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    OPTIONAL { ?reaction rhea:ec ?ecNumber . }  # Assuming rhea:ec links to EC numbers
+  }
+
+  # Get proteins and associated EC numbers from UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein . # Assuming uniprot:Protein is the class for proteins
+    OPTIONAL { ?protein uniprot:enzyme ?ecNumber . } # Assuming uniprot:enzyme links to EC numbers.  This might need adjustment based on UniProt's actual schema.
+  }
+  
+  # Attempt to link reactions and proteins via EC numbers.  This is the crucial linking step.
+  FILTER EXISTS {
+    SERVICE <https://sparql.rhea-db.org/sparql> {
+      ?reaction rhea:ec ?ecNumber .
+    }
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein uniprot:enzyme ?ecNumber .
+    }
+  }
+}

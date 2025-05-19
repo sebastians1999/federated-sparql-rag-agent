@@ -1,0 +1,49 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?count)
+WHERE {
+  # Find reactions in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+  
+  # Link reactions to proteins and EC numbers via UniProt.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein uniprot:enzyme ?ec . # Assuming uniprot:enzyme links to EC number
+    ?protein rdfs:seeAlso ?rheaId . # Assuming rdfs:seeAlso links to Rhea ID
+    FILTER CONTAINS(str(?rheaId), str(?reactionId)) # Filter to match the reaction ID
+  }
+  BIND (STRAFTER(str(?reaction), "http://rdf.rhea-db.org/") AS ?reactionId)
+}

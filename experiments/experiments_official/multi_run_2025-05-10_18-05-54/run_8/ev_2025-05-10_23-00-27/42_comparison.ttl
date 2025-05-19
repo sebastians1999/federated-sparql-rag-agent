@@ -1,0 +1,49 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query patents cited in UniProtKB and retrieve their identifiers.
+SELECT DISTINCT ?patentIdentifier ?patentLabel
+WHERE {
+  # Access UniProtKB data through the UniProt SPARQL endpoint.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:citation ?citation .
+    ?citation rdfs:label ?citationLabel .
+    FILTER (CONTAINS(LCASE(?citationLabel), "patent")) # Filter for citations containing the word "patent".
+    BIND (STRBEFORE(?citationLabel, " (") AS ?patentIdentifier) # Extract the patent identifier from the citation label.
+    BIND (?citationLabel AS ?patentLabel)
+  }
+}
+# The query retrieves patent identifiers and labels from UniProtKB.
+# Further federation with an external patent database (e.g., EPO) would require a SERVICE clause
+# and knowledge of the EPO's SPARQL endpoint and schema for patent data.

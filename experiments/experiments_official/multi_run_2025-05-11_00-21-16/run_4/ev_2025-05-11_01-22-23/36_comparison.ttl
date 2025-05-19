@@ -1,0 +1,74 @@
+
+# Natural Language Question
+# =======================
+Find the orthologous proteins for UniProtKB entry P05067 using the <a href="http://www.orthod.org">OrthoDB database</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?orthoGroup
+  ?scientificName
+  ?functionComment
+  ?prefferedGeneName
+  ((STRLEN(?value) - ?medianLength) as ?deviationFromMedianLength)
+WHERE
+{
+  uniprotkb:P05067 a up:Protein ;
+        up:organism/up:scientificName ?scientificName ;
+        rdfs:seeAlso ?orthoGroup ;
+        up:encodedBy/skos:prefLabel ?prefferedGeneName ;
+          up:sequence/rdf:value ?value .
+  OPTIONAL {
+    ?protein up:annotation ?functionAnnotation .
+    ?functionAnnotation a up:Function_Annotation ;
+      rdfs:comment ?functionComment .
+  }
+  SERVICE <https://sparql.orthodb.org/sparql>{
+    ?orthoGroup orthodb:ogMedianProteinLength ?medianLength .
+    ?orthoGroup orthodb:hasMember ?xref .
+    ?xref orthodb:xref/orthodb:xrefResource uniprotkb:P05067 .
+  }
+}
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?ortholog ?orthoDBLink
+WHERE {
+  # Find the protein with the UniProt ID P05067
+  VALUES ?protein { <http://purl.uniprot.org/uniprot/P05067> }
+
+  # Look for orthologs of the protein.  We'll assume there's some predicate
+  # linking a protein to its orthologs.  This might need adjustment based
+  # on the actual UniProt vocabulary.
+  ?protein up:sequence ?sequence .
+  ?otherProtein up:sequence ?otherSequence .
+  FILTER (?protein != ?otherProtein) # Avoid self-matches
+
+  # Attempt to link to OrthoDB. This assumes UniProt has cross-references
+  # to OrthoDB. The predicate 'up:database' and the filter value
+  # 'OrthoDB' are placeholders and might need to be adjusted based on
+  # the actual UniProt data.
+  OPTIONAL {
+    ?otherProtein up:database ?orthoDBLink .
+    FILTER CONTAINS(STR(?orthoDBLink), "orthodb.org") # Check if the link contains "orthodb.org"
+  }
+  BIND(?otherProtein AS ?ortholog)
+}

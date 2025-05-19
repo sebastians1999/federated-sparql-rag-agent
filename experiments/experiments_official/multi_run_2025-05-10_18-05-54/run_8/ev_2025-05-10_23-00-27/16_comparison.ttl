@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving that lipid.
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 16
+SELECT ?startId ?startName ?uniprot
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+# Return a list of all enzymes in UniProtKB/Swiss-Prot annotated to catalyze reactions involving a given lipid.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://www.swisslipids.org/rdf#>
+
+SELECT DISTINCT ?enzyme ?enzymeName
+WHERE {
+  # Find reactions involving the specified lipid in SwissLipids
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    VALUES ?lipid { <http://www.swisslipids.org/rdf/SWISSLIPID:000399814> } # SWISSLIPID:000399814
+    ?reaction sl:reaction_substrate ?lipid .
+  }
+  
+  # Find enzymes in UniProtKB/Swiss-Prot that catalyze these reactions
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme rdfs:subClassOf <http://purl.uniprot.org/core/Protein> . # Ensure we are selecting proteins (enzymes)
+    ?enzyme rdfs:seeAlso ?reaction . # Link to the reaction from SwissLipids
+    ?enzyme rdfs:label ?enzymeName . # Get the enzyme name
+  }
+}

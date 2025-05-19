@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+# Draft query to retrieve human metabolome information. This query federates with UniProt to retrieve human proteins and Rhea to retrieve reactions and metabolites.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi ?chebiName ?reaction ?protein
+WHERE {
+  # Subquery to retrieve human proteins from UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 .  # Filter for human proteins
+    ?protein up:annotation ?annotation .
+    ?annotation a up:Catalytic_Activity_Annotation .
+    ?annotation up:catalyticActivity ?catalyticActivity .
+    ?catalyticActivity up:catalyzedReaction ?reactionRhea .
+  }
+
+  # Use Rhea to find reactions associated with the proteins
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction .
+    ?reaction rh:status rh:Approved .
+    ?reaction rh:ec ?ecNumber .
+    ?reaction rh:side ?reactionSide .
+    ?reactionSide rh:contains ?participant .
+    ?participant rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    ?chebi rdfs:label ?chebiName .
+  }
+  FILTER (?reaction = ?reactionRhea) #Link reactions from uniprot to rhea
+}

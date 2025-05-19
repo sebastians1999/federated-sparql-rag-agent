@@ -1,0 +1,48 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Find reactions in RheaDB
+  ?reaction a rhea:Reaction .
+
+  # Optionally link reactions to EC numbers. Not all reactions have EC numbers.
+  OPTIONAL { ?reaction rhea:ec ?ec . }
+
+  # Use the UniProt SPARQL endpoint to find proteins associated with the EC number
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein rdfs:label ?proteinLabel . # Added to ensure ?protein is bound and avoid errors
+    ?proteinUniProt skos:exactMatch ?ec . # Link UniProt proteins to the EC number
+    FILTER STRSTARTS(str(?ec), "http://purl.uniprot.org/enzyme/") # Ensure ?ec is an EC number in UniProt
+  }
+}

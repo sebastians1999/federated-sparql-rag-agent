@@ -1,0 +1,45 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query UniProtKB for entries with patent cross-references
+SELECT DISTINCT ?uniprot_entry ?patent_identifier
+WHERE {
+  ?uniprot_entry a up:Protein .  # Select UniProt entries that are proteins
+  ?uniprot_entry up:database ?database . # Get the database cross-reference
+  ?database rdfs:label "Patent" . # Filter for Patent cross-references
+  ?database up:id ?patent_identifier . # Retrieve the patent identifier
+
+  # Optional: Get the protein name
+  OPTIONAL { ?uniprot_entry rdfs:label ?protein_name . }
+}

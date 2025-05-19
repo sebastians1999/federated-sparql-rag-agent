@@ -1,0 +1,102 @@
+
+# Natural Language Question
+# =======================
+Retrieve drugs that target human enzymes involved in sterol metabolism (federated query with WikiData and Rhea).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX chebihash: <http://purl.obolibrary.org/obo/chebi#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT DISTINCT ?protein ?proteinFullName ?wikiChemical ?wikiChemicalLabel ?medicalConditionTreatedLabel
+WHERE {
+  # ChEBI: retrieve members of the ChEBI class ChEBI:15889 (sterol)
+  # Rhea: retrieve the reactions involving these ChEBI as participants
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction ;
+      rh:status rh:Approved ;
+      rh:side ?reactionSide .
+    ?reactionSide
+      rh:contains ?participant .
+    ?participant rh:compound ?compound
+    {
+      ?compound rh:chebi ?chebi .
+      ?chebi (rdfs:subClassOf)+ CHEBI:15889
+    } UNION {
+      ?compound rh:chebi ?chebi .
+      ?chebi2 rdfs:subClassOf ?chebiRestriction .
+      ?chebiRestriction
+		a owl:Restriction ;
+		owl:onProperty chebihash:has_major_microspecies_at_pH_7_3 ;
+		owl:someValuesFrom ?chebi .
+      ?chebi2 (rdfs:subClassOf)+ CHEBI:15889
+    }
+  }
+  # UniProt: retrieve the human (taxid:9606) enzymes catalyzing these Rhea reactions
+  ?ca up:catalyzedReaction  ?reaction .
+  ?a up:catalyticActivity  ?ca .
+  ?proteinIRI  up:annotation ?a ;
+    up:organism taxon:9606 ;
+    up:recommendedName ?proteinRecName .
+  ?proteinRecName up:fullName ?proteinFullName .
+  # Find drugs in wikidata that interact with the UniProt Proteins
+  BIND (SUBSTR(STR(?proteinIRI), STRLEN(STR(uniprotkb:))+1) AS ?protein)
+  SERVICE <https://query.wikidata.org/sparql> {
+    ?wp wdt:P352  ?protein .
+    ?wikiChemical wdt:P129 ?wp . # Physically interacts with
+    ?wikiChemical rdfs:label ?wikiChemicalLabel .
+    ?wikiChemical wdt:P2175 ?wmc . # Medical conndition treated
+    ?wmc rdfs:label ?medicalConditionTreatedLabel .
+    FILTER(lang(?medicalConditionTreatedLabel) = 'en')
+    FILTER(lang(?wikiChemicalLabel) = 'en')
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT DISTINCT ?drug ?enzyme ?rheaReaction
+WHERE {
+  # Find human enzymes that catalyze reactions involving sterols in Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rdfs:subClassOf rh:Reaction .
+    ?rheaReaction rh:side/rh:contains/rh:compound/rh:chebi ?sterol .
+    ?sterol rdfs:subClassOf* CHEBI:15889 . # sterol
+  }
+
+  SERVICE <https://sparql.uniprot.org/sparql/> {
+    ?enzyme up:annotation/up:catalyticActivity/up:catalyzedReaction ?rheaReaction .
+    ?enzyme up:organism taxon:9606 . # Human
+    ?enzyme rdfs:seeAlso ?drugbankResource .
+  }
+
+  # Find drugs that target the human enzymes in WikiData
+  SERVICE <https://query.wikidata.org/sparql> {
+    ?drug wdt:P2175 ?drugbankId . # Drugbank ID
+    ?drug wdt:P129 ?enzymeWD . # Target enzyme in WikiData
+    ?drug wdt:P31 wd:Q12140 . # instance of drug
+
+    # Match the DrugBank resource from UniProt to the DrugBank ID in WikiData
+    FILTER(STRSTARTS(str(?drugbankResource), "http://identifiers.org/drugbank:"))
+    BIND(SUBSTR(str(?drugbankResource), 33) AS ?drugbankId) # Extract DrugBank ID from URI
+  }
+}

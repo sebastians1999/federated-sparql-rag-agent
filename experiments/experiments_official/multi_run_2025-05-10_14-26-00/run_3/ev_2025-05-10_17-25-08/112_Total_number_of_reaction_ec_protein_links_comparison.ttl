@@ -1,0 +1,44 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.swissbioportal.org/sparql
+SELECT COUNT(DISTINCT ?reaction) AS ?count
+WHERE {
+  {
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein rdfs:seeAlso ?ec .
+      FILTER (CONTAINS(STR(?ec), "http://purl.uniprot.org/taxonomy/")) .
+    }
+  }
+  {
+    SERVICE <https://sparql.swissbioportal.org/sparql> {
+      ?reaction sio:SIO_000628 ?protein .
+    }
+  }
+}

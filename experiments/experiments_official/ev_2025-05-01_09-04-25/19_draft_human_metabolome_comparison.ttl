@@ -1,0 +1,81 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi ?chebiLabel
+WHERE {
+  # Query UniProt to find human proteins that are enzymes
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:organism taxon:9606 . # Filter for human proteins
+
+    # Find catalytic activity annotations for these proteins
+    ?protein up:annotation ?a .
+    ?a a up:Catalytic_Activity_Annotation .
+    ?a up:catalyticActivity ?ca .
+
+    # Link the catalytic activity to a Rhea reaction
+    ?ca up:catalyzedReaction ?reaction . # ?reaction will be a Rhea URI
+  }
+
+  # Query Rhea to find metabolites involved in these reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Use the Rhea reaction URI obtained from UniProt
+    ?reaction rdfs:subClassOf rh:Reaction . # Ensure it's a valid Rhea reaction
+
+    # Find the reaction sides (substrates/products)
+    ?reaction rh:side ?reactionSide .
+
+    # Find the participants (compounds) in the reaction sides
+    ?reactionSide rh:contains ?participant .
+
+    # Find the compound associated with the participant
+    ?participant rh:compound ?compound .
+
+    # Get the ChEBI identifier for the compound
+    ?compound rh:chebi ?chebi .
+  }
+
+  # Optional: Query a public ChEBI endpoint to get the label for the metabolite
+  # Note: This service is not explicitly listed in the context but is commonly used for ontology lookups.
+  SERVICE <https://sparql.ebi.ac.uk/sparql> {
+      ?chebi rdfs:label ?chebiLabel .
+  }
+}

@@ -1,0 +1,132 @@
+
+# Natural Language Question
+# =======================
+Retrieve drugs that target human enzymes involved in sterol metabolism (federated query with Rhea and ChEMBL via IDSM/Elixir czech republic).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX cco: <http://rdf.ebi.ac.uk/terms/chembl#>
+PREFIX chebihash: <http://purl.obolibrary.org/obo/chebi#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+        DISTINCT
+            ?protein
+            ?proteinFullName
+            ?activityType
+            ?standardActivityValue
+            ?standardActivityUnit
+            ?chemblMolecule
+            ?chemlbMoleculePrefLabel
+WHERE
+  {
+  # ChEBI: retrieve members of the ChEBI class ChEBI:15889 (sterol)
+  # Rhea: retrieve the reactions involving these ChEBI as participants
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf  rh:Reaction ;
+	      rh:status        rh:Approved ;
+	      rh:side          ?reactionSide .
+    ?reactionSide
+	      rh:contains      ?participant .
+    ?participant rh:compound  ?compound
+    {
+      ?compound  rh:chebi  ?chebi .
+      ?chebi (rdfs:subClassOf)+ CHEBI:15889
+    } UNION {
+      ?compound  rh:chebi           ?chebi .
+      ?chebi2   rdfs:subClassOf     ?chebiRestriction .
+      ?chebiRestriction
+		a           owl:Restriction ;
+		owl:onProperty      chebihash:has_major_microspecies_at_pH_7_3 ;
+		owl:someValuesFrom  ?chebi .
+      ?chebi2 (rdfs:subClassOf)+ CHEBI:15889
+    }
+  }
+  # UniProt: retrieve the human (taxid:9606) enzymes catalyzing these Rhea reactions
+  ?ca       up:catalyzedReaction  ?reaction .
+  ?a        up:catalyticActivity  ?ca .
+  ?protein  up:annotation         ?a ;
+	    up:organism           taxon:9606 ;
+	    up:recommendedName    ?proteinRecName .
+  ?proteinRecName
+	    up:fullName           ?proteinFullName .
+  # Find drugs in wikidata that interact with the UniProt Proteins
+  # ChEMBL: retrieve the corresponding targets and with drugs in clinical phase 4
+  # Via https://idsm.elixir-czech.cz/sparql/
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/idsm> {
+    ?activity a cco:Activity ;
+      cco:hasMolecule ?chemblMolecule ;
+      cco:hasAssay ?assay ;
+      cco:standardType ?activityType ;
+      cco:standardValue ?standardActivityValue ;
+      cco:standardUnits ?standardActivityUnit .
+    ?chemblMolecule cco:highestDevelopmentPhase ?highestDevelopmentPhase ;
+      rdfs:label ?chemblMoleculeLabel ;
+      skos:prefLabel ?chemlbMoleculePrefLabel .
+    FILTER (?highestDevelopmentPhase > 3)
+    ?assay cco:hasTarget ?target .
+    ?target cco:hasTargetComponent/cco:targetCmptXref ?protein .
+    ?protein a cco:UniprotRef .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://idsm.elixir.cz/sparql
+PREFIX chembl: <http://rdf.ebi.ac.uk/schema/chembl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?drug ?drugName
+WHERE {
+  # --- Query ChEMBL endpoint to find drugs and their protein targets ---
+  SERVICE <https://idsm.elixir.cz/sparql> {
+    # Find entities that are classified as Drugs
+    ?drug a chembl:Drug .
+    # Get the preferred label (name) of the drug
+    ?drug skos:prefLabel ?drugName .
+    # Find the activity associated with the drug
+    ?drug chembl:hasActivity ?activity .
+    # Find the target of the activity
+    ?activity chembl:hasTarget ?target .
+    # Find the target component, which is often a protein
+    ?target chembl:hasTargetComponent ?targetComponent .
+    # Link the target component to its corresponding UniProt protein URI
+    ?targetComponent chembl:hasProtein ?proteinURI .
+  }
+
+  # --- Query UniProt endpoint to check if the protein target is human and an enzyme ---
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Ensure the URI is indeed a UniProt Protein entry
+    ?proteinURI a up:Protein .
+    # Check if the protein is from Homo sapiens (Human)
+    ?proteinURI up:organism taxon:9606 .
+    # Check if the protein catalyzes a reaction (i.e., is an enzyme)
+    # and get the URI of the catalyzed reaction (which is a Rhea reaction URI)
+    ?proteinURI up:catalyzedReaction ?reaction .
+  }
+
+  # --- Query Rhea endpoint to check if the reaction involves sterol metabolism ---
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find participants involved in the reaction catalyzed by the human enzyme
+    ?reaction rhea:involvedParticipant ?participant .
+    # Link the participant to its ChEBI identifier
+    ?participant rhea:chebi ?chebiURI .
+    # Check if the ChEBI entity is a sterol (CHEBI:15889) or a subclass thereof
+    ?chebiURI rdfs:subClassOf* chebi:15889 .
+  }
+}

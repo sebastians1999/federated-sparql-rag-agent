@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT ?chemical ?japaneseName ?englishName ?chemicalName
+WHERE {
+    # Use the ALLIE service to find entries with both Japanese and English labels.
+    # ALLIE acts as a dictionary service linking terms in different languages.
+    SERVICE <https://data.allie.dbcls.jp/sparql> {
+        ?allieEntry rdfs:label ?japaneseName ;
+                    rdfs:label ?englishName .
+        FILTER(lang(?japaneseName) = "ja") # Filter for Japanese labels
+        FILTER(lang(?englishName) = "en") # Filter for English labels
+
+        # Extract the English label as a string for matching
+        BIND(STR(?englishName) AS ?englishNameStr)
+    }
+
+    # Find chemical entities in Rhea DB.
+    # Rhea DB contains biochemical compounds and links them to ChEBI.
+    SERVICE <https://sparql.rhea-db.org/sparql/> {
+        ?chemical rh:chebi ?chebiURI ; # Find entities linked to a ChEBI identifier
+                  rh:name ?chemicalName . # Get the standard name of the chemical in Rhea
+        # We assume that entities linked to ChEBI in Rhea are chemical entities.
+        # We could potentially add a check against the CHEBI endpoint if available and needed,
+        # e.g., ?chebiURI rdfs:subClassOf* chebi:24431 (chemical entity).
+        # However, based on the Rhea description, rh:chebi implies a chemical.
+    }
+
+    # Link the results by matching the English name found in ALLIE with the chemical name in Rhea DB.
+    # We perform a case-insensitive match to increase the chances of finding matches.
+    FILTER(LCASE(?englishNameStr) = LCASE(?chemicalName))
+
+}
+LIMIT 100 # Limit the number of results for performance

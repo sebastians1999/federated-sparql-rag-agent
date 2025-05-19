@@ -1,0 +1,54 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# http://allie.dbcls.jp/sparql/
+
+SELECT DISTINCT ?abbreviation ?longForm
+WHERE {
+  SERVICE <http://allie.dbcls.jp/sparql/> {
+    ?s a <http://purl.jp/bio/12/glycan#Abbreviation> .
+    ?s <http://purl.jp/bio/12/glycan#longForm> ?longForm .
+    ?s <http://purl.jp/bio/12/glycan#abbreviation> ?abbreviation .
+    FILTER (lang(?longForm) = 'ja')
+  }
+  
+  # Optional: Integrate with UniProt data if needed.  This part depends on how ALLIE data relates to UniProt.
+  # SERVICE <https://sparql.uniprot.org/sparql> {
+  #   ?uniprotEntry rdfs:label ?longForm .  # Example: Assuming UniProt entries might have the long form as a label. Adjust property as needed.
+  # }
+}

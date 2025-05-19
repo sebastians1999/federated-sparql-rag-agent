@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX bibo: <http://purl.org/ontology/bibo/>
+PREFIX schema: <http://schema.org/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?uniprotEntry ?patentPublicationNumber ?patentGrantDate
+WHERE {
+  # Find UniProt entries that cite patents
+  ?uniprotEntry a up:Protein ;
+                rdfs:seeAlso ?patent . # Assuming rdfs:seeAlso links to patent resources
+
+  # Extract patent publication number and grant date.  We're assuming these are available directly from the UniProt entry or linked resource.
+  ?patent bibo:identifier ?patentPublicationNumber . # Assuming bibo:identifier holds the publication number
+  OPTIONAL { ?patent dcterms:issued ?patentGrantDate . }  # Assuming dcterms:issued holds the grant date
+
+  # Filter by grant date (more than 20 years ago).  This assumes the grant date is available and in xsd:date format.
+  FILTER ( (!bound(?patentGrantDate)) || (?patentGrantDate < (NOW() - xsd:duration("P20Y"))) )
+}

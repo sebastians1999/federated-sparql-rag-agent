@@ -1,0 +1,42 @@
+{
+  "SP-BLEU": 0.03533652323279865,
+  "METEOR": 0.28673700945111413,
+  "num_none_queries": 0,
+  "size_of_test_set": 32,
+  "error_at_endpoints": 6,
+  "empty_results_count": 14,
+  "syntactically_valid_queries_count": 21,
+  "avg_result_including_empty_result_precision": 0.0,
+  "avg_result_including_empty_result_recall": 0.0,
+  "avg_result_including_empty_result_f1": 0.0,
+  "number_of_query_results_evaluated_including_empty_result": 15,
+  "list_evaluated_queries_including_empty_result": [
+    "SwissLipids/16.ttl",
+    "SwissLipids/34.ttl",
+    "UniProt/118_biosodafrontend_rat_brain_human_cancer.ttl",
+    "UniProt/52_drugs_targeting_sterol_metabolism.ttl",
+    "UniProt/54_binding_sites_for_ligands_similar_to_heme_sachem.ttl",
+    "UniProt/42_connect_patents_to_epo.ttl",
+    "UniProt/67_draft_human_metabolome.ttl",
+    "UniProt/36_orthologous_proteins_via_orthodb.ttl",
+    "UniProt/60_enzymes_working_on_substrate_with_Cholestene_backbone.ttl",
+    "UniProt/38_find_gene_region_in_wikidata_for_known_entry.ttl",
+    "UniProt/117_biosodafrontend_glioblastoma_orthologs_rat.ttl",
+    "UniProt/116_biosodafrontend_rabit_mouse_orthologs.ttl",
+    "UniProt/29_search_uniprot_in_japanese_with_allie.ttl",
+    "Rhea/11.ttl",
+    "Rhea/19_draft_human_metabolome.ttl"
+  ],
+  "avg_result_excluding_empty_result_precision": 0.0,
+  "avg_result_excluding_empty_result_recall": 0.0,
+  "avg_result_excluding_empty_result_f1": 0.0,
+  "number_of_query_results_evaluated_excluding_empty_result": 1,
+  "list_evaluated_queries_excluding_empty_result": [
+    "UniProt/67_draft_human_metabolome.ttl"
+  ],
+  "avg_result_all_precision": 0.0,
+  "avg_result_all_recall": 0.0,
+  "avg_result_all_f1": 0.0,
+  "number_of_query_results_evaluated_all": 32,
+  "list_evaluated_queries_all": []
+}

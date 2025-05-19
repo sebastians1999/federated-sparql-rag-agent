@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?totalLinks)
+WHERE {
+  # Query Rhea DB for reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdf:type rhea:Reaction .
+  }
+  
+  # Query UniProt for proteins and their EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein ;
+             uniprot:annotation ?annotation .
+    ?annotation a uniprot:EC_line ;
+                rdfs:label ?ecNumber .
+  }
+  
+  # Attempt to link reactions and proteins via EC number.  This assumes a relationship
+  # between Rhea reactions and EC numbers, and UniProt proteins and EC numbers.
+  # The specific predicate linking reactions to EC numbers is unknown, so this is a placeholder.
+  # You might need to explore the Rhea DB schema to find the correct predicate.
+  
+  #BIND(STRBEFORE(?ecNumber, ".") AS ?ecPrefix) # Extract the first part of the EC number
+  #?reaction rhea:ec ?ecPrefix . # Assuming rhea:ec links to the EC number prefix
+  
+  #This is a placeholder, replace with the correct predicate if available
+  #FILTER EXISTS { ?reaction ?somePredicate ?ecNumber . }
+  
+  #Another placeholder, replace with the correct predicate if available
+  #FILTER EXISTS { ?reaction rdfs:seeAlso ?protein . }
+  
+  #FILTER (STRSTARTS(?ecNumber, "1.")) # Example filter for EC number starting with 1
+}

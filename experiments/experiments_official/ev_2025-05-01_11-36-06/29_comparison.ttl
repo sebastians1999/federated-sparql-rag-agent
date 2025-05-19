@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?protein ?fullName ?englishLabel
+WHERE {
+  # Use the ALLIE service (https://data.allie.dbcls.jp/sparql)
+  # to find an English translation for a specific Japanese term.
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # Replace "YOUR_JAPANESE_TERM"@ja with the actual Japanese term you want to search for.
+    # This example uses "1,2,4-トリクロロベンゼン"@ja from the provided context example.
+    ?allieEntity rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+                 rdfs:label ?englishLabel .
+    FILTER(lang(?englishLabel) = "en")
+  }
+
+  # Now, search in the UniProt endpoint for proteins
+  # whose recommended full name contains the English label obtained from ALLIE.
+  ?protein a up:Protein .
+  ?protein up:recommendedName ?recommendedName .
+  ?recommendedName up:fullName ?fullName .
+
+  # Filter the results to include only proteins where the full name
+  # contains the English label (case-insensitive match).
+  FILTER(CONTAINS(LCASE(STR(?fullName)), LCASE(STR(?englishLabel))))
+}

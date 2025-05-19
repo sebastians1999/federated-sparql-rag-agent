@@ -1,0 +1,52 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi ?chebiName ?rhea ?equation
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    SELECT DISTINCT ?chebi WHERE {
+      ?chebi a <http://www.w3.org/2002/07/owl#Class> .
+      ?chebi <http://www.w3.org/2004/02/skos/core#exactMatch> ?chebiMatch .
+      FILTER(STRSTARTS(STR(?chebi), "http://purl.obolibrary.org/obo/CHEBI_")) .
+      ?chebi <http://purl.obolibrary.org/obo/chebi#has_skeleton> <http://purl.obolibrary.org/obo/CHEBI_28047> .
+    }
+  }
+  
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:equation ?equation .
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:label ?chebiName .
+}

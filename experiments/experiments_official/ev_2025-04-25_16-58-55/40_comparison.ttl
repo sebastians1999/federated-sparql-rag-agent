@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?hea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?enzyme ?enzymeName ?chembldb
+WHERE {
+  # Find human enzymes in UniProt
+  ?enzyme a up:Protein .
+  ?enzyme up:organism taxon:9606 .  # 9606 is the NCBI taxonomy ID for Homo sapiens
+  ?enzyme rdfs:label ?enzymeName .
+  ?enzyme up:classifiedWith <http://purl.uniprot.org/uniprot/P07327> . # example of enzyme
+
+  # Link to SwissLipids to find enzymes involved in sphingolipid metabolism
+  SERVICE <https://sparql.swisslipids.org/sparql/> {
+    ?reaction a <http://www.swisslipids.org/rdf/SwissLipids#Reaction> .
+    ?reaction <http://www.swisslipids.org/rdf/SwissLipids#enzyme> ?swisslipidsEnzyme .
+    ?swisslipidsEnzyme rdfs:label ?enzymeName . # matching the enzyme name
+    ?reaction <http://www.swisslipids.org/rdf/SwissLipids#substrate> ?sphingolipid .
+    ?sphingolipid rdfs:label ?sphingolipidName .
+    FILTER (CONTAINS(lcase(?sphingolipidName), "sphingolipid"))
+  }
+  
+  # Filter for enzymes annotated in ChEMBL (cross-reference)
+  ?enzyme up:database ?chembldb .
+  FILTER CONTAINS(str(?chembldb), "chembl")
+}

@@ -1,0 +1,70 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?rhea ?chebi
+WHERE {
+  # Use the SMILES of dopamine (CHEBI:18243) to find similar compounds in ChEBI
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ; # SMILES for dopamine
+      sachem:threshold "0.8"^^<http://www.w3.org/2001/XMLSchema#float> # Example similarity threshold
+    ] .
+  }
+
+  # Find Rhea reactions involving the similar ChEBI compounds
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    # Link the compound in Rhea to the ChEBI entity found via similarity search
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+
+  # Find UniProt proteins that catalyze these Rhea reactions
+  ?protein up:annotation ?catalyticActivityAnnotation .
+  ?catalyticActivityAnnotation a up:Catalytic_Activity_Annotation ;
+                               up:catalyzedReaction ?rhea .
+
+  # Ensure the protein is annotated as an enzyme or has a catalytic activity annotation
+  # The catalytic activity annotation already implies it's an enzyme, but adding up:enzyme can sometimes help
+  # ?protein up:enzyme [] . # Optional: can add this if needed, but Catalytic_Activity_Annotation is usually sufficient
+
+}

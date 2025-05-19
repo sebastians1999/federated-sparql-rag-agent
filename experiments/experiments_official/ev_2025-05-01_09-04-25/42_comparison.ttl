@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+
+SELECT ?uniprotCitation ?epoPublication ?publicationNumber
+WHERE
+{
+  # Find patent citations in UniProtKB
+  ?uniprotCitation a up:Patent_Citation ;
+                   # Link to the patent URI (often in the EPO linked data format)
+                   skos:exactMatch ?patentURI .
+
+  # Extract the publication number from the patent URI
+  # Assumes a URI structure like http://data.epo.org/linked-data/patent/COUNTRY/NUMBER/KIND
+  # The publication number is typically the part after the country code and before the kind code
+  # This extraction method is based on the example query and might need adjustment
+  # depending on the exact URI format used in UniProt for EPO patents.
+  # A more robust way might involve parsing the URI components if a standard exists.
+  # For this query, we'll use the substring approach from the example.
+  BIND(SUBSTR(STR(?patentURI), 35) AS ?publicationNumber) # Adjust index if URI format differs
+
+  # Query the EPO linked data endpoint
+  SERVICE <https://data.epo.org/linked-data/query>
+  {
+    # Find the patent publication in the EPO database using the publication number
+    ?epoPublication patent:publicationNumber ?publicationNumber .
+    # We could add more details from EPO here if needed, e.g., patent:application ?application .
+  }
+}

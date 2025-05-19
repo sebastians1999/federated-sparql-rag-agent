@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+#https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?uniprotPatent ?publicationNumber
+WHERE {
+  ?protein rdfs:seeAlso ?uniprotPatent .
+  ?uniprotPatent up:database <http://purl.uniprot.org/database/PATENTS> .
+  ?uniprotPatent up:publicationNumber ?publicationNumber .
+
+  # Simulate EPO lookup and date filter
+  FILTER EXISTS {
+    # Replace this with actual EPO data if an endpoint is available
+    # For now, we just check if a patent with the same publication number exists
+    # and if its grant date is more than 20 years ago
+    BIND(NOW() - (20 * 365 * 24 * 60 * 60) AS ?cutoffDate) # Calculate cutoff date
+    # Assuming epo:grantDate is an xsd:dateTime
+    FILTER ( ?cutoffDate > "2000-01-01T00:00:00Z"^^xsd:dateTime ) # Example filter
+  }
+}

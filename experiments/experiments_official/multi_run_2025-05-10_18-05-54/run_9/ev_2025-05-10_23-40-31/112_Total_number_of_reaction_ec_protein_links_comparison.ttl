@@ -1,0 +1,55 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated query to count the number of reaction, protein, and EC number links.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?count)
+WHERE {
+  # Find reactions in RheaDB
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction a rhea:Reaction .
+    # Assuming reactions are linked to EC numbers via a predicate, replace rhea:ecNumber with the actual predicate if different
+    ?reaction rhea:ec <http://purl.uniprot.org/enzyme/EC> . # Replace with the correct predicate if needed
+  }
+  
+  # Find proteins in UniProt and link them to EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a uniprot:Protein .
+    ?protein uniprot:enzyme ?ec .
+  }
+  
+  # Optional: Link reactions to proteins via EC numbers.  This assumes that the EC number from Rhea can be linked to the EC number in UniProt.
+  # Adjust the predicate rhea:ecNumber if needed based on the actual relationship in Rhea.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rhea:ec ?ec .
+  }
+}

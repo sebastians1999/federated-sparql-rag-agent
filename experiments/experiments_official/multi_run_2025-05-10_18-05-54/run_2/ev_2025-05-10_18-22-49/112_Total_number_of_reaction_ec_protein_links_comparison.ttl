@@ -1,0 +1,46 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated query to count the number of reactions, proteins, and EC number links.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+
+SELECT (COUNT(DISTINCT ?reaction) AS ?reactionCount) (COUNT(DISTINCT ?protein) AS ?proteinCount) (COUNT(DISTINCT ?ec) AS ?ecCount)
+WHERE {
+  # Find reactions in RheaDB
+  ?reaction a rhea:Reaction .
+
+  # Find proteins associated with reactions via UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein uniprot:encodedBy ?gene . # Assuming proteins are linked to genes
+    ?gene rdfs:seeAlso ?reaction . # Assuming genes have links to Rhea reactions
+    ?protein rdfs:seeAlso ?ec . # Assuming proteins have links to EC numbers
+  }
+}

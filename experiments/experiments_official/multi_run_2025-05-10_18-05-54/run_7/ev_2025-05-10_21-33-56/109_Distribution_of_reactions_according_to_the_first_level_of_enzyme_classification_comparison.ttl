@@ -1,0 +1,62 @@
+
+# Natural Language Question
+# =======================
+Distribution of reactions according to the first level of enzyme classification
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+
+SELECT
+  ?ecClass
+  (str(?ecName) as ?ecClassName)
+  (count(?reaction) as ?reactionCount)
+WHERE
+{
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    VALUES (?ecClass) { (ec:1.-.-.-)(ec:2.-.-.-)(ec:3.-.-.-)(ec:4.-.-.-)(ec:5.-.-.-) (ec:6.-.-.-) (ec:7.-.-.-) }
+    ?ecNumber rdfs:subClassOf ?ecClass .
+    ?ecClass skos:prefLabel ?ecName .
+  }
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ecNumber .
+}
+GROUP BY ?ecClass ?ecName
+
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?enzymeClass (COUNT(DISTINCT ?reaction) AS ?reactionCount)
+WHERE {
+  # Subquery to retrieve Rhea reaction IDs associated with UniProt enzyme annotations
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme rdf:type <http://purl.uniprot.org/core/Protein> .
+    ?enzyme rdfs:seeAlso ?rheaReaction .
+    FILTER CONTAINS(str(?rheaReaction), "rhea") # Filter to ensure the reference is to Rhea
+    BIND(IRI(concat("http://rdf.rhea-db.org/", substr(str(?rheaReaction), 23))) AS ?reaction) # Extract Rhea ID and construct Rhea URI
+    ?enzymeClassAnnotation rdf:type <http://purl.uniprot.org/core/Taxonomy> . # Changed to Taxonomy as it seems more appropriate
+    ?enzymeClassAnnotation rdfs:seeAlso ?enzymeClass .
+    FILTER CONTAINS(str(?enzymeClass), "ec") # Filter to ensure the reference is to EC
+    #OPTIONAL { ?enzyme uniprot:annotation ?enzymeClassAnnotation .  ?enzymeClassAnnotation rdfs:label ?enzymeClass .  FILTER CONTAINS(str(?enzymeClass), "EC ") }
+  }
+  
+  # Use the Rhea reaction URI to access Rhea data (optional, for validation or additional info)
+  # SERVICE <https://sparql.rhea-db.org/sparql> {
+  #   ?reaction rdf:type rhea:Reaction .
+  # }
+}
+GROUP BY ?enzymeClass
+ORDER BY DESC(?reactionCount)

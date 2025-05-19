@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT ?protein ?accession ?proteinName WHERE {
+  # Query the UniProt endpoint to find protein information.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Select entities that are proteins.
+    ?protein a up:Protein ;
+             # Get the protein accession.
+             up:accession ?accession ;
+             # Get the preferred label (name) of the protein.
+             skos:prefLabel ?proteinName ;
+             # Get the organism associated with the protein.
+             up:organism ?organism .
+
+    # Filter proteins by organism using taxonomy URIs identified as related to "Japanese".
+    # Note: The ALLIE service is not a SPARQL endpoint provided in the context,
+    # so it cannot be directly used in this federated query.
+    # This query searches UniProt for proteins from organisms identified as related to "Japanese"
+    # based on the provided entity matches.
+    VALUES ?organism {
+      taxon:1185717 # Japanobotrychium
+      taxon:408115  # Macroplea japana
+      taxon:495868  # Mobula japanica
+      taxon:30180   # Nipponaphis
+      taxon:1314697 # Nipponentomon nippon
+    }
+  }
+}
+# Limit the number of results for efficiency.
+LIMIT 100

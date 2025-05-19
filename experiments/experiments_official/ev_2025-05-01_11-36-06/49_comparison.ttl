@@ -1,0 +1,102 @@
+
+# Natural Language Question
+# =======================
+Retrieve the UniProtKB proteins, their catalyzed Rhea reactions, their encoding genes (Ensembl) and the anatomic entities where the genes are expressed (UBERON anatomic entites from Bgee expression data resource).
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?ensemblGene ?reaction ?anatomicEntityLabel ?anatomicEntity
+WHERE {
+  # federated query to Rhea enadpoint
+  {
+    SELECT DISTINCT ?reaction WHERE {
+      SERVICE <https://sparql.rhea-db.org/sparql> {
+        ?reaction rdfs:subClassOf rh:Reaction ;
+          rh:equation ?reactionEquation ;
+          rh:side ?reactionSide .
+        ?reactionSide rh:contains ?participant .
+        ?participant rh:compound ?compound .
+        # compound constraint (CHEBI:16113 == cholesterol)
+        ?compound rh:chebi CHEBI:16113 .
+      }
+    }
+  }
+  # taxonomy constraint (taxon:9606 == Homo sapiens)
+  ?protein up:organism taxon:9606 ;
+    up:annotation ?a ;
+    rdfs:seeAlso / up:transcribedFrom ?ensemblGene .
+  ?a a up:Catalytic_Activity_Annotation ;
+    up:catalyticActivity ?ca .
+  ?ca up:catalyzedReaction ?reaction .
+  # federated query to Bgee (expression data)
+  BIND(IRI(REPLACE(STR(?ensemblGene), "\\.[0-9]+$", "")) AS ?ensemblGeneNoVersion)
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene lscr:xrefEnsemblGene ?ensemblGeneNoVersion ;
+      genex:isExpressedIn ?anatomicEntity .
+    ?anatomicEntity rdfs:label ?anatomicEntityLabel .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+
+SELECT DISTINCT ?protein ?rhea ?ensemblGene ?anat
+WHERE {
+  # Find reviewed UniProtKB proteins
+  ?protein a up:Protein ;
+           up:reviewed true .
+
+  # Link protein to catalyzed Rhea reaction
+  ?protein up:annotation ?annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?rhea .
+
+  # Link protein to its organism (needed for Bgee federation)
+  ?protein up:organism ?organism .
+
+  # Link protein to Ensembl gene via Ensembl transcript
+  # UniProt links to Ensembl transcripts via rdfs:seeAlso, which are then linked to genes
+  ?protein rdfs:seeAlso ?ensemblTranscript .
+  ?ensemblTranscript up:database <http://purl.uniprot.org/database/Ensembl> .
+  ?ensemblTranscript up:transcribedFrom ?ensemblGene .
+
+  # Federate with Bgee to find expression locations (anatomic entities)
+  # The Bgee endpoint URL is inferred from the provided example queries.
+  SERVICE <https://www.bgee.org/sparql> {
+    # Find the Bgee sequence corresponding to the UniProt protein
+    ?seq lscr:xrefUniprot ?protein .
+
+    # Ensure the Bgee sequence is from the same organism as the UniProt protein
+    # Bgee uses orth:organism linked to OBO organism, which can be mapped to UniProt taxonomy
+    ?seq orth:organism ?bgeeOrganism .
+    ?bgeeOrganism obo:RO_0002162 ?organism .
+
+    # Find the anatomic entity (UBERON) where the sequence is expressed
+    ?seq genex:isExpressedIn ?anat .
+
+    # Optional: Filter for presence expression calls in Bgee if only expressed locations are desired
+    # ?seq genex:expression ?expressionCall .
+    # ?expressionCall a genex:ExpressionCall ;
+    #                 genex:expressionLevel genex:Present .
+  }
+}

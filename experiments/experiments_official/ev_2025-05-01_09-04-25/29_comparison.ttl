@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?protein ?proteinName ?englishLabel
+WHERE {
+  # Query ALLIE service (https://data.allie.dbcls.jp/sparql) to get English translation of the Japanese term
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # Replace "Japanese Term" with the actual Japanese term you want to search for
+    # Example: "インスリン" for Insulin
+    ?allie_resource rdfs:label "Japanese Term"@ja ;
+                    rdfs:label ?englishLabel .
+    FILTER(lang(?englishLabel) = "en")
+  }
+
+  # Search UniProt (https://sparql.uniprot.org/sparql/) using the English term obtained from ALLIE
+  ?protein a up:Protein .
+
+  # Match the English term against protein recommended or alternative full names
+  # Using UNION to search across multiple name properties
+  {
+     ?protein up:recommendedName ?recName .
+     ?recName up:fullName ?proteinName .
+     # Use LCASE and STR for case-insensitive comparison with the string value
+     FILTER(CONTAINS(LCASE(STR(?proteinName)), LCASE(STR(?englishLabel))))
+  } UNION {
+     ?protein up:alternativeName ?altName .
+     ?altName up:fullName ?proteinName .
+     FILTER(CONTAINS(LCASE(STR(?proteinName)), LCASE(STR(?englishLabel))))
+  }
+  # Optional: Add gene name search if the English term might correspond to a gene name
+  # UNION {
+  #    ?protein up:encodedBy ?gene .
+  #    ?gene skos:prefLabel ?proteinName . # Use ?proteinName for gene label
+  #    FILTER(CONTAINS(LCASE(STR(?proteinName)), LCASE(STR(?englishLabel))))
+  # }
+}

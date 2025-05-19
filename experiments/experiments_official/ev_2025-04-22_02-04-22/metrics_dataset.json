@@ -3,7 +3,7 @@
   "METEOR": 0.27928359891062843,
   "num_none_queries": 5,
   "size_of_test_set": 32,
-  "error_at_endpoints": 19,
+  "error_at_endpoints": 11,
   "avg_result_precision": 0.0,
   "avg_result_recall": 0.0,
   "avg_result_f1": 0.0,

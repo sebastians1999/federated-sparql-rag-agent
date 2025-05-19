@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+# Federated SPARQL query to find ChEBIs with a Cholestane skeleton and match them to Rhea undirected reactions.
+PREFIX rhea: <http://rdf.rhea-db.org/>
+PREFIX chebi: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebiEntity ?rheaReaction
+WHERE {
+  # Subquery to find ChEBI entities with a Cholestane skeleton using the IDSM Sachem endpoint.
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    PREFIX ids: <https://idsm.elixir-czech.cz/vocab/>
+    
+    # Find ChEBI entities that have a SMILES representation containing the Cholestane skeleton.
+    # Assuming that the 'has_ smiles' property in IDSM Sachem can be used to search for substructures.
+    ?chebiEntity ids:smiles "CC12CCC3C(C1CC4(C3(C2)CC(CC4)C(C)C)C)C" . # SMILES for cholestane skeleton
+    FILTER (STRSTARTS(STR(?chebiEntity), "http://purl.obolibrary.org/obo/CHEBI_")) # Ensure it's a CHEBI ID
+  }
+  
+  # Match the found ChEBI entities to Rhea undirected reactions using the Rhea endpoint.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find Rhea undirected reactions that involve the ChEBI entity as a reactant or product.
+    {
+      ?rheaReaction rhea: Rhea_has_reactant ?chebiEntity .
+    }
+    UNION
+    {
+      ?rheaReaction rhea: Rhea_has_product ?chebiEntity .
+    }
+    ?rheaReaction a rhea:undirected_reaction . # Filter for undirected reactions
+  }
+}

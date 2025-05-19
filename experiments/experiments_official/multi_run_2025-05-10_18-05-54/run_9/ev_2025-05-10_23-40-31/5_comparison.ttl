@@ -1,0 +1,84 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+# Federated query to retrieve Rhea IDs and equations for a given lipid (SWISSLIPID:000399814, Ceramide) and its more specific forms.
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX sl: <http://www.swisslipids.org/rdf#>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Find more specific forms of the given lipid in SwissLipids
+  {
+    SELECT DISTINCT ?lipid
+    WHERE {
+      VALUES ?givenLipid { <http://www.swisslipids.org/rdf/SWISSLIPID:000399814> } # SWISSLIPID:000399814
+      ?lipid rdfs:subClassOf* ?givenLipid .
+    }
+  }
+
+  # Find reactions in Rhea involving the lipid or its more specific forms
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaId rdf:type <http://rdf.rhea-db.org/Reaction> ;
+            rdfs:comment ?equation .
+    
+    # Check if the reaction involves the lipid as a participant.  Since Rhea uses ChEBI, we need to check for equivalent CHEBI IDs.
+    {
+      # Find CHEBI IDs equivalent to the lipid
+      SERVICE <https://sparql.swisslipids.org/sparql/> {
+        ?lipid sl:chebi ?chebiId .
+        FILTER (?lipid = ?lipid) # Ensure the lipid from SwissLipids matches the lipid from the outer query
+      }
+      ?rheaId <http://purl.rhea-db.org/vocabulary/input>|<http://purl.rhea-db.org/vocabulary/output> ?chebiId .
+    }
+    
+    UNION
+    
+    {
+      # If no direct CHEBI ID is available, try matching the lipid label in Rhea
+      SERVICE <https://sparql.swisslipids.org/sparql/> {
+        ?lipid rdfs:label ?lipidLabel .
+        FILTER (?lipid = ?lipid) # Ensure the lipid from SwissLipids matches the lipid from the outer query
+      }
+      FILTER (CONTAINS(LCASE(?equation), LCASE(?lipidLabel)))
+    }
+  }
+}
