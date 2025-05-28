@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?fullName ?englishTermFromAllie
+WHERE {
+  # Step 1: Use ALLIE to translate a Japanese term to English
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # For demonstration, we use "タンパク質" (protein) as the Japanese term.
+    # The ALLIE service will find entities labeled with this Japanese term
+    # and also provide their English labels.
+    ?allieEntity rdfs:label "タンパク質"@ja ;
+                 rdfs:label ?englishTermFromAllie .
+    FILTER(lang(?englishTermFromAllie) = "en")
+  }
+
+  # Step 2: Use the English translation from ALLIE to search UniProt
+  # Find proteins in UniProt
+  ?protein a up:Protein .
+  
+  # Get the recommended full name of the protein
+  ?protein up:recommendedName ?recommendedName .
+  ?recommendedName up:fullName ?fullName .
+
+  # Join condition: Filter UniProt proteins whose full name contains
+  # the English term obtained from ALLIE.
+  # Using LCASE and STR for case-insensitive string comparison.
+  FILTER (CONTAINS(LCASE(STR(?fullName)), LCASE(STR(?englishTermFromAllie))))
+}
+LIMIT 10

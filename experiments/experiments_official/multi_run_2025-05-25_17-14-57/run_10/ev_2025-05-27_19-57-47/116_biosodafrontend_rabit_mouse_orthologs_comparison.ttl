@@ -1,0 +1,73 @@
+
+# Natural Language Question
+# =======================
+Rabbit's proteins encoded by genes that are orthologous to Mouse's HBB-Y gene and their cross reference links to Uniprot
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?PROTEIN_1 ?PROTEIN_2 ?UNIPROT_XREF_1 ?UNIPROT_XREF_2 WHERE {
+	?taxon_1 up:commonName 'Mouse' .
+	?taxon_2 up:commonName 'Rabbit' .
+	SERVICE <https://sparql.omabrowser.org/sparql/> {
+		?cluster a orth:OrthologsCluster .
+		?cluster orth:hasHomologousMember ?node1 .
+		?cluster orth:hasHomologousMember ?node2 .
+		?node2 orth:hasHomologousMember* ?PROTEIN_2 .
+		?node1 orth:hasHomologousMember* ?PROTEIN_1 .
+		?PROTEIN_1 a orth:Protein .
+		?PROTEIN_1 orth:organism/obo:RO_0002162 ?taxon_1 ;
+			rdfs:label 'HBB-Y' ;
+			lscr:xrefUniprot ?UNIPROT_XREF_1 .
+		?PROTEIN_2 a orth:Protein .
+		?PROTEIN_2 orth:organism/obo:RO_0002162 ?taxon_2 .
+		?PROTEIN_2 lscr:xrefUniprot ?UNIPROT_XREF_2 .
+		FILTER ( ?node1 != ?node2 )
+	}
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX orthodb: <http://purl.orthodb.org/>
+
+SELECT DISTINCT ?rabbitProtein ?rabbitGene ?mouseProtein ?mouseGene ?orthoGroup
+WHERE {
+  # Part 1: Find Rabbit proteins and their associated genes and orthogroups in UniProt
+  ?rabbitProtein a up:Protein .
+  ?rabbitProtein up:organism taxon:9986 . # Rabbit taxonomy ID (Oryctolagus cuniculus)
+  ?rabbitProtein up:encodedBy ?rabbitGene .
+  ?rabbitProtein rdfs:seeAlso ?orthoGroup . # Link to the OrthoDB orthogroup
+
+  # Part 2: Find Mouse proteins encoded by the "HBB-Y" gene and their associated orthogroups in UniProt
+  ?mouseProtein a up:Protein .
+  ?mouseProtein up:organism taxon:10090 . # Mouse taxonomy ID (Mus musculus)
+  ?mouseProtein up:encodedBy ?mouseGene .
+  ?mouseGene skos:prefLabel "HBB-Y" . # Filter for the specific gene name "HBB-Y"
+  ?mouseProtein rdfs:seeAlso ?orthoGroup . # Crucially, ensure it's the SAME orthogroup as the rabbit protein
+
+  # Part 3: Federate with OrthoDB to confirm that the identified orthogroup
+  # indeed contains both the rabbit and mouse proteins as members.
+  SERVICE <https://sparql.orthodb.org/sparql> {
+    # The ?orthoGroup variable is the common join point between UniProt and OrthoDB.
+    # We verify that this orthogroup contains a member that cross-references back to ?rabbitProtein
+    ?orthoGroup orthodb:hasMember ?rabbitMember .
+    ?rabbitMember orthodb:xref/orthodb:xrefResource ?rabbitProtein .
+
+    # And that the same orthogroup contains a member that cross-references back to ?mouseProtein
+    ?orthoGroup orthodb:hasMember ?mouseMember .
+    ?mouseMember orthodb:xref/orthodb:xrefResource ?mouseProtein .
+  }
+}

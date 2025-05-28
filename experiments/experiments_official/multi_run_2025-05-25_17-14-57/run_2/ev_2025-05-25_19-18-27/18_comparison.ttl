@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.mnis.cz/sachem/1.0/vocab#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi_uri ?rhea ?equation
+WHERE {
+  # Part 1: Find ChEBIs with a Cholestane skeleton using IDSM Sachem
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    # The SMILES string for Cholestane (CHEBI:35516) is used for the substructure search.
+    ?chebi_uri sachem:query "CC(C1CCC2C3CCC4CC(C(C)C)CCC4(C)C3CC12C)" ;
+               sachem:type sachem:SubstructureSearch .
+  }
+
+  # Part 2: Match the returned ChEBIs to Rhea undirected reactions
+  # A Rhea reaction is generally represented by rh:Reaction.
+  # The "undirected" aspect is handled by finding any reaction where the ChEBI is a participant.
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  # Link the Rhea compound to the ChEBI URI obtained from IDSM Sachem.
+  # The (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) pattern
+  # covers various ways ChEBI IDs are linked in Rhea.
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi_uri .
+
+  # Optionally retrieve the reaction equation for better context
+  OPTIONAL { ?rhea rh:equation ?equation . }
+}

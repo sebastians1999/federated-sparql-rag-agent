@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?japaneseLabel ?englishLabel
+WHERE {
+  # UniProt patterns (host endpoint)
+  ?protein a up:Protein .
+  ?protein up:recommendedName ?recommendedName .
+  ?recommendedName up:fullName ?englishLabel . # This ?englishLabel will be matched with ALLIE's English label
+
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # ALLIE patterns
+    ?allieEntry rdfs:label ?japaneseLabel .
+    FILTER(lang(?japaneseLabel) = "ja") # Ensure the label is in Japanese
+    
+    ?allieEntry rdfs:label ?englishLabel .
+    FILTER(lang(?englishLabel) = "en")   # Ensure the label is in English, this is the join variable
+
+    # Specify the Japanese term to search for.
+    # For example, to search for "Insulin" in Japanese:
+    FILTER (?japaneseLabel = "インスリン"@ja)
+    # You can change "インスリン"@ja to any other Japanese term you wish to search.
+  }
+}

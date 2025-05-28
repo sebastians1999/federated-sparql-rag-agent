@@ -1,0 +1,96 @@
+
+# Natural Language Question
+# =======================
+Retrieve parent reactions (and their catalyzing enzymes) for a metabolite that is not directly involved in a reaction (ex: CHEBI:83137).
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX keywords:<http://purl.uniprot.org/keywords/>
+
+SELECT
+  ?chebi
+  ?ecNumber
+  (count(?protein) as ?proteinCount)
+  ?reaction
+  ?equation
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?equation .
+  ?reaction rh:ec ?ecNumber .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  CHEBI:83137 rdfs:subClassOf+ ?chebi.
+
+  SERVICE <https://sparql.uniprot.org/sparql> {
+  ?protein a up:Protein .
+  ?protein up:reviewed true .
+    {?protein up:enzyme ?ecNumber}
+  UNION
+    {?protein up:domain/up:enzyme ?ecNumber}
+  UNION
+    {?protein up:component/up:enzyme ?ecNumber} .
+  }
+} 
+GROUP BY ?chebi ?ecNumber ?reaction ?equation
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT DISTINCT ?parentReaction ?enzyme ?ecNumber ?childReaction ?involvedChebi
+WHERE {
+  # Find child reactions where a specific metabolite (?involvedChebi) is involved,
+  # and this specific metabolite is a subclass of CHEBI:83137 (the metabolite not directly involved).
+  ?childReaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?involvedChebi .
+  ?involvedChebi rdfs:subClassOf+ CHEBI:83137 . # ?involvedChebi is a subclass of CHEBI:83137
+
+  # Ensure the child reaction is an approved RHEA reaction
+  ?childReaction rdfs:subClassOf rh:Reaction .
+  ?childReaction rh:status rh:Approved .
+
+  # Find the parent reactions of these child reactions
+  ?childReaction rdfs:subClassOf ?parentReaction .
+  ?parentReaction rdfs:subClassOf rh:Reaction .
+  ?parentReaction rh:status rh:Approved .
+
+  # Find the EC number associated with the parent reaction
+  ?parentReaction rh:ec ?ecNumber .
+
+  # Federate with UniProt to find enzymes for the EC number
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?enzyme a up:Protein .
+    ?enzyme up:reviewed true . # Filter for reviewed proteins for higher quality results
+    {
+      ?enzyme up:enzyme ?ecNumber .
+    }
+    UNION
+    {
+      ?enzyme up:domain/up:enzyme ?ecNumber .
+    }
+    UNION
+    {
+      ?enzyme up:component/up:enzyme ?ecNumber .
+    }
+  }
+}

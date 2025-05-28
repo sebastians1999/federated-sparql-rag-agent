@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX keywords: <http://purl.uniprot.org/keywords/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT DISTINCT ?chebi ?reaction ?ecNumber ?protein
+WHERE {
+  # Retrieve reactions and their associated metabolites from Rhea-DB
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:ec ?ecNumber . # This links to the EC number from UniProt
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi . # The ChEBI identifier for the metabolite
+
+  # Retrieve human enzymes and their associated EC numbers from UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true .
+    ?protein up:organism taxon:9606 . # Filter for human proteins
+    ?protein up:classifiedWith keywords:1185 . # Filter for proteins classified as enzymes
+
+    # Get the EC number associated with the protein (can be directly, via domain, or component)
+    { ?protein up:enzyme ?ecNumber . }
+    UNION
+    { ?protein up:domain/up:enzyme ?ecNumber . }
+    UNION
+    { ?protein up:component/up:enzyme ?ecNumber . }
+  }
+}

@@ -1,0 +1,60 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://idsm.elixir-czech.cz/sachem/ontology#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?chebi ?reaction
+WHERE {
+  # Step 1: Use IDSM Sachem to find ChEBIs with a Cholestane skeleton (SMILES for CHEBI:35516)
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    # SMILES for Cholestane (CHEBI:35516)
+    BIND("CC(C1CCC2C1(C(CC3C2CCC4C3(CCC(C4)C)C)C)C)C" AS ?cholestane_smiles)
+
+    # Perform a substructure search using Sachem
+    ?sachem_query sachem:query ?cholestane_smiles ;
+                  sachem:type sachem:substructure .
+    ?sachem_query sachem:result ?sachem_compound .
+
+    # Get the ChEBI ID string from Sachem result (e.g., "CHEBI:35516")
+    ?sachem_compound sachem:chebi ?chebi_id_string .
+
+    # Convert the ChEBI ID string to a ChEBI URI
+    BIND(IRI(REPLACE(?chebi_id_string, "CHEBI:", "http://purl.obolibrary.org/obo/CHEBI_")) AS ?chebi)
+  }
+
+  # Step 2: Match the returned ChEBIs to Rhea undirected reactions
+  ?reaction rdfs:subClassOf rh:Reaction . # This identifies undirected Rhea reactions
+  ?reaction rh:side/rh:contains/rh:compound ?compound .
+  # Link the Rhea compound to its ChEBI identifier
+  ?compound (rh:chebi | rh:reactivePart/rh:chebi | rh:underlyingChebi/rh:chebi) ?chebi .
+}

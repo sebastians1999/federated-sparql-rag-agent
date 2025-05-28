@@ -27,3 +27,4 @@ ipykernel>=6.29.5
 requests>=2.32.3
 beautifulsoup4>=4.13.3
 sparql-llm>=0.0.8
+thefuzz>=0.22.1

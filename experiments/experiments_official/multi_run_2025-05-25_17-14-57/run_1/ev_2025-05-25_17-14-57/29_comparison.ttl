@@ -1,0 +1,73 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?proteinLabel ?japaneseTerm
+WHERE {
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # Find an ALLIE entry that has both a Japanese label and an English label.
+    ?allieEntry rdfs:label ?japaneseTerm .
+    FILTER(lang(?japaneseTerm) = "ja")
+
+    ?allieEntry rdfs:label ?englishLabelLiteral .
+    FILTER(lang(?englishLabelLiteral) = "en")
+
+    # Specify the Japanese term to search for.
+    # For example, search for "酵素" (enzyme). You can change this term.
+    FILTER(?japaneseTerm = "酵素"@ja)
+    # To search for multiple terms, you could use a VALUES clause instead:
+    # VALUES (?japaneseTerm) { ("酵素"@ja) ("アミノ酸"@ja) }
+  }
+
+  # Convert the English literal (e.g., "Enzyme"@en) to a plain string (e.g., "Enzyme")
+  # This is important for flexible matching with UniProt labels which might not always have language tags.
+  BIND(STR(?englishLabelLiteral) AS ?englishLabelString)
+
+  # Find proteins in UniProt
+  ?protein a up:Protein .
+  # Get the protein's primary label (name)
+  ?protein rdfs:label ?proteinLabel .
+
+  # Filter UniProt proteins whose label contains the English translation obtained from ALLIE.
+  # Using LCASE for case-insensitive matching to increase the chances of finding relevant proteins.
+  FILTER(CONTAINS(LCASE(?proteinLabel), LCASE(?englishLabelString)))
+}
+LIMIT 10

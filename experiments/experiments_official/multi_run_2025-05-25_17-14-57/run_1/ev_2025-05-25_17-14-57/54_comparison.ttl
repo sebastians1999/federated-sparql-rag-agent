@@ -1,0 +1,77 @@
+
+# Natural Language Question
+# =======================
+Proteins with binding sites for ligands similar to heme
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT 
+  ?protein
+  ?mnemonic
+  ?proteinName
+  ?ligandSimilarityScore
+  ?ligand
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ssc sachem:compound ?ligand; 
+      sachem:score ?ligandSimilarityScore ;
+      sachem:similaritySearch ?sss .
+        # Smiles of Heme
+    ?sss    sachem:query "CC1=C(CCC([O-])=O)C2=[N+]3C1=Cc1c(C)c(C=C)c4C=C5C(C)=C(C=C)C6=[N+]5[Fe-]3(n14)n1c(=C6)c(C)c(CCC([O-])=O)c1=C2";
+      sachem:cutoff "8e-1"^^xsd:double ;
+      sachem:aromaticityMode sachem:aromaticityDetect ;
+      sachem:similarityRadius 1 ;
+      sachem:tautomerMode sachem:ignoreTautomers .
+  }
+  ?protein up:mnemonic ?mnemonic ;
+    up:recommendedName/up:fullName ?proteinName ;
+    up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation ;
+      up:ligand/rdfs:subClassOf ?ligand .
+}
+ORDER BY DESC(?ligandSimilarityScore)
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?protein ?proteinName ?ligand ?ligandName ?similarityScore
+WHERE {
+  # Step 1: Find ligands similar to Heme (ChEBI:16495) using the IDSM chemical similarity service.
+  # Heme's canonical SMILES is used for the similarity search.
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?ligand sachem:similarCompoundSearch [
+      sachem:query "C[C@@H]1CCC(=C(C1)C)C2=C(C(=C3C(=C2C=C4C(=C3C=C(C(=C4C=C5C(=C(C(=C(C5=N1)[Fe])N=C6C=C(C(=C(C6=N2)C)C)C)C)C)C)C)C)C)C" ;
+      sachem:cutoff "0.7"^^xsd:float ; # A common similarity cutoff (e.g., Tanimoto similarity >= 0.7)
+      sachem:score ?similarityScore
+    ] .
+  }
+
+  # Step 2: In UniProt, find proteins with binding sites for these similar ligands.
+  ?protein up:annotation ?annotation .
+  ?annotation a up:Binding_Site_Annotation .
+  ?annotation up:ligand ?uniprotLigand . # This points to the ligand entity (typically a ChEBI URI)
+
+  # Join condition: The ligand found by the similarity search (?ligand from SERVICE)
+  # must be the same as the ligand identified in UniProt's binding site annotation (?uniprotLigand).
+  FILTER (?uniprotLigand = ?ligand)
+
+  # Get additional details for the protein and ligand
+  ?protein rdfs:label ?proteinName . # Get the protein's preferred label/name
+  ?ligand rdfs:label ?ligandName .   # Get the ligand's preferred label/name (from ChEBI, via UniProt's link)
+}
+ORDER BY DESC(?similarityScore)

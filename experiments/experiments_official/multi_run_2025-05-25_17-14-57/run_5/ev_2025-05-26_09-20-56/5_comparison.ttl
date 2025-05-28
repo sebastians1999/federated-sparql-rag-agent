@@ -1,0 +1,65 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.swisslipids.org/sparql
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?rheaId ?equation
+WHERE {
+  # Step 1: Identify the initial lipid and its equivalent ChEBI ID from SwissLipids.
+  # Then, find all ChEBI IDs that are subclasses of this base ChEBI ID,
+  # to account for the hierarchy (more specific forms).
+  VALUES ?swissLipid { SWISSLIPID:000399814 }
+  ?swissLipid owl:equivalentClass ?baseChebi .
+  ?specificChebi rdfs:subClassOf* ?baseChebi . # This variable captures the hierarchy of ChEBI IDs
+
+  # Step 2: Federate to the Rhea endpoint to find reactions involving these specific ChEBI IDs.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    # Link the Rhea compound to the ChEBI IDs obtained from SwissLipids, considering various ChEBI properties.
+    ?compound (rh:chebi | rh:reactivePart/rh:chebi | rh:underlyingChebi/rh:chebi) ?specificChebi .
+    ?rhea rh:accession ?rheaId . # Get the Rhea ID
+    ?rhea rh:equation ?equation . # Get the reaction equation
+  }
+}

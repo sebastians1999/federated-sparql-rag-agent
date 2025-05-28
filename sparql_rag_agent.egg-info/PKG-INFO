@@ -33,3 +33,4 @@ Requires-Dist: ipykernel>=6.29.5
 Requires-Dist: requests>=2.32.3
 Requires-Dist: beautifulsoup4>=4.13.3
 Requires-Dist: sparql-llm>=0.0.8
+Requires-Dist: thefuzz>=0.22.1

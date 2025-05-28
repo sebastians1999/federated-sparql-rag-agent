@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+        up:organism taxon:9606 ;
+        up:mnemonic ?mnemonic .
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+	?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+   }
+   ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX keywords: <http://purl.uniprot.org/keywords/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?chebi ?protein ?rheaReaction
+WHERE {
+  # UniProt part: Find human proteins involved in metabolic catalytic activities
+  ?protein a up:Protein .
+  ?protein up:organism taxon:9606 .       # Filter for human proteins
+  ?protein up:reviewed true .             # Ensure reviewed entries
+  ?protein up:classifiedWith keywords:1185 . # Filter for proteins classified under 'Metabolism'
+  ?protein up:annotation ?annotation .
+  ?annotation a up:Catalytic_Activity_Annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?rheaReaction . # Link to Rhea reactions
+
+  # Rhea part: Find compounds (metabolites) involved in these Rhea reactions
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rheaReaction rdfs:subClassOf rh:Reaction . # Use the reaction URI from UniProt
+    ?rheaReaction rh:status rh:Approved .       # Ensure approved reactions
+    ?rheaReaction rh:side ?reactionSide .
+    ?reactionSide rh:contains ?participant .
+    ?participant rh:compound ?compound .
+    ?compound rh:chebi ?chebi .                 # Get the ChEBI identifier for the compound (metabolite)
+  }
+}

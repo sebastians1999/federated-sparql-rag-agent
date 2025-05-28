@@ -1,0 +1,69 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?japaneseLabel ?englishLabel ?uniprotFullName
+WHERE {
+  # Step 1: Query ALLIE to get the English translation of a Japanese term.
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    ?allie_entity rdfs:label ?japaneseLabel ;
+                  rdfs:label ?englishLabel_with_lang .
+    FILTER(lang(?japaneseLabel) = "ja")
+    FILTER(lang(?englishLabel_with_lang) = "en")
+
+    # As the user question implies searching *using* Japanese,
+    # we include a specific Japanese term for demonstration.
+    # This example term is taken from the provided context.
+    FILTER(?japaneseLabel = "1,2,4-トリクロロベンゼン"@ja)
+
+    # Bind the English label as a plain string (without language tag)
+    # to facilitate matching with UniProt's protein names, which are often plain literals.
+    BIND(STR(?englishLabel_with_lang) AS ?englishLabel)
+  }
+
+  # Step 2: Use the obtained English label to search for proteins in UniProt.
+  ?protein a up:Protein .
+  ?protein up:recommendedName ?recommendedName .
+  ?recommendedName up:fullName ?uniprotFullName .
+
+  # Join condition: The English label from ALLIE must match the full name of the protein in UniProt.
+  FILTER(STR(?uniprotFullName) = ?englishLabel)
+}

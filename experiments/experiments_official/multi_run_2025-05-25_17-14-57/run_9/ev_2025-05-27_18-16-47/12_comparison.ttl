@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?proteinAccession ?rhea ?rheaAccession ?rheaEquation
+WHERE {
+  # UniProtKB part (host endpoint)
+  # Select reviewed UniProtKB entries (high-quality data)
+  ?protein up:reviewed true ;
+           # Get the UniProt accession for the protein
+           up:accession ?proteinAccession ;
+           # Link to the protein's annotations
+           up:annotation ?annotation .
+  
+  # From the annotation, find catalytic activities
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  # Link the catalytic activity to the catalyzed Rhea reaction
+  ?catalyticActivity up:catalyzedReaction ?rhea .
+
+  # Rhea part (federated endpoint)
+  # Use SERVICE to query the Rhea SPARQL endpoint for details about the reaction
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    # Get the Rhea accession and equation for the identified reaction
+    ?rhea rh:accession ?rheaAccession ;
+          rh:equation ?rheaEquation .
+    # The UniProt 'catalyticActivity' property inherently covers both enzymatic and transport functions.
+    # No additional filtering on Rhea's side (e.g., rh:isTransport or rh:ec) is strictly needed
+    # unless a specific subset of "enzymes and transporters" is required beyond what UniProt annotates as catalytic.
+  }
+}

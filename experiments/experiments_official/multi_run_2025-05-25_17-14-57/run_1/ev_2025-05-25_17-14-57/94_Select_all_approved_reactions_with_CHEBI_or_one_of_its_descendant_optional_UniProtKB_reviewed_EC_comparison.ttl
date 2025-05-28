@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+Select all approved reactions with CHEBI:17815 (a 1,2-diacyl-sn-glycerol) or one of its descendant. Display links to UniProtKB/Swiss-Prot entries via EC numbers if the link rhea-ec exists.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX CHEBI:<http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  distinct
+    ?reaction
+    ?enzyme
+    (count(distinct ?protein) as ?proteinCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+
+  OPTIONAL {?reaction rh:ec ?enzyme .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein up:reviewed true .
+      ?protein up:enzyme ?enzyme.
+    }
+  } .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+}
+GROUP BY ?reaction ?enzyme
+ORDER BY ?reaction
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT DISTINCT ?reaction ?ecNumber ?uniprotEntry WHERE {
+  # Part 1: Find approved reactions involving CHEBI:17815 or its descendants in Rhea-DB
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+
+  # Part 2: Link to EC numbers from Rhea-DB (optional, as per user request "if the link rhea-ec exists")
+  OPTIONAL {
+    ?reaction rh:ec ?ecNumber . # ?ecNumber will be a literal string, e.g., "1.2.3.4"
+
+    # Part 3: Federate with UniProt to find entries linked to the EC number
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      # Construct the EC number URI required by UniProt from the literal ?ecNumber
+      BIND(IRI(CONCAT(STR(ec:), ?ecNumber)) AS ?ecIRI)
+      ?uniprotEntry up:enzyme ?ecIRI .
+      # To specifically filter for Swiss-Prot entries, you could add:
+      # ?uniprotEntry a up:SwissProt .
+    }
+  }
+}
+ORDER BY ?reaction ?ecNumber ?uniprotEntry

@@ -1,0 +1,64 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX cco: <http://rdf.ebi.ac.uk/terms/chembl#>
+
+SELECT DISTINCT ?protein ?proteinName ?reaction ?chebi
+WHERE {
+  # UniProt: Retrieve human enzymes
+  ?protein up:organism taxon:9606 .
+  ?protein up:recommendedName/up:fullName ?proteinName .
+  ?protein up:annotation ?annotation .
+  ?annotation a up:Catalytic_Activity_Annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?reaction .
+
+  # Rhea: Filter for reactions involving sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rh:side/rh:contains/rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    ?chebi rdfs:subClassOf* CHEBI:74337 . # CHEBI:74337 is Sphingolipids
+  }
+
+  # IDSM/ChEMBL: Ensure the protein is annotated in ChEMBL
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/idsm> {
+    ?target cco:hasTargetComponent/cco:targetCmptXref ?protein .
+    ?protein a cco:UniprotRef . # This ensures ?protein is a UniProt IRI recognized by ChEMBL
+  }
+}

@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Generate a draft human metabolome
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX chebislash: <http://purl.obolibrary.org/obo/chebi/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?uniprot ?mnemonic ?rhea ?chebi ?smiles ?inchiKey
+WHERE
+{
+  ?rhea rh:side/rh:contains/rh:compound ?compound .
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  ?chebi chebislash:smiles ?smiles ;
+          chebislash:inchikey ?inchiKey .
+  SERVICE <https://sparql.uniprot.org/sparql> {
+     ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea ;
+                                             up:organism taxon:9606 ;
+                                             up:mnemonic ?mnemonic .
+
+   }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX keywords: <http://purl.uniprot.org/keywords/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?metabolite ?reaction ?ecNumber ?protein
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein a up:Protein .
+    ?protein up:reviewed true . # Filter for reviewed UniProt entries
+    ?protein up:organism taxon:9606 . # Filter for human proteins
+    ?protein up:classifiedWith keywords:1185 . # Filter for proteins classified as enzymes
+
+    # Retrieve the EC number(s) associated with the protein
+    { ?protein up:enzyme ?ecNumber . }
+    UNION
+    { ?protein up:domain/up:enzyme ?ecNumber . }
+    UNION
+    { ?protein up:component/up:enzyme ?ecNumber . }
+  }
+
+  # Query Rhea-DB (host endpoint) for reactions involving these EC numbers
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved . # Filter for approved Rhea reactions
+  ?reaction rh:ec ?ecNumber . # Join with UniProt results via the EC number
+  ?reaction rh:side ?side .
+  ?side rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?metabolite . # Get the ChEBI URI for the metabolite
+}

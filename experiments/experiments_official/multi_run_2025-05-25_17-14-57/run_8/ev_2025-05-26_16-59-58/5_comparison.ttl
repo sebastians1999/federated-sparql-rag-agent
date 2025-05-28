@@ -1,0 +1,70 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql/
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?rhea ?equation
+WHERE {
+  # 1. Identify the target lipid in SwissLipids and find its ChEBI equivalent.
+  VALUES ?lipid { SWISSLIPID:000399814 } .
+  ?lipid owl:equivalentClass ?chebi .
+
+  # 2. Find the specified ChEBI and all its more specific forms (subclasses)
+  #    This handles the hierarchy requirement for the lipid.
+  ?specificChebi rdfs:subClassOf* ?chebi .
+
+  # 3. Federate to the Rhea endpoint to find reactions involving these ChEBI compounds.
+  SERVICE <https://sparql.rhea-db.org/sparql/> {
+    # Ensure we are looking for actual Rhea reactions
+    ?rhea rdfs:subClassOf rh:Reaction .
+    # Get the chemical equation for the reaction
+    ?rhea rh:equation ?equation .
+
+    # Link the Rhea reaction to compounds that involve the specific ChEBI.
+    # This uses a property path to cover different ways ChEBI is linked in Rhea.
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi | rh:reactivePart/rh:chebi | rh:underlyingChebi/rh:chebi) ?specificChebi .
+  }
+}

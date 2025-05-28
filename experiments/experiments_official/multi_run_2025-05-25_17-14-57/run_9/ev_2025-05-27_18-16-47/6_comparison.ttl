@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation), as well as their enzymes as annotated in UniProtKB/Swiss-Prot) enzymes themselves (ID and protein name).
+This query does not consider the hierarchy: it looks for reactions and enzymes only for the specified lipid.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Example 6
+SELECT ?startId ?startName ?chebi ?rhea ?rheaEquation ?uniprot ?uniprotName
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # ChEBI x-ref
+  ?startId owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+  # federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?uniprot up:reviewed true .
+    ?uniprot up:recommendedName/up:fullName ?uniprotName .
+    ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  }
+} 
+ORDER BY ?startId
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?rheaID ?equation ?uniprotID ?proteinName
+WHERE {
+  # 1. Start from the given SwissLipid ID and find its equivalent ChEBI ID.
+  # This part runs on the primary endpoint: https://sparql.swisslipids.org/sparql
+  VALUES ?lipidSLID { SWISSLIPID:000399814 }
+  ?lipidSLID owl:equivalentClass ?chebi . # Join variable: ?chebi (e.g., CHEBI:17761 for Ceramide)
+
+  # 2. Federate to Rhea-DB to find reactions involving the identified ChEBI compound.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find Rhea reactions that contain the ChEBI compound
+    ?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+    # Get the Rhea accession ID and the reaction equation
+    ?rhea rh:accession ?rheaID .
+    ?rhea rh:equation ?equation .
+  } # Join variable: ?rhea
+
+  # 3. Federate to UniProt to find enzymes (UniProtKB/Swiss-Prot) that catalyze these Rhea reactions.
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Find UniProt entries that catalyze the identified Rhea reactions
+    ?uniprotID up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+    # Filter for reviewed (Swiss-Prot) entries
+    ?uniprotID up:reviewed true .
+    # Get the recommended full name of the protein
+    ?uniprotID up:recommendedName/up:fullName ?proteinName .
+  }
+}
+ORDER BY ?rheaID ?uniprotID

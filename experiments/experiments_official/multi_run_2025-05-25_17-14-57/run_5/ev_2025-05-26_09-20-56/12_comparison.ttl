@@ -1,0 +1,62 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?rheaReaction ?rheaAccession ?rheaEquation
+WHERE {
+  # UniProt part (host endpoint)
+  # Find proteins linked to catalytic activities that catalyze a Rhea reaction
+  ?protein a up:Protein .
+  ?protein up:annotation ?annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?rheaReaction . # This variable (?rheaReaction) will be used to join with Rhea
+
+  # Rhea part (federated endpoint)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Filter Rhea reactions to include only enzymes (with EC number) or transporters
+    { ?rheaReaction rh:ec ?ec . } # Rhea reaction is an enzyme (has an EC number)
+    UNION
+    { ?rheaReaction rh:isTransport true . } # Rhea reaction is a transporter
+
+    # Optionally retrieve more details about the Rhea reaction
+    OPTIONAL { ?rheaReaction rh:accession ?rheaAccession . }
+    OPTIONAL { ?rheaReaction rh:equation ?rheaEquation . }
+  }
+}
