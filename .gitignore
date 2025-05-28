@@ -9,3 +9,4 @@ entities_dataframe.csv
 query_cache
 query_cache_backup
 endpoint_indexing/data
+sparql_rag_agent.egg-info/
