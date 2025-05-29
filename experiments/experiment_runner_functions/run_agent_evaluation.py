@@ -12,7 +12,7 @@ async def main():
     Run the agent evaluation with the exact configuration from the Jupyter notebook.
     """
     endpoint_sets = { "SwissLipids": [], "Uniprot": [], "Rhea": [] }
-    experiment_dir = "experiments_official"
+    experiment_dir = "experiments/experiment_data"
     project_name = "pattern_assembler_v1.0_gemini-2.0-flash"
     timeout = 300
     tracked_token_nodes = ["question_understanding", "planning", "pattern", "assembler"]

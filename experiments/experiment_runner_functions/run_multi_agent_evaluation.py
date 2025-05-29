@@ -11,7 +11,7 @@ async def main():
     Run the multi-run agent evaluation with the exact configuration from the Jupyter notebook.
     """
     endpoint_sets = { "SwissLipids": [], "Uniprot": [], "Rhea": [] }
-    experiment_dir = "experiments_official"
+    experiment_dir = "experiments/experiment_data"
     project_name = "pattern_assembler_v1.0_gemini-2.5-flash-preview-05-20"
     timeout = 600
     tracked_token_nodes = ["question_understanding", "planning", "pattern", "assembler"]
