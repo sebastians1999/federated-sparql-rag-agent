@@ -13,6 +13,14 @@ from langchain_core.prompts import FewShotPromptTemplate
 from scr.agent.prompts.prompts import INTRODUCTION_PROMPT, ENPOINT_INFORMATION_PROMPT, QUERY_FORMAT_PROMPT, INTRODUCTION_PROMPT
 
 
+# This file contains two nodes: 
+# 1. query_generator: Generates a SPARQL. This function was modified slightly, depending on the methodology used (baseline, CP, CP-A, CoT).
+#   - CP: Outcomment the part where no retrieved examples are provided. 
+#   - CP-A: Currently set.
+#   - CoT: Use CP and for ("human","{{input}}") put "USER_PROMPT".
+
+
+# 2. query_generator_few_shot_cot: Generates a SPARQL query based on the structured question and retrieved documents using few-shot COT.
 
 
 
@@ -40,7 +48,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         prompt_template = ChatPromptTemplate(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("human", USER_PROMPT)
+                ("human","{{input}}")
             ],
             input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
             template_format="jinja2"

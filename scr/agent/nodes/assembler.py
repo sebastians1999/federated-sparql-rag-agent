@@ -11,6 +11,8 @@ from typing import List, Dict, Optional
 import re
 import gc
 
+# This node is part of the LtM methodology. It is used to assemble the final SPARQL query from the building blocks.
+
 
 async def assemble_query(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
 
