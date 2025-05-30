@@ -48,7 +48,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
         prompt_template = ChatPromptTemplate(
             [
                 ("system", QUERY_GENERATION_PROMPT),
-                ("human","{{input}}")
+                ("human", USER_PROMPT)
             ],
             input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
             template_format="jinja2"
