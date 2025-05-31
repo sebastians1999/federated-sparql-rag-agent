@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX sachem: <http://bio2rdf.org/sachem:>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?chebi ?chebiName ?reaction ?reactionEquation
+WHERE {
+  # Part 1: Find ChEBIs with a Cholestane skeleton using IDSM Sachem
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    # SMILES for Cholestane (CHEBI:35516)
+    BIND("CC(C)CCCC(C)C1CCC2C3CCC4CC(C)CCC4(C)C3CCC12" AS ?cholestaneSMILES)
+    ?chebi sachem:smiles ?compoundSMILES .
+    FILTER (sachem:substructureSearch(?compoundSMILES, ?cholestaneSMILES))
+    # The ?chebi variable here will be the ChEBI URI (e.g., http://purl.obolibrary.org/obo/CHEBI_XXXXX)
+  }
+
+  # Part 2: Match the found ChEBIs to Rhea undirected reactions
+  # Identify undirected reactions by checking if they are of type rh:BidirectionalReaction
+  ?reaction a rh:BidirectionalReaction .
+  ?reaction rh:status rh:Approved . # Filter for approved reactions for better data quality
+  ?reaction rh:equation ?reactionEquation . # Get the reaction equation for context
+
+  # Traverse the reaction graph to find participating compounds and their ChEBI IDs
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  # Link the compound to its ChEBI identifier, considering different linking predicates
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+
+  # Optionally retrieve the ChEBI name
+  OPTIONAL { ?chebi up:name ?chebiName . }
+}

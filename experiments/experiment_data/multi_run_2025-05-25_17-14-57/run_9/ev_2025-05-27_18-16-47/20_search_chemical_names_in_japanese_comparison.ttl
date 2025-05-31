@@ -1,0 +1,54 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?entity ?japaneseName ?englishName
+WHERE {
+  # Step 1: Find entities that have both Japanese and English labels using the ALLIE service.
+  # The ALLIE example shows that an entity (?entity) can have multiple rdfs:label properties
+  # with different language tags.
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    ?entity rdfs:label ?japaneseName ;
+            rdfs:label ?englishName .
+    FILTER (lang(?japaneseName) = "ja")
+    FILTER (lang(?englishName) = "en")
+  }
+
+  # Step 2: Link these entities (which are expected to be CHEBI identifiers)
+  # to chemical compounds within the Rhea-DB endpoint.
+  # Rhea-DB compounds often link to CHEBI identifiers using the rh:chebi property.
+  ?rheaCompound rh:chebi ?entity .
+
+  # The ?entity variable serves as the join key between the ALLIE service and Rhea-DB.
+  # It is expected that the URIs for entities in ALLIE (e.g., CHEBI URIs) are
+  # consistent with those used by Rhea-DB.
+}

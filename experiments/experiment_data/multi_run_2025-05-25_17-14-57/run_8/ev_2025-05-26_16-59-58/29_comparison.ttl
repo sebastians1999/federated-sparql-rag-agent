@@ -1,0 +1,67 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?proteinName ?japaneseTerm ?englishLabel
+WHERE {
+  # Step 1: Query ALLIE to get the English translation of a Japanese term
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    # Define the Japanese term to search for.
+    # Replace "インスリン" (Insulin) with the desired Japanese term.
+    BIND("インスリン"@ja AS ?japaneseTerm)
+    
+    ?allie_entry rdfs:label ?japaneseTerm ;
+                 rdfs:label ?englishLabel .
+    FILTER(lang(?englishLabel) = "en") # Ensure we retrieve the English label
+  }
+  
+  # Convert the English literal to a plain string for case-insensitive comparison in UniProt
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+
+  # Step 2: Search UniProt using the obtained English term
+  ?protein a up:Protein .
+  ?protein up:recommendedName ?recommendedName .
+  ?recommendedName up:fullName ?proteinName .
+
+  # Filter UniProt proteins whose recommended full name contains the English term
+  # LCASE is used for a case-insensitive search
+  FILTER (CONTAINS(LCASE(?proteinName), LCASE(?englishLabelStr)))
+}

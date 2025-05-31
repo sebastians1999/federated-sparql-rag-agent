@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Find all proteins linked to arachidonate (CHEBI:32395)
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+
+SELECT 
+    DISTINCT
+        ?uniprot
+        ?uniprotID
+        ?recname
+        ?gene
+        ?chebi
+        ?uniprotName
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+     VALUES (?chebi) { (CHEBI:32395) }
+     ?rhea rh:side/rh:contains/rh:compound ?compound .
+     ?compound rh:chebi ?chebi .
+     ?chebi up:name ?uniprotName .
+  }
+  ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea .
+  ?uniprot up:mnemonic ?uniprotID .
+  ?uniprot up:recommendedName/up:fullName ?recname .
+  OPTIONAL {?uniprot up:encodedBy/skos:prefLabel ?gene .}
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein
+WHERE {
+  # UniProt part: Find proteins linked to catalytic activities that catalyze Rhea reactions
+  # ?protein is explicitly typed as a UniProt Protein
+  ?protein a up:Protein .
+  # Link protein to its catalytic activity annotation
+  ?protein up:annotation/up:catalyticActivity ?catalyticActivity .
+  # Link the catalytic activity to the Rhea reaction it catalyzes
+  ?catalyticActivity up:catalyzedReaction ?rheaReaction .
+
+  # Rhea part: Find Rhea reactions involving CHEBI:32395 (Arachidonate)
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Ensure the found resource is a Rhea Reaction
+    ?rheaReaction rdfs:subClassOf rh:Reaction .
+    # Navigate through the reaction's sides, contained entities, and compounds
+    # to find those linked to the specific ChEBI identifier for Arachidonate.
+    # The rh:chebi property directly links to the ChEBI URI.
+    ?rheaReaction rh:side/rh:contains/rh:compound/rh:chebi CHEBI:32395 .
+  }
+}

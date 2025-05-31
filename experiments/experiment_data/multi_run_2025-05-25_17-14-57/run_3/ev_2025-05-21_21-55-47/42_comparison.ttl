@@ -1,0 +1,50 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?citation ?patent ?application ?applicationNo
+WHERE
+{
+  ?citation a up:Patent_Citation ;
+    skos:exactMatch ?patent .
+  FILTER(CONTAINS(STR(?patent), 'EP'))
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?application patent:publicationNumber ?applicationNo
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+
+SELECT ?citation ?uniprotPatentURI ?publicationNumber ?epoPatentPublication ?epoPatentApplication
+WHERE {
+  # UniProtKB part: Find patent citations and extract the publication number
+  ?citation a up:Patent_Citation .
+  ?citation skos:exactMatch ?uniprotPatentURI .
+  # Extract the publication number from the UniProt-cited patent URI.
+  # Based on the provided example, the publication number starts at character 35
+  # of the patent URI (e.g., http://data.epo.org/linked-data/patent/EP1234567A1).
+  BIND(SUBSTR(STR(?uniprotPatentURI), 35) AS ?publicationNumber) .
+
+  # EPO part: Query the EPO endpoint using the extracted publication number
+  SERVICE <https://data.epo.org/linked-data/query> {
+    ?epoPatentPublication patent:publicationNumber ?publicationNumber .
+    ?epoPatentPublication patent:application ?epoPatentApplication .
+  }
+}

@@ -1,0 +1,73 @@
+
+# Natural Language Question
+# =======================
+Look for enzymes catalyzing reactions with molecules similar to dopamine.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?rhea
+  ?chebi
+WHERE {
+  # Use the smiles of dopamine CHEBI:18243
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi>{
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ] .
+  }
+  GRAPH<https://sparql.rhea-db.org/rhea>{
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+  ?protein up:reviewed true ;
+    up:annotation ?caa .
+  ?caa up:catalyticActivity/up:catalyzedReaction ?rhea .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?protein ?proteinLabel ?rhea ?chebi ?chebiLabel
+WHERE {
+  # 1. Find molecules similar to dopamine (SMILES: NCCc1ccc(O)c(O)c1, CHEBI:18243)
+  #    using the chemical similarity search service at ELIXIR-CZ (IDSM).
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:similarCompoundSearch [
+      sachem:query "NCCc1ccc(O)c(O)c1" ; # SMILES for dopamine
+      sachem:threshold 0.8 # Optional: similarity threshold (e.g., Tanimoto coefficient)
+    ] .
+    # Optionally retrieve the preferred label for the similar compound
+    OPTIONAL { ?chebi skos:prefLabel ?chebiLabel . }
+  }
+
+  # 2. Find Rhea reactions that involve these similar molecules.
+  #    The Rhea database links compounds (via ChEBI IDs) to reactions.
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    GRAPH <https://sparql.rhea-db.org/rhea> {
+      ?rhea rh:side/rh:contains/rh:compound ?compound .
+      ?compound (rh:chebi | rh:reactivePart/rh:chebi | rh:underlyingChebi/rh:chebi) ?chebi .
+    }
+  }
+
+  # 3. Find UniProt proteins (enzymes) that catalyze these Rhea reactions.
+  #    Filter for reviewed entries and retrieve their preferred labels.
+  ?protein up:reviewed true ;
+           up:annotation ?catalyticActivityAnnotation .
+  ?catalyticActivityAnnotation up:catalyticActivity/up:catalyzedReaction ?rhea .
+  ?protein skos:prefLabel ?proteinLabel .
+}

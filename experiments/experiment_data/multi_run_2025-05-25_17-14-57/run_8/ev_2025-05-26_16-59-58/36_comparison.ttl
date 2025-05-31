@@ -1,0 +1,76 @@
+
+# Natural Language Question
+# =======================
+Find the orthologous proteins for UniProtKB entry P05067 using the <a href="http://www.orthod.org">OrthoDB database</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?orthoGroup
+  ?scientificName
+  ?functionComment
+  ?prefferedGeneName
+  ((STRLEN(?value) - ?medianLength) as ?deviationFromMedianLength)
+WHERE
+{
+  uniprotkb:P05067 a up:Protein ;
+        up:organism/up:scientificName ?scientificName ;
+        rdfs:seeAlso ?orthoGroup ;
+        up:encodedBy/skos:prefLabel ?prefferedGeneName ;
+          up:sequence/rdf:value ?value .
+  OPTIONAL {
+    ?protein up:annotation ?functionAnnotation .
+    ?functionAnnotation a up:Function_Annotation ;
+      rdfs:comment ?functionComment .
+  }
+  SERVICE <https://sparql.orthodb.org/sparql>{
+    ?orthoGroup orthodb:ogMedianProteinLength ?medianLength .
+    ?orthoGroup orthodb:hasMember ?xref .
+    ?xref orthodb:xref/orthodb:xrefResource uniprotkb:P05067 .
+  }
+}
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX orthodb: <http://www.orthodb.org/schema/>
+
+SELECT DISTINCT ?orthologous_protein_uniprot_id
+WHERE {
+    # Define the UniProtKB accession for the target protein
+    BIND("P05067" AS ?target_uniprot_id)
+
+    # Federate to the OrthoDB SPARQL endpoint to find the orthologous group
+    # and then retrieve all members of that group.
+    SERVICE <https://www.orthodb.org/sparql> {
+        # Find the OrthoDB protein entity that corresponds to the target UniProt ID
+        ?target_orthodb_protein orthodb:uniprot_id ?target_uniprot_id .
+
+        # Find the OrthoDB group(s) that this target protein belongs to
+        ?orthodb_group orthodb:has_member ?target_orthodb_protein .
+
+        # Retrieve all members (proteins) of the identified OrthoDB group(s)
+        ?orthodb_group orthodb:has_member ?member_orthodb_protein .
+
+        # Get the UniProt ID for each member protein
+        ?member_orthodb_protein orthodb:uniprot_id ?orthologous_protein_uniprot_id .
+    }
+
+    # Exclude the original target protein from the list of orthologs
+    FILTER (?orthologous_protein_uniprot_id != ?target_uniprot_id)
+}

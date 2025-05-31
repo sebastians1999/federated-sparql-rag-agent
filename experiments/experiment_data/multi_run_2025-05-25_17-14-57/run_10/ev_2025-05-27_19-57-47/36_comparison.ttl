@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+Find the orthologous proteins for UniProtKB entry P05067 using the <a href="http://www.orthod.org">OrthoDB database</a>
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT
+  ?protein
+  ?orthoGroup
+  ?scientificName
+  ?functionComment
+  ?prefferedGeneName
+  ((STRLEN(?value) - ?medianLength) as ?deviationFromMedianLength)
+WHERE
+{
+  uniprotkb:P05067 a up:Protein ;
+        up:organism/up:scientificName ?scientificName ;
+        rdfs:seeAlso ?orthoGroup ;
+        up:encodedBy/skos:prefLabel ?prefferedGeneName ;
+          up:sequence/rdf:value ?value .
+  OPTIONAL {
+    ?protein up:annotation ?functionAnnotation .
+    ?functionAnnotation a up:Function_Annotation ;
+      rdfs:comment ?functionComment .
+  }
+  SERVICE <https://sparql.orthodb.org/sparql>{
+    ?orthoGroup orthodb:ogMedianProteinLength ?medianLength .
+    ?orthoGroup orthodb:hasMember ?xref .
+    ?xref orthodb:xref/orthodb:xrefResource uniprotkb:P05067 .
+  }
+}
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX db: <http://purl.uniprot.org/database/>
+
+SELECT DISTINCT ?orthologousProtein ?orthoDBIdentifier
+WHERE {
+  # Step 1: Find the OrthoDB group identifier associated with the UniProtKB entry P05067.
+  # The previous failed patterns indicated that while up:dbReference and up:database are correct,
+  # the specific ASK query structure or the expectation of a direct 'ortholog' property for OrthoDB
+  # might have been the issue. UniProt uses up:dbReference to link to external database entries,
+  # and up:identifier to store the external ID.
+  uniprotkb:P05067 up:dbReference ?ref1 .
+  ?ref1 up:database db:OrthoDB .
+  ?ref1 up:identifier ?orthoDBIdentifier .
+
+  # Step 2: Find all other UniProtKB proteins that are also associated with the same OrthoDB group identifier.
+  ?orthologousProtein up:dbReference ?ref2 .
+  ?ref2 up:database db:OrthoDB .
+  ?ref2 up:identifier ?orthoDBIdentifier .
+
+  # Step 3: Exclude the original UniProtKB entry P05067 from the list of orthologous proteins.
+  FILTER (?orthologousProtein != uniprotkb:P05067)
+}

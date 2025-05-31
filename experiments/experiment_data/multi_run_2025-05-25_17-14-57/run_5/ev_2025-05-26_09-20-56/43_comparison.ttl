@@ -1,0 +1,66 @@
+
+# Natural Language Question
+# =======================
+Connect patents cited in UniProtKB with those in the patent database at EPO via publication number, whose grant date is more than twenty years in the past.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?grantDate ?patent ?application ?applicationNo
+WHERE
+{
+    ?citation a up:Patent_Citation ;
+  skos:exactMatch ?patent .
+  BIND(SUBSTR(STR(?patent), 35) AS ?applicationNo)
+  BIND(SUBSTR(STR(?patent), 33, 2) AS ?countryCode)
+  SERVICE <https://data.epo.org/linked-data/query>{
+    ?publication patent:publicationNumber ?applicationNo ;
+      patent:application ?application .
+    ?application patent:grantDate ?grantDate .
+  }
+  BIND((year(now()) - 20) AS ?thisYearMinusTwenty)
+  BIND(year(?grantDate) AS ?grantYear)
+  FILTER(?grantYear < ?thisYearMinusTwenty)
+} ORDER BY ?grantYear
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql/
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX patent: <http://data.epo.org/linked-data/def/patent/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?citation ?patentUri ?epoPatent ?publicationNumber ?grantDate
+WHERE
+{
+  # Find patent citations in UniProtKB
+  ?citation a up:Patent_Citation ;
+            skos:exactMatch ?patentUri . # ?patentUri is the URI of the patent in UniProtKB
+
+  # Filter for EPO patents (their URIs typically contain 'EP')
+  FILTER(CONTAINS(STR(?patentUri), 'EP'))
+
+  # Extract the publication number from the UniProt patent URI
+  # UniProt patent URIs are typically like http://purl.uniprot.org/patent/EP1234567
+  # We extract 'EP1234567' as the publication number.
+  BIND(STRAFTER(STR(?patentUri), "http://purl.uniprot.org/patent/") AS ?publicationNumber)
+
+  # Federate to the EPO linked data endpoint
+  SERVICE <https://data.epo.org/linked-data/query> {
+    # Find the patent in EPO using the extracted publication number
+    ?epoPatent patent:publicationNumber ?publicationNumber ;
+               patent:grantDate ?grantDate . # Get the grant date of the patent
+
+    # Filter for patents whose grant date is more than twenty years in the past
+    # NOW() returns the current dateTime. "P20Y"^^xsd:duration represents a period of 20 years.
+    FILTER (?grantDate < (NOW() - "P20Y"^^xsd:duration))
+  }
+}

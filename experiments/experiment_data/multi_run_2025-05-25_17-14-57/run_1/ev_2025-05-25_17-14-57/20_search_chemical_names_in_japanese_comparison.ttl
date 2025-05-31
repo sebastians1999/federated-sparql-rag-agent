@@ -1,0 +1,59 @@
+
+# Natural Language Question
+# =======================
+Search for Chemical names starting in Japanese, translated to english using allie
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX oboInOwl: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT
+*
+WHERE {
+SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "1,2,4-トリクロロベンゼン"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+  BIND(STR(?englishLabel) AS ?englishLabelStr)
+  ?chebi rdfs:label|oboInOwl:hasSynonym ?englishLabelStr .
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.rhea-db.org/sparql/
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+SELECT DISTINCT ?compound ?englishName ?japaneseName
+WHERE {
+    # Query Allie for entities that have both a Japanese and an English label
+    SERVICE <https://data.allie.dbcls.jp/sparql> {
+        ?allie_entity rdfs:label ?japaneseLabel .
+        FILTER (LANG(?japaneseLabel) = "ja")
+        # The phrase "starting in Japanese" can be interpreted in two ways:
+        # 1. The label is in the Japanese language (handled by LANG filter).
+        # 2. The string content of the Japanese label literally starts with a Japanese character.
+        # If the second interpretation is intended, uncomment the following line:
+        # FILTER (REGEX(STR(?japaneseLabel), "^[\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Han}]"))
+
+        ?allie_entity rdfs:label ?englishLabel .
+        FILTER (LANG(?englishLabel) = "en")
+
+        # Bind the labels to string variables for easier comparison and selection
+        BIND (STR(?englishLabel) AS ?englishName)
+        BIND (STR(?japaneseLabel) AS ?japaneseName)
+    }
+
+    # Join with Rhea-DB to find chemical compounds that have the obtained English name
+    ?compound rh:name ?englishName .
+
+    # Optional: If you want to restrict to specific types of chemical compounds (e.g., small molecules),
+    # you can add a filter based on Rhea-DB's schema. For example:
+    # ?compound rdfs:subClassOf rh:SmallMolecule .
+}

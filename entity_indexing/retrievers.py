@@ -13,6 +13,9 @@ class Retriever:
     Supports dense, sparse, and hybrid retrieval from Qdrant.
     """
     
+
+
+
     def __init__(self, client: QdrantClient, collection_name: str):
         """
         Initialize the retriever.
@@ -24,6 +27,9 @@ class Retriever:
         self.client = client
         self.collection_name = collection_name
     
+
+
+
     def retrieve_dense(self, 
                       query_embeddings: Dict[str, Any], 
                       limit: int = 10, 
@@ -62,6 +68,9 @@ class Retriever:
         
         return run_dict
     
+
+
+
     def retrieve_sparse(self, 
                        query_embeddings: Dict[str, Any], 
                        limit: int = 10, 
@@ -105,6 +114,9 @@ class Retriever:
                 
         return run_dict
     
+
+
+
     def retrieve_hybrid(self, 
                        query_embeddings: Dict[str, Any], 
                        limit: int = 10, 
@@ -170,6 +182,9 @@ class Retriever:
         
         return run_dict
     
+
+
+
     def batch_retrieve(self, 
                       query_embeddings: Dict[str, Any],
                       method: str = "dense",
@@ -204,6 +219,9 @@ class Retriever:
         else:
             raise ValueError(f"Unknown retrieval method: {method}")
     
+
+
+
     def create_run(self, 
                   query_embeddings: Dict[str, Any],
                   method: str = "dense",
@@ -240,6 +258,9 @@ class Retriever:
             name = method
         
         return Run(run_dict, name=name)
+    
+
+
     
     @staticmethod
     def create_qrels(qrels_dict: Dict[str, Dict[str, int]]) -> Qrels:

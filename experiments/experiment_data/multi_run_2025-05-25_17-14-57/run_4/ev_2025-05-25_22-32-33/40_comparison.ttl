@@ -1,0 +1,75 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX cco: <http://rdf.ebi.ac.uk/terms/chembl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?protein ?proteinName ?reaction ?chebi ?chemblMolecule ?chemblMoleculeLabel
+WHERE {
+  # UniProt: Identify human enzymes and link them to Rhea reactions
+  ?protein up:organism taxon:9606 .
+  ?protein up:annotation ?annotation .
+  ?annotation a up:Catalytic_Activity_Annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?reaction .
+  ?protein up:recommendedName ?recName .
+  ?recName up:fullName ?proteinName .
+
+  # Rhea: Identify reactions involving sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rdfs:subClassOf rh:Reaction .
+    ?reaction rh:side ?reactionSide .
+    ?reactionSide rh:contains ?participant .
+    ?participant rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    # Filter for sphingolipids (CHEBI:74747) or its subclasses
+    ?chebi (rdfs:subClassOf)+ CHEBI:74747 .
+  }
+
+  # IDSM (ChEMBL): Link UniProt proteins to ChEMBL annotations
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/idsm> {
+    ?activity a cco:Activity .
+    ?activity cco:hasMolecule ?chemblMolecule .
+    ?chemblMolecule skos:prefLabel ?chemblMoleculeLabel . # Get label for the ChEMBL molecule
+    ?activity cco:hasAssay ?assay .
+    ?assay cco:hasTarget ?target .
+    ?target cco:hasTargetComponent/cco:targetCmptXref ?protein .
+    ?protein a cco:UniprotRef . # Ensure the linked entity is a UniProt reference
+  }
+}

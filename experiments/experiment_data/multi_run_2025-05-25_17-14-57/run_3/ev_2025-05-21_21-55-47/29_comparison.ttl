@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?protein ?uniprotEnglishLabel
+WHERE {
+  # Step 1: Use ALLIE to find the English equivalent of a Japanese term.
+  # For demonstration, "デオキシリボ核酸" (Deoxyribonucleic acid) is used as an example Japanese term.
+  # You can replace "デオキシリボ核酸" with your desired Japanese term.
+  SERVICE <https://data.allie.dbcls.jp/sparql> {
+    ?allieEntry rdfs:label "デオキシリボ核酸"@ja ; # The Japanese term to search for
+                rdfs:label ?allieEnglishLabel .
+    FILTER (lang(?allieEnglishLabel) = "en") # Ensure we get the English form
+  }
+
+  # Step 2: Search UniProt for proteins whose recommended full name matches
+  # the English term obtained from ALLIE.
+  ?protein a up:Protein .
+  ?protein up:recommendedName ?recommendedName .
+  ?recommendedName up:fullName ?uniprotEnglishLabel .
+
+  # Join condition: The English full name from UniProt must match the English translation from ALLIE.
+  # Using LCASE(STR()) for case-insensitive comparison of string values.
+  FILTER (LCASE(STR(?uniprotEnglishLabel)) = LCASE(STR(?allieEnglishLabel)))
+}

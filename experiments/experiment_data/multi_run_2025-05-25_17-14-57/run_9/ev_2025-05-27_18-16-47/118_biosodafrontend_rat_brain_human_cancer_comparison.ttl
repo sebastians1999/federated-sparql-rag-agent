@@ -1,0 +1,108 @@
+
+# Natural Language Question
+# =======================
+What are the Homo sapiens genes associated with cancer and their orthologs expressed in the Rattus norvegicus brain?
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX orth:<http://purl.org/net/orth#>
+PREFIX dcterms:<http://purl.org/dc/terms/>
+PREFIX obo:<http://purl.obolibrary.org/obo/>
+PREFIX lscr:<http://purl.org/lscr#>
+PREFIX genex:<http://purl.org/genex#>
+PREFIX sio: <http://semanticscience.org/resource/>
+SELECT ?gene ?orthologous_protein2 WHERE {
+  {
+    SELECT ?protein1 WHERE {
+      ?protein1 a up:Protein;
+        up:organism/up:scientificName 'Homo sapiens' ;
+        up:annotation ?annotation .
+      ?annotation rdfs:comment ?annotation_text.
+      ?annotation a up:Disease_Annotation .
+      FILTER CONTAINS (?annotation_text, "cancer")
+    }
+  }
+  SERVICE <https://sparql.omabrowser.org/sparql/> {
+    SELECT ?orthologous_protein2 ?protein1 ?gene WHERE {
+      ?protein_OMA a orth:Protein .
+      ?orthologous_protein2 a orth:Protein .
+      ?cluster a orth:OrthologsCluster .
+      ?cluster orth:hasHomologousMember ?node1 .
+      ?cluster orth:hasHomologousMember ?node2 .
+      ?node2 orth:hasHomologousMember* ?protein_OMA .
+      ?node1 orth:hasHomologousMember* ?orthologous_protein2 
+      .?orthologous_protein2 orth:organism/obo:RO_0002162/up:scientificName 'Rattus norvegicus' .
+      ?orthologous_protein2 sio:SIO_010079 ?gene .
+      ?protein_OMA lscr:xrefUniprot ?protein1 .
+      FILTER(?node1 != ?node2)
+    }
+  }
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene genex:isExpressedIn ?anatEntity .
+    ?anatEntity rdfs:label 'brain' .
+    ?gene orth:organism ?org . 
+    ?org obo:RO_0002162 taxon:10116 .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+
+SELECT DISTINCT ?humanGeneLabel ?orthologGeneLabel ?diseaseComment ?anatomicEntityLabel
+WHERE {
+  # --- UniProt: Find Homo sapiens proteins associated with cancer ---
+  ?humanProtein a up:Protein ;
+                up:organism taxon:9606 ; # Homo sapiens
+                up:encodedBy ?humanGene ;
+                up:annotation ?annotation .
+  ?annotation a up:Disease_Annotation ;
+              rdfs:comment ?diseaseComment .
+  FILTER (CONTAINS(LCASE(?diseaseComment), "cancer"))
+  
+  ?humanGene skos:prefLabel ?humanGeneLabel .
+
+  # --- OrthoDB: Find orthologs of the human proteins ---
+  SERVICE <https://sparql.orthodb.org/sparql> {
+    ?orthoGroup orthodb:hasMember ?memberHuman .
+    ?memberHuman orthodb:xref/orthodb:xrefResource ?humanProtein . # Join with UniProt human protein
+    
+    ?orthoGroup orthodb:hasMember ?memberOrtholog .
+    ?memberOrtholog orthodb:xref/orthodb:xrefResource ?orthologProtein .
+  }
+
+  # --- UniProt (continued): Get details for the ortholog protein and link to Ensembl gene ---
+  ?orthologProtein a up:Protein ;
+                   up:organism taxon:10116 ; # Rattus norvegicus
+                   up:encodedBy ?orthologGene .
+  
+  ?orthologGene skos:prefLabel ?orthologGeneLabel .
+  
+  # Link ortholog protein to its Ensembl gene, which is needed for Bgee
+  ?orthologProtein rdfs:seeAlso ?orthologEnsemblXref .
+  ?orthologEnsemblXref up:transcribedFrom ?orthologEnsemblGene .
+
+  # --- Bgee: Check expression of ortholog genes in Rattus norvegicus brain ---
+  SERVICE <https://www.bgee.org/sparql> {
+    ?orthologGeneBgee lscr:xrefEnsemblGene ?orthologEnsemblGene . # Join with the Ensembl gene from UniProt
+    ?orthologGeneBgee genex:isExpressedIn ?anatomicEntity .
+    ?anatomicEntity rdfs:label ?anatomicEntityLabel .
+    
+    # Filter for brain expression (case-insensitive)
+    FILTER (CONTAINS(LCASE(?anatomicEntityLabel), "brain"))
+  }
+}

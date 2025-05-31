@@ -1,0 +1,47 @@
+
+# Natural Language Question
+# =======================
+Total number of <reaction> <ec> <protein> links
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX ec:<http://purl.uniprot.org/enzyme/>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  (count(?reaction) as ?reactionEcProteinLinkCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?enzyme
+  SERVICE <http://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true .
+    ?protein up:enzyme ?enzyme.
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX ec: <http://purl.uniprot.org/enzyme/>
+
+SELECT (COUNT(DISTINCT ?reaction ?ec ?protein) AS ?totalLinks)
+WHERE {
+  # Triple patterns for Rhea-DB (host endpoint)
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:ec ?ec . # ?ec represents the EC number URI
+
+  # Federated query to UniProt
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    ?protein up:reviewed true . # Filter for reviewed UniProt entries
+    ?protein up:enzyme ?ec .     # Join with the EC number from Rhea-DB
+  }
+}

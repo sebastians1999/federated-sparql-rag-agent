@@ -9,7 +9,7 @@ import json
 import asyncio
 import nest_asyncio
 
-def _sparql_wrapper_base(
+def sparql_wrapper_base(
     query: str,
     endpoint_url: str,
     post: bool = False,
@@ -73,7 +73,7 @@ async def run_with_timeout_enforcement(
         return await asyncio.wait_for(
             loop.run_in_executor(
                 None,
-                lambda: _sparql_wrapper_base(query, endpoint_url, post, regular_timeout)
+                lambda: sparql_wrapper_base(query, endpoint_url, post, regular_timeout)
             ),
             timeout=asyncio_timeout
         )
@@ -278,7 +278,7 @@ def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tup
         else entity["query"]
     )
     try:
-        entities_res = query_sparql_wrapper(query, entity["endpoint"])["results"]["bindings"]
+        entities_res = sparql_wrapper_base(query, entity["endpoint"])["results"]["bindings"]
     except Exception as e:
         print(f"Error querying endpoint {entity['endpoint']}: {str(e)}")
         return None
@@ -295,7 +295,6 @@ def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tup
             "entity_type": entity_res["label"]["type"],
             "description": entity.get("description", "")
         })
-    #print(entities_list[0:5])
 
     return entities_res
 

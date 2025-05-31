@@ -17,7 +17,7 @@ class MultiRunEvaluator:
         self, 
         num_runs: int = 10,
         endpoint_sets: Dict = None,
-        experiment_dir: str = "/Users/sebastian/Documents/Bachelor Thesis/sparql-rag-agent/sparql-rag-agent/experiments/experiments_official",
+        experiment_dir: str = "/Users/sebastian/Documents/Bachelor Thesis/sparql-rag-agent/sparql-rag-agent/experiments/experiment_data",
         project_name_langsmith: str = None,
         timeout: int = 300,
         tracked_token_nodes: List[str] = ["question_understanding", "sparql_query_construction"],
@@ -243,7 +243,7 @@ def calculate_statistics_for_existing_runs(multi_run_path: str) -> Dict[str, Any
     that may have failed to calculate statistics when it was first run.
     
     Args:
-        multi_run_path: Path to the multi-run directory (e.g., 'experiments/experiments_official/multi_run_2025-05-02_00-31-21')
+        multi_run_path: Path to the multi-run directory (e.g., 'experiments/experiment_data/multi_run_2025-05-02_00-31-21')
         
     Returns:
         Dictionary containing statistics with means and confidence intervals

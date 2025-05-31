@@ -1,0 +1,38 @@
+{
+  "SP-BLEU": 0.11173548746133181,
+  "METEOR": 0.4170834082089797,
+  "num_none_queries": 0,
+  "size_of_test_set": 32,
+  "error_at_endpoints": 20,
+  "empty_results_count": 4,
+  "syntactically_valid_queries_count": 28,
+  "avg_result_including_empty_result_precision": 0.198974358974359,
+  "avg_result_including_empty_result_recall": 0.25,
+  "avg_result_including_empty_result_f1": 0.2195016758675079,
+  "number_of_query_results_evaluated_including_empty_result": 8,
+  "list_evaluated_queries_including_empty_result": [
+    "SwissLipids/34.ttl",
+    "UniProt/49_tissues_where_genes_metabolizing_cholestrol_are_expressed.ttl",
+    "UniProt/52_drugs_targeting_sterol_metabolism.ttl",
+    "UniProt/60_enzymes_working_on_substrate_with_Cholestene_backbone.ttl",
+    "UniProt/70_enzymes_interacting_with_molecules_similar_to_dopamine.ttl",
+    "UniProt/38_find_gene_region_in_wikidata_for_known_entry.ttl",
+    "UniProt/29_search_uniprot_in_japanese_with_allie.ttl",
+    "Rhea/117_Retrieve_parent_reactions_and_their_catalyzing_enzymes_for_a_metabolite_that_is_not_directly_involved_in_a_reaction.ttl"
+  ],
+  "avg_result_excluding_empty_result_precision": 0.397948717948718,
+  "avg_result_excluding_empty_result_recall": 0.5,
+  "avg_result_excluding_empty_result_f1": 0.4390033517350158,
+  "number_of_query_results_evaluated_excluding_empty_result": 4,
+  "list_evaluated_queries_excluding_empty_result": [
+    "SwissLipids/34.ttl",
+    "UniProt/52_drugs_targeting_sterol_metabolism.ttl",
+    "UniProt/70_enzymes_interacting_with_molecules_similar_to_dopamine.ttl",
+    "Rhea/117_Retrieve_parent_reactions_and_their_catalyzing_enzymes_for_a_metabolite_that_is_not_directly_involved_in_a_reaction.ttl"
+  ],
+  "avg_result_all_precision": 0.04974358974358975,
+  "avg_result_all_recall": 0.0625,
+  "avg_result_all_f1": 0.054875418966876977,
+  "number_of_query_results_evaluated_all": 32,
+  "list_evaluated_queries_all": []
+}

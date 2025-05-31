@@ -1,3 +1,5 @@
+# This is the list of entities to be indexed. Modify this list to index different entities.
+
 entities_list = [
         {
             "uniprot_disease": {

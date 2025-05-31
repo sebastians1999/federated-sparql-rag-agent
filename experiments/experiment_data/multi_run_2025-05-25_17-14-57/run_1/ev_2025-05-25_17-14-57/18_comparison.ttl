@@ -1,0 +1,61 @@
+
+# Natural Language Question
+# =======================
+Use <a href="https://idsm.elixir-czech.cz/sparql">IDSM Sachem</a> to find ChEBIs with a a <a href="https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:35516">Cholestane</a> skeleton (in SMILES). Then match returned ChEBIs to Rhea undirected reactions.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX sachem: <http://bioinfo.uochb.cas.cz/rdf/v1.0/sachem#>
+
+
+SELECT 
+  ?rhea 
+  ?chebi
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql/endpoint/chebi> {
+    ?chebi sachem:substructureSearch [
+        sachem:query "[C@]12(CCC3CCCC[C@]3(C)[C@@]1([H])CC[C@]1(C)[C@@]([H])([C@@](C)([H])CCCC(C)C)CC[C@@]21[H])[H]" ].
+  }
+  ?rhea rh:side/rh:contains/rh:compound/rdfs:subClassOf ?chebi .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX sachem: <http://bioinfo.org.cz/sachem/schema/>
+
+SELECT DISTINCT ?chebi ?chebiName ?reaction ?reactionEquation
+WHERE {
+  SERVICE <https://idsm.elixir-czech.cz/sparql> {
+    # Find ChEBIs that have the Cholestane skeleton (CHEBI:35516) as a substructure.
+    # The SMILES for CHEBI:35516 (Cholestane skeleton) is used for the substructure search.
+    ?chebi sachem:smiles ?smiles .
+    FILTER sachem:substructure(?smiles, "C[C@H](CCCC(C)C)[C@H]1CC[C@H]2[C@@H]3CCC4=CC[C@@H](C)[C@H]4[C@@]3(C)CC[C@@H]12") .
+  }
+
+  # Match the found ChEBIs to Rhea reactions.
+  # We use rdfs:subClassOf rh:Reaction to include all general Rhea reactions,
+  # which encompasses both directed and undirected forms.
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:equation ?reactionEquation . # Get the reaction equation for context
+
+  # Link the reaction to its participants and then to the ChEBI compound.
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  # Rhea links to ChEBI via several properties; the property path covers these cases.
+  ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+
+  # Optionally retrieve the ChEBI name (label) for better readability.
+  OPTIONAL { ?chebi rdfs:label ?chebiName . }
+}
+ORDER BY ?chebi ?reaction

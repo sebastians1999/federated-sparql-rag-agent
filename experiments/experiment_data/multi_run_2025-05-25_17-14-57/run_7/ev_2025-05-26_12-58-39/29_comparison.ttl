@@ -1,0 +1,68 @@
+
+# Natural Language Question
+# =======================
+Use <a href="http://allie.dbcls.jp/">ALLIE</a> a service for Abbreviation / Long Form in Japanese and English to search in UniProt using Japanese.
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?englishLabelStr
+WHERE {
+    SERVICE <https://data.allie.dbcls.jp/sparql>{
+        ?x rdfs:label "アミロイド前駆体タンパク質"@ja ;
+            rdfs:label ?englishLabel .
+        FILTER(lang(?englishLabel) = "en")
+    }
+    BIND (STR(?englishLabel) AS ?englishLabelStr)
+    ?protein a up:Protein .
+    {
+        ?protein (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    UNION
+    {
+        VALUES(?partType){(up:domain) (up:component)}
+            ?protein ?partType ?part .
+        ?part (up:recommendedName|up:alternativeName) ?structuredName .
+    }
+    ?structuredName ?anyKindOfName  ?englishLabelStr .
+    ?anyKindOfName rdfs:subPropertyOf up:structuredNameType .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT ?protein ?proteinName ?japaneseTerm ?englishTerm
+WHERE {
+    # Step 1: Query ALLIE to find the English equivalent of a Japanese term.
+    SERVICE <https://data.allie.dbcls.jp/sparql> {
+        # Define the Japanese term to search for.
+        # For example, "インスリン" (Insulin).
+        # The example query for ALLIE showed rdfs:label usage with language tags.
+        ?allie_entity rdfs:label "インスリン"@ja ;
+                      rdfs:label ?englishTerm .
+        FILTER (lang(?englishTerm) = "en") # Ensure we get the English label
+        
+        # Bind the Japanese term for inclusion in the SELECT clause
+        BIND("インスリン"@ja AS ?japaneseTerm)
+    }
+
+    # Step 2: Use the obtained English term to search for proteins in UniProt.
+    # The successful UniProt pattern shows how to get protein names.
+    ?protein a up:Protein .
+    ?protein up:recommendedName ?recommendedName .
+    ?recommendedName up:fullName ?proteinName .
+    
+    # Join condition: Match the protein name with the English term from ALLIE.
+    # Using CONTAINS and LCASE for a case-insensitive substring match,
+    # as protein names can be more descriptive than a simple abbreviation.
+    FILTER (CONTAINS(LCASE(STR(?proteinName)), LCASE(STR(?englishTerm))))
+}

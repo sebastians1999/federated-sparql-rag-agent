@@ -1,0 +1,78 @@
+
+# Natural Language Question
+# =======================
+Select all approved reactions with CHEBI:17815 (a 1,2-diacyl-sn-glycerol) or one of its descendant. Display links to UniProtKB/Swiss-Prot entries via EC numbers if the link rhea-ec exists.
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh:<http://rdf.rhea-db.org/>
+PREFIX CHEBI:<http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX up:<http://purl.uniprot.org/core/>
+
+SELECT
+  distinct
+    ?reaction
+    ?enzyme
+    (count(distinct ?protein) as ?proteinCount)
+WHERE {
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:side ?reactionSide .
+
+  OPTIONAL {?reaction rh:ec ?enzyme .
+    SERVICE <https://sparql.uniprot.org/sparql> {
+      ?protein up:reviewed true .
+      ?protein up:enzyme ?enzyme.
+    }
+  } .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 .
+}
+GROUP BY ?reaction ?enzyme
+ORDER BY ?reaction
+LIMIT 985915
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX uniprot_enzyme: <http://purl.uniprot.org/enzyme/>
+
+SELECT DISTINCT ?reaction ?reactionEquation ?ecNumber ?uniprotEntry ?uniprotLabel
+WHERE {
+  # Part 1: Find approved reactions involving CHEBI:17815 or its descendants in Rhea
+  ?reaction rdfs:subClassOf rh:Reaction .
+  ?reaction rh:status rh:Approved .
+  ?reaction rh:equation ?reactionEquation . # Get the reaction equation for display
+  ?reaction rh:side ?reactionSide .
+  ?reactionSide rh:contains ?participant .
+  ?participant rh:compound ?compound .
+  ?compound rh:chebi ?chebi .
+  ?chebi rdfs:subClassOf* CHEBI:17815 . # Match CHEBI:17815 or any of its descendants
+
+  # Part 2: Get EC numbers associated with these Rhea reactions
+  ?reaction rh:ec ?ecNumber . # This variable (?ecNumber) will be used to join with UniProt
+
+  # Part 3: Federate with UniProt to find UniProtKB/Swiss-Prot entries linked to these EC numbers
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    # Construct the EC class URI from the EC number obtained from Rhea
+    BIND(IRI(CONCAT(STR(uniprot_enzyme:), ?ecNumber)) AS ?ecClass) .
+    
+    # Find UniProt entries that are classified with this EC number
+    ?uniprotEntry up:classifiedWith ?ecClass .
+    
+    # Optionally retrieve the label (name) of the UniProt entry for better readability
+    OPTIONAL { ?uniprotEntry rdfs:label ?uniprotLabel . }
+  }
+}
+ORDER BY ?reaction ?ecNumber

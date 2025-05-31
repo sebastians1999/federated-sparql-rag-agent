@@ -1,0 +1,70 @@
+
+# Natural Language Question
+# =======================
+Rabbit's proteins encoded by genes that are orthologous to Mouse's HBB-Y gene and their cross reference links to Uniprot
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX orth: <http://purl.org/net/orth#>
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?PROTEIN_1 ?PROTEIN_2 ?UNIPROT_XREF_1 ?UNIPROT_XREF_2 WHERE {
+	?taxon_1 up:commonName 'Mouse' .
+	?taxon_2 up:commonName 'Rabbit' .
+	SERVICE <https://sparql.omabrowser.org/sparql/> {
+		?cluster a orth:OrthologsCluster .
+		?cluster orth:hasHomologousMember ?node1 .
+		?cluster orth:hasHomologousMember ?node2 .
+		?node2 orth:hasHomologousMember* ?PROTEIN_2 .
+		?node1 orth:hasHomologousMember* ?PROTEIN_1 .
+		?PROTEIN_1 a orth:Protein .
+		?PROTEIN_1 orth:organism/obo:RO_0002162 ?taxon_1 ;
+			rdfs:label 'HBB-Y' ;
+			lscr:xrefUniprot ?UNIPROT_XREF_1 .
+		?PROTEIN_2 a orth:Protein .
+		?PROTEIN_2 orth:organism/obo:RO_0002162 ?taxon_2 .
+		?PROTEIN_2 lscr:xrefUniprot ?UNIPROT_XREF_2 .
+		FILTER ( ?node1 != ?node2 )
+	}
+}
+
+# Predicted Query
+# ==============
+# Primary endpoint: https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?rabbitProtein ?rabbitGene ?rabbitGeneName ?xref
+WHERE {
+  # 1. Find the UniProt protein associated with the "HBB-Y" gene in Mouse (Taxon ID: 10090)
+  ?mouseProtein a up:Protein ;
+                up:organism taxon:10090 ; # Mouse
+                up:encodedBy ?mouseGene .
+  ?mouseGene skos:prefLabel "HBB-Y" .
+
+  # 2. Identify the orthology group(s) that the Mouse HBB-Y protein is cross-referenced to.
+  #    We assume that rdfs:seeAlso links to a common orthology group URI (e.g., from OrthoDB).
+  ?mouseProtein rdfs:seeAlso ?orthoGroup .
+
+  # 3. Find proteins in Rabbit (Taxon ID: 9986) that are also linked to the *same* orthology group.
+  ?rabbitProtein a up:Protein ;
+                 up:organism taxon:9986 ; # Rabbit
+                 up:encodedBy ?rabbitGene ;
+                 rdfs:seeAlso ?orthoGroup . # Join variable: ?orthoGroup
+
+  # 4. Get the preferred name for the rabbit gene.
+  ?rabbitGene skos:prefLabel ?rabbitGeneName .
+
+  # 5. Get other cross-reference links for these rabbit proteins.
+  ?rabbitProtein rdfs:seeAlso ?xref .
+  # Filter out the orthology group URI itself if we want other distinct cross-references.
+  FILTER (?xref != ?orthoGroup)
+}

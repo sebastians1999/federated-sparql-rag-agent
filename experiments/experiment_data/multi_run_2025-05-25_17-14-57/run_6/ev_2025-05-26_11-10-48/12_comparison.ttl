@@ -1,0 +1,72 @@
+
+# Natural Language Question
+# =======================
+Select all Rhea reactions linked to protein sequences (enzymes and transporters) in UniProtKB
+
+# Target Endpoint
+# ===============
+https://sparql.rhea-db.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+# Query 12
+# Select all Rhea reactions used to annotate enzyme sequences in UniProtKB
+# return the number of UniProtKB entries
+# Federated query using a service to UniProt SPARQL endpoint
+#
+# This query corresponds to the Rhea website query:
+# https://www.rhea-db.org/rhea?query=uniprot:*
+#
+SELECT ?uniprotCount ?rhea ?accession ?equation 
+WHERE {
+  SERVICE <https://sparql.uniprot.org/sparql> { 
+  	SELECT ?rhea (count(?uniprot) as ?uniprotCount) {
+      ?uniprot up:annotation/up:catalyticActivity/up:catalyzedReaction ?rhea . 
+  	}
+  	GROUP BY ?rhea
+  }
+  ?rhea rh:accession ?accession .
+  ?rhea rh:equation ?equation .
+}
+
+# Predicted Query
+# ==============
+# https://sparql.rhea-db.org/sparql
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?rhea ?rheaAccession ?rheaEquation ?protein ?proteinAccession
+WHERE {
+  # Part 1: Retrieve Rhea reactions and their basic details from the host endpoint (Rhea-DB)
+  ?rhea rdfs:subClassOf rh:Reaction .
+  ?rhea rh:accession ?rheaAccession .
+  OPTIONAL { ?rhea rh:equation ?rheaEquation . } # The equation might not be present for all Rhea reactions
+
+  # Part 2: Federate to the UniProt SPARQL endpoint to find linked protein sequences
+  SERVICE <https://sparql.uniprot.org/sparql> {
+    GRAPH <http://sparql.uniprot.org/uniprot> {
+      # Filter for reviewed UniProt entries to improve performance and focus on high-quality data
+      ?protein up:reviewed true .
+      # Get the UniProt accession for the protein
+      ?protein up:accession ?proteinAccession .
+
+      {
+        # Link proteins to Rhea reactions via catalytic activity (for enzymes)
+        ?protein up:annotation ?annotation .
+        ?annotation up:catalyticActivity ?catalyticActivity .
+        ?catalyticActivity up:catalyzedReaction ?rhea .
+      }
+      UNION
+      {
+        # Link proteins to Rhea reactions via transport activity (for transporters)
+        ?protein up:annotation ?annotation .
+        ?annotation up:catalyticActivity ?catalyticActivity .
+        ?catalyticActivity up:transports ?rhea .
+      }
+    }
+  }
+}

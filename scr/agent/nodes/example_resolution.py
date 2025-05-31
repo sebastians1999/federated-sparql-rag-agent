@@ -16,7 +16,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
+# This node is used for CP-A and LtM. It is used to retrieve relevant example queries to the user question from a vector database.
+# The settings and thresholds are defined in the configuration file.
 
 def format_retrieved_examples(examples_list):
     """Format the retrieved example queries for display in the agent UI.

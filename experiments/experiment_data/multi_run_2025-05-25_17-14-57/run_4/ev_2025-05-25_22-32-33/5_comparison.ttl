@@ -1,0 +1,71 @@
+
+# Natural Language Question
+# =======================
+For a given lipid (SWISSLIPID:000399814, Ceramide), return a list of all corresponding reactions (Rhea IDs and equation).
+This query does consider the hierarchy: it looks for reactions involving the specified lipid and/or its more specific forms.
+
+# Target Endpoint
+# ===============
+https://sparql.swisslipids.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+
+# Example 5
+SELECT ?startId ?startName ?id ?name ?chebi ?rhea ?rheaEquation 
+WHERE
+{
+  # SwissLipids query (list of) identifier(s)
+  VALUES ?startId { SWISSLIPID:000399814 }
+  # name
+  ?startId rdfs:label ?startName .
+  # Retrieve children lipids 
+  ?id rdfs:subClassOf* ?startId .
+  ?id rdfs:label ?name .
+  # ChEBI x-ref
+  ?id owl:equivalentClass ?chebi .
+  # federated query to Rhea
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+  	?rhea rh:equation ?rheaEquation .
+  	?rhea rh:side/rh:contains/rh:compound/rh:chebi ?chebi .
+  }    
+} 
+ORDER BY  ?startId ?id
+
+# Predicted Query
+# ==============
+# https://sparql.swisslipids.org/sparql
+PREFIX SWISSLIPID: <https://swisslipids.org/rdf/SLM_>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?rheaID ?equation
+WHERE {
+  # Step 1: Get the ChEBI equivalent of the given SwissLipid ID from the primary endpoint (SwissLipids)
+  VALUES ?swissLipid { SWISSLIPID:000399814 }
+  ?swissLipid owl:equivalentClass ?chebiBase .
+
+  # Step 2: Federate to Rhea to find reactions involving this ChEBI ID or its subclasses
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    # Find the base ChEBI compound (?chebiBase) or any of its more specific forms (subclasses)
+    # rdfs:subClassOf* includes the subject itself, thus covering "the specified lipid and/or its more specific forms"
+    ?chebi rdfs:subClassOf* ?chebiBase .
+
+    # Find Rhea reactions involving these ChEBI compounds
+    ?rhea rdfs:subClassOf rh:Reaction . # Ensure it's a reaction
+    ?rhea rh:accession ?rheaID .       # Get the Rhea ID
+    ?rhea rh:equation ?equation .      # Get the reaction equation
+
+    # Link the reaction to the compound via its sides and participants
+    ?rhea rh:side/rh:contains/rh:compound ?compound .
+    # Link the compound to its ChEBI identifier, considering different ways ChEBI is linked in Rhea
+    ?compound (rh:chebi|(rh:reactivePart/rh:chebi)|(rh:underlyingChebi/rh:chebi)) ?chebi .
+  }
+}
+ORDER BY ?rheaID

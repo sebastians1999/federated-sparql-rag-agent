@@ -1,0 +1,63 @@
+
+# Natural Language Question
+# =======================
+Retrieve human enzymes that metabolize sphingolipids and are annotated in ChEMBL
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql/
+
+# Ground Truth Query
+# =================
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX up: <http://purl.uniprot.org/core/>
+
+SELECT DISTINCT ?protein ?chemblEntry
+WHERE {
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?rhea rdfs:subClassOf rh:Reaction ;
+      rh:side/rh:contains/rh:compound/rh:chebi/rdfs:subClassOf+ CHEBI:26739 .
+  }
+  ?ca up:catalyzedReaction ?rhea .
+  ?protein up:annotation/up:catalyticActivity ?ca ;
+    up:organism taxon:9606 ;
+    rdfs:seeAlso ?chemblEntry .
+  ?chemblEntry up:database <http://purl.uniprot.org/database/ChEMBL> .
+}
+LIMIT 10
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rh: <http://rdf.rhea-db.org/>
+PREFIX CHEBI: <http://purl.obolibrary.org/obo/CHEBI_>
+
+SELECT DISTINCT ?enzyme ?enzymeName ?reaction ?chebi
+WHERE {
+  # UniProt: Find human enzymes annotated in ChEMBL and their catalyzed reactions
+  ?enzyme up:organism taxon:9606 .
+  ?enzyme up:annotation ?annotation .
+  ?annotation a up:Catalytic_Activity_Annotation .
+  ?annotation up:catalyticActivity ?catalyticActivity .
+  ?catalyticActivity up:catalyzedReaction ?reaction . # Join variable with Rhea
+  
+  # Get enzyme name for better readability
+  OPTIONAL { ?enzyme up:recommendedName/up:fullName ?enzymeName . }
+
+  # Filter for enzymes annotated in ChEMBL
+  ?enzyme rdfs:seeAlso ?chemblAnnotation .
+  ?chemblAnnotation up:database <http://purl.uniprot.org/database/ChEMBL> .
+
+  # Rhea: Find reactions involving sphingolipids
+  SERVICE <https://sparql.rhea-db.org/sparql> {
+    ?reaction rh:side/rh:contains/rh:compound ?compound .
+    ?compound rh:chebi ?chebi .
+    ?chebi (rdfs:subClassOf)+ CHEBI:73039 . # CHEBI:73039 is 'sphingolipid'
+  }
+}

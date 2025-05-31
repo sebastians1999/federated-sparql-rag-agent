@@ -1,0 +1,112 @@
+
+# Natural Language Question
+# =======================
+What are the Homo sapiens genes associated with cancer and their orthologs expressed in the Rattus norvegicus brain?
+
+# Target Endpoint
+# ===============
+https://sparql.uniprot.org/sparql
+
+# Ground Truth Query
+# =================
+PREFIX up:<http://purl.uniprot.org/core/>
+PREFIX taxon:<http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>
+PREFIX orth:<http://purl.org/net/orth#>
+PREFIX dcterms:<http://purl.org/dc/terms/>
+PREFIX obo:<http://purl.obolibrary.org/obo/>
+PREFIX lscr:<http://purl.org/lscr#>
+PREFIX genex:<http://purl.org/genex#>
+PREFIX sio: <http://semanticscience.org/resource/>
+SELECT ?gene ?orthologous_protein2 WHERE {
+  {
+    SELECT ?protein1 WHERE {
+      ?protein1 a up:Protein;
+        up:organism/up:scientificName 'Homo sapiens' ;
+        up:annotation ?annotation .
+      ?annotation rdfs:comment ?annotation_text.
+      ?annotation a up:Disease_Annotation .
+      FILTER CONTAINS (?annotation_text, "cancer")
+    }
+  }
+  SERVICE <https://sparql.omabrowser.org/sparql/> {
+    SELECT ?orthologous_protein2 ?protein1 ?gene WHERE {
+      ?protein_OMA a orth:Protein .
+      ?orthologous_protein2 a orth:Protein .
+      ?cluster a orth:OrthologsCluster .
+      ?cluster orth:hasHomologousMember ?node1 .
+      ?cluster orth:hasHomologousMember ?node2 .
+      ?node2 orth:hasHomologousMember* ?protein_OMA .
+      ?node1 orth:hasHomologousMember* ?orthologous_protein2 
+      .?orthologous_protein2 orth:organism/obo:RO_0002162/up:scientificName 'Rattus norvegicus' .
+      ?orthologous_protein2 sio:SIO_010079 ?gene .
+      ?protein_OMA lscr:xrefUniprot ?protein1 .
+      FILTER(?node1 != ?node2)
+    }
+  }
+  SERVICE <https://www.bgee.org/sparql/> {
+    ?gene genex:isExpressedIn ?anatEntity .
+    ?anatEntity rdfs:label 'brain' .
+    ?gene orth:organism ?org . 
+    ?org obo:RO_0002162 taxon:10116 .
+  }
+}
+
+# Predicted Query
+# ==============
+# https://sparql.uniprot.org/sparql
+PREFIX up: <http://purl.uniprot.org/core/>
+PREFIX taxon: <http://purl.uniprot.org/taxonomy/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX orthodb: <http://purl.orthodb.org/>
+PREFIX uniprotkb: <http://purl.uniprot.org/uniprot/>
+PREFIX genex: <http://purl.org/genex#>
+PREFIX lscr: <http://purl.org/lscr#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+
+SELECT DISTINCT ?humanGeneName ?diseaseLabel ?ratGeneName ?ratProtein ?brainLabel
+WHERE {
+  # Part 1: Identify Homo sapiens proteins associated with cancer
+  ?humanProtein a up:Protein ;
+                up:organism taxon:9606 ; # Homo sapiens
+                up:encodedBy ?humanGene .
+  ?humanGene skos:prefLabel ?humanGeneName . # Get the preferred gene name for human
+
+  ?humanProtein up:annotation ?diseaseAnnotation .
+  ?diseaseAnnotation a up:Disease_Annotation ;
+                     up:disease ?disease .
+  ?disease rdfs:label ?diseaseLabel .
+  FILTER (CONTAINS(LCASE(?diseaseLabel), "cancer")) . # Filter for diseases containing "cancer" in their label
+
+  # Part 2: Find orthologous proteins in Rattus norvegicus using OrthoDB
+  SERVICE <https://sparql.orthodb.org/sparql> {
+    ?orthoGroup orthodb:hasMember ?humanOrthoDBMember ;
+                orthodb:hasMember ?ratOrthoDBMember .
+    ?humanOrthoDBMember orthodb:xref/orthodb:xrefResource ?humanProtein . # Join with human protein from UniProt
+    ?ratOrthoDBMember orthodb:xref/orthodb:xrefResource ?ratProtein .   # Get the orthologous rat protein
+  }
+
+  # Part 3: Get the gene and Ensembl ID for the Rattus norvegicus ortholog from UniProt
+  # This part continues in the main UniProt service context
+  ?ratProtein up:organism taxon:10116 ; # Rattus norvegicus
+              up:encodedBy ?ratGene .
+  ?ratGene skos:prefLabel ?ratGeneName . # Get the preferred gene name for rat
+
+  # Link rat protein to its Ensembl gene ID, which is used by Bgee
+  ?ratProtein rdfs:seeAlso ?ensemblXref .
+  ?ensemblXref up:transcribedFrom ?ratEnsemblGene . # This is the Ensembl gene ID
+
+  # Part 4: Check if the Rattus norvegicus gene is expressed in the brain using Bgee
+  SERVICE <https://www.bgee.org/sparql> {
+    ?bgeeGene genex:isExpressedIn ?expressionCondition .
+    ?expressionCondition genex:inTaxon taxon:10116 ; # Rattus norvegicus
+                         genex:inAnatomicalEntity ?brainEntity .
+
+    # Use the UBERON ID for brain, as label matching was problematic
+    FILTER (?brainEntity = obo:UBERON_0000955) . # UBERON:0000955 is 'brain'
+    ?brainEntity rdfs:label ?brainLabel . # Get the label for display (should be "brain")
+
+    ?bgeeGene lscr:xrefEnsemblGene ?ratEnsemblGene . # Join with the Ensembl gene ID from UniProt
+  }
+}
