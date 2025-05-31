@@ -16,7 +16,7 @@ import pathlib
 import logging
 from scr.agent.state.state import QueryPlan, QueryState, BlockState
 from scr.agent.utils.llm_utils import get_llm
-from scr.agent.prompts.prompts import QUERY_PLANNING_PROMPT
+from scr.agent.prompts.LtM import QUERY_PLANNING_PROMPT
 
 logger = logging.getLogger(__name__)
 

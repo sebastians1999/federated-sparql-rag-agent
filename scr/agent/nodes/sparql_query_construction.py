@@ -1,16 +1,19 @@
 from scr.agent.state.state import State, StepOutput
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
-from scr.agent.prompts.prompts import QUERY_GENERATION_PROMPT
 from typing import List, Dict, Optional
 from scr.agent.utils.config import Configuration
 from langchain_core.runnables import RunnableConfig
 from scr.agent.utils.llm_utils import get_llm
 import re
-from  scr.agent.prompts.few_shot_examples import examples_few_shot_federated_query_generation
+from  scr.agent.prompts.few_shot_CoT import examples_few_shot_federated_query_generation
 from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts import FewShotPromptTemplate
-from scr.agent.prompts.prompts import INTRODUCTION_PROMPT, ENPOINT_INFORMATION_PROMPT, QUERY_FORMAT_PROMPT, INTRODUCTION_PROMPT
+
+from scr.agent.prompts.CP import CONSTRUCTION_PROMPT
+from scr.agent.prompts.CP_A import CONSTRUCTION_PROMPT_AUGMENTED
+from scr.agent.prompts.general import INTRODUCTION_PROMPT, ENPOINT_INFORMATION_PROMPT, QUERY_FORMAT_PROMPT
+from scr.agent.prompts.Baseline import BASELINE_PROMPT
 
 
 # This file contains two nodes: 
@@ -23,8 +26,203 @@ from scr.agent.prompts.prompts import INTRODUCTION_PROMPT, ENPOINT_INFORMATION_P
 # 2. query_generator_few_shot_cot: Generates a SPARQL query based on the structured question and retrieved documents using few-shot COT.
 
 
+async def query_generator_baseline(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
+    """Generate a SPARQL query based on the structured question and retrieved documents.
+    
+    Args:
+        state: The current state containing structured question and retrieved documents
+        config: Configuration for the runner
+        
+    Returns:
+        Dict containing structured_output and steps
+    """                 
+    
+    try:                             
 
-async def query_generator(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
+        configuration = Configuration.from_runnable_config(config)
+
+
+        # Use per-task LLM config for SPARQL construction
+        llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
+
+        prompt_template = ChatPromptTemplate(
+            [
+                ("system", BASELINE_PROMPT),
+                ("human", "{{input}}")
+            ],
+            input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
+            template_format="jinja2"
+        )
+
+
+        message = await prompt_template.ainvoke(
+            {
+                "input": state.messages[-1].content,
+                "potential_entities": state.extracted_entities,
+                "potential_classes": state.extracted_classes,
+                "extracted_example_queries": state.extracted_example_queries
+            }
+        )
+        
+        response_message = await llm.ainvoke(message)
+
+
+        extracted_queries = extract_sparql_queries(response_message.content)
+    
+
+        return {
+            "structured_output": extracted_queries[-1] if extracted_queries else "",
+            "steps": [
+                StepOutput(
+                    label="Generated SPARQL query",
+                    details=response_message.content,
+                )
+            ]
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "steps": [
+                StepOutput(
+                    label="Error in SPARQL query generation",
+                    details=f"Failed to generate query: {str(e)}",
+                    type="fix-message"
+                )
+            ]
+        }
+
+
+
+async def query_generator_cp(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
+    """Generate a SPARQL query based on the structured question and retrieved documents.
+    
+    Args:
+        state: The current state containing structured question and retrieved documents
+        config: Configuration for the runner
+        
+    Returns:
+        Dict containing structured_output and steps
+    """                 
+    
+    try:                             
+
+        configuration = Configuration.from_runnable_config(config)
+
+
+        # Use per-task LLM config for SPARQL construction
+        llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
+
+        prompt_template = ChatPromptTemplate(
+            [
+                ("system", CONSTRUCTION_PROMPT),
+                ("human", "{{input}}")
+            ],
+            input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
+            template_format="jinja2"
+        )
+
+
+        message = await prompt_template.ainvoke(
+            {
+                "input": state.messages[-1].content,
+                "potential_entities": state.extracted_entities,
+                "potential_classes": state.extracted_classes,
+                "extracted_example_queries": state.extracted_example_queries
+            }
+        )
+        
+        response_message = await llm.ainvoke(message)
+
+
+        extracted_queries = extract_sparql_queries(response_message.content)
+    
+
+        return {
+            "structured_output": extracted_queries[-1] if extracted_queries else "",
+            "steps": [
+                StepOutput(
+                    label="Generated SPARQL query",
+                    details=response_message.content,
+                )
+            ]
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "steps": [
+                StepOutput(
+                    label="Error in SPARQL query generation",
+                    details=f"Failed to generate query: {str(e)}",
+                    type="fix-message"
+                )
+            ]
+        }
+
+async def query_generator_cp_augmented(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
+    """Generate a SPARQL query based on the structured question and retrieved documents.
+    
+    Args:
+        state: The current state containing structured question and retrieved documents
+        config: Configuration for the runner
+        
+    Returns:
+        Dict containing structured_output and steps
+    """                 
+    
+    try:                             
+
+        configuration = Configuration.from_runnable_config(config)
+
+        # Use per-task LLM config for SPARQL construction
+        llm = get_llm(configuration, task="sparql_construction", provider_key="provider_sparql_construction", model_key="sparql_construction_model")
+
+        prompt_template = ChatPromptTemplate(
+            [
+                ("system", CONSTRUCTION_PROMPT_AUGMENTED),
+                ("human", "{{input}}")
+            ],
+            input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
+            template_format="jinja2"
+        )
+
+
+        message = await prompt_template.ainvoke(
+            {
+                "input": state.messages[-1].content,
+                "potential_entities": state.extracted_entities,
+                "potential_classes": state.extracted_classes,
+                "extracted_example_queries": state.extracted_example_queries
+            }
+        )
+        
+        response_message = await llm.ainvoke(message)
+
+
+        extracted_queries = extract_sparql_queries(response_message.content)
+    
+
+        return {
+            "structured_output": extracted_queries[-1] if extracted_queries else "",
+            "steps": [
+                StepOutput(
+                    label="Generated SPARQL query",
+                    details=response_message.content,
+                )
+            ]
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "steps": [
+                StepOutput(
+                    label="Error in SPARQL query generation",
+                    details=f"Failed to generate query: {str(e)}",
+                    type="fix-message"
+                )
+            ]
+        }
+
+async def query_generator_cot(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     """Generate a SPARQL query based on the structured question and retrieved documents.
     
     Args:
@@ -47,7 +245,7 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
 
         prompt_template = ChatPromptTemplate(
             [
-                ("system", QUERY_GENERATION_PROMPT),
+                ("system", CONSTRUCTION_PROMPT),
                 ("human", USER_PROMPT)
             ],
             input_variables=["input", "potential_entities", "potential_classes", "extracted_example_queries"],
@@ -90,6 +288,8 @@ async def query_generator(state: State, config: RunnableConfig) -> Dict[str, Lis
                 )
             ]
         }
+
+
 
 async def query_generator_few_shot_cot(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     """Generate a SPARQL query based on the structured question and retrieved documents.

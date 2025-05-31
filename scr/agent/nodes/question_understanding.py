@@ -1,7 +1,7 @@
 from scr.agent.state.state import State, StructuredQuestion, StepOutput
 from langchain_together import Together
 from langchain_core.prompts import ChatPromptTemplate
-from scr.agent.prompts.prompts import EXTRACTION_PROMPT
+from scr.agent.prompts.general import EXTRACTION_PROMPT
 from typing import Dict, Any, List
 from langchain_core.messages import AIMessage
 import json

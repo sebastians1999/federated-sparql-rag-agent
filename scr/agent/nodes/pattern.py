@@ -11,7 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage
 from qdrant_client import QdrantClient
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from scr.agent.prompts.prompts import SWISSLIPIDS_DESCRIPTION_QUERY, UNIPROT_DESCRIPTION_QUERY, RHEA_DESCRIPTION_QUERY, QUERY_PATTERN_PROMPT_PRIMARY_BLOCK, QUERY_PATTERN_PROMPT_SERVICE_BLOCK
+from scr.agent.prompts.LtM import SWISSLIPIDS_DESCRIPTION_QUERY, UNIPROT_DESCRIPTION_QUERY, RHEA_DESCRIPTION_QUERY, QUERY_PATTERN_PROMPT_PRIMARY_BLOCK, QUERY_PATTERN_PROMPT_SERVICE_BLOCK
 import os
 import pathlib
 import logging
