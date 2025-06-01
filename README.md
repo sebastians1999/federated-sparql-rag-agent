@@ -250,7 +250,7 @@ During the development of this repository a number of notebooks were created. No
 
 ## Experiment Logs Overview
 
-**Note**: Experiment prefixed with `multi_run_` represent 10 independent trials for statistical analysis. Experiment prefixes with `ev_`are single experimental runs.
+**Note**: Experiment prefixed with `multi_run_` represent 10 independent trials for statistical analysis. Experiment prefixes with `ev_`are single experimental runs of the evaluation set (32 federated SPARQL queries).
 
 
 
@@ -283,3 +283,15 @@ During the development of this repository a number of notebooks were created. No
 | multi_run_2025-05-10_18-05-54 | CP | gemini 2.0 flash | 0.1 |
 | multi_run_2025-05-11_00-21-16 | CoT (CP) | gemini 2.0 flash | 0.1 |
 | multi_run_2025-05-25_17-14-57 | LtM | gemini 2.5 flash (thinking) | 0.1 |
+
+
+
+
+
+
+
+
+
+
+
+
