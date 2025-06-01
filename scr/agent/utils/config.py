@@ -54,13 +54,12 @@ class LLMConfig:
         # }
     })
 
-
+    # Supported providers:
     # provider_1: str = "together"
     # provider_2: str = "openai"
     # provider_3: str = "anthropic"
     # provider_4: str = "groq"
     # provider_5: str = "google-genai"
-    # Model configurations for each provider
 
     # Together models
     # together_model_1: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
@@ -83,9 +82,7 @@ class LLMConfig:
     # google_genai_model_2: str = "gemini-2.0-flash-thinking-exp-01-21"
     # google_genai_model_2: str = "models/gemini-2.5.pro-exp-03-25"
     
-    # # For backward compatibility
-    # model_1: str = "meta-llama/Llama-3.3-3B-Instruct-Turbo"
-    # model_2: str = "meta-llama/Llama-3.2-3B-Instruct-Turbo"
+
     
     # API keys for different providers
     together_api_key: Optional[str] = os.environ.get("TOGETHER_API_KEY")
@@ -94,12 +91,7 @@ class LLMConfig:
     groq_api_key: Optional[str] = None
     google_genai_api_key: Optional[str] = os.environ.get("GOOGLE_API_KEY")
     
-    
-    # For backward compatibility
-    provider: str = "together"
-    api_key: Optional[str] = None
-    api_base: Optional[str] = None
-
+    # Determine waht meta data should be tracked when running experiments.
     @property
     def meta_data(self):
         return {
@@ -128,7 +120,7 @@ class RAGConfig:
     dense_embedding_model_example_retrieval: str = "BAAI/bge-large-en-v1.5"
     collection_name_example_retrieval: Optional[str] = "biomedical_examples_collection_v1.0"
 
-    
+
     chunk_size: int = 1000
     chunk_overlap: int = 200
     top_k: int = 5

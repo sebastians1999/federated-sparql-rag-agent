@@ -5,7 +5,7 @@ from scr.agent.utils.config import Configuration
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import PromptTemplate
-from scr.agent.prompts.prompts import QUERY_ASSEMBLE_PROMPT
+from scr.agent.prompts.LtM import QUERY_ASSEMBLE_PROMPT
 from scr.agent.utils.llm_utils import get_llm
 from typing import List, Dict, Optional
 import re
