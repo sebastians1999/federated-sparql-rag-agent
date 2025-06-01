@@ -12,10 +12,8 @@
 - **few-shot CoT**: Chain-of-Thought with hand-curated examples
 - **LtM**: Least-to-Most - three-stage decomposition approach
 
+**Note**: Experiment prefixed with `multi_run_` represent 10 independent trials for statistical analysis. Experiment prefixes with `ev_`are single experimental runs.
 
-### Notes
-
-- Experiments prefixed with `multi_run_` represent 10 independent trials for statistical analysis
 
 
 

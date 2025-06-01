@@ -55,6 +55,9 @@ This repository contains the implementation of an LLM-based system for generatin
 - **few-shot CoT (few-shot Chain-of-Thought)**: Step-by-step few-shot CoT examples, with comprehensive 12-step guidance process.
 - **LtM (Least-to-Most)**: Decompositional approach that breaks query generation into three sub-problems: planning, triple pattern generation with validation, and final assembly.
 
+
+**Note:** All prompts to the corresponding prompting strategies can be found in `scr/agent/prompts`.
+
 ## Dataset
 
 This system is evaluated on a curated dataset of federated SPARQL queries over biomedical knowledge graphs. The evaluation focuses on complex queries that span multiple endpoints in the life sciences domain.
@@ -159,7 +162,7 @@ python src/indexing/index_entities.py
 **Note:** Entities are indexed using FastEmbed, using no GPU. Thus depending on what setup you have please set the number of workers higher to speed things up. Otherwise this process might take a while. The entity indexing uses logging. So if something should happen you can just run the command again and it will continue from where it stopped. 
 
 
-#### Index SPARQL Examples
+#### Index question-SPARQL pairs
  ```bash
 # Basic examples indexing with default settings (from project root)
 python src/indexing/index_examples.py
@@ -172,7 +175,24 @@ python src/indexing/index_examples.py \
     --model BAAI/bge-large-en-v1.5 \
     --parallel 4
 ```
-### 3. Run Evaluation and Agent
+### 3. SPARQL Query Result Caching (Optional)
+
+Since most of the SPARQL queries in the evaluation set are highly complex, executing them can sometimes take a long time. 
+Although caching the results of the ground truth SPARQL queries is part of the evaluation pipeline to shorten future runs, it might be more efficient to cache them once before running experiments. Per default all (32) SPARQL queries of the evaluation set are cached. Modify the script if would like to only index certain queries or for additional endpoints (`endpoint_files_map={"UniProt": [],"Rhea": [],"SwissLipids": []}` to e.g. `endpoint_files_map={"SwissLipids": [6.ttl]}`)
+    )
+
+ ```bash
+python experiments/utilities/cache_queries.py
+```
+
+
+
+
+### 4. Choose Methodology
+
+In `scr/agent/utils/graph.py` you can choose between different prompting strategies. Depending on which methodology you would like to use, please uncomment the corresponding section. **LtM** is set per default.
+
+### 5. Run Evaluation and Agent
 
 
 Evaluations for different methodologies can be done in form of a single experimental run and multi experimental runs. Multi-run evaluations account for the inherent variability in LLM outputs, which can cause performance fluctuations even under consistent experimental settings.
@@ -225,7 +245,7 @@ As this work is part of a Bachelor Thesis there has been done a comprehensive ev
 
 ## Additional Information
 
-During the development of this repository a number of notebooks were created. Not only for deveopment and prototyping, but also to validate approaches (e.g. what is the best approach for column matching in the evaluation framework), or for analysis of results. All these notebooks can be found in the directory `jupyter_notebooks`. In this directory you can find another ReadMe file, detailing what these notebooks contain.
+During the development of this repository a number of notebooks were created. Not only for deveopment and prototyping, but also to validate approaches (e.g. what is the best approach for column matching in the evaluation framework), or for analysis of results. All these notebooks can be found in the directory `jupyter_notebooks`. In this directory you can find another README file, detailing what these notebooks contain.
 
 
 ## Experiment Logs Overview
