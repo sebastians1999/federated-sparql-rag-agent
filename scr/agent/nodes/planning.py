@@ -20,8 +20,9 @@ from scr.agent.prompts.LtM import QUERY_PLANNING_PROMPT
 
 logger = logging.getLogger(__name__)
 
-
-# This node is part of the LtM methodology. It is used to plan the query (entity mapping, initial SELECT variables, federated endpoints, target endpoint)
+"""
+This node is part of the LtM methodology. It is used to plan the query (entity mapping, initial SELECT variables, federated endpoints, target endpoint)
+"""
 
 async def plan_query(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     

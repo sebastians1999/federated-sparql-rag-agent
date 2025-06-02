@@ -23,6 +23,24 @@ import traceback
 
 
 class AgentEvaluator:
+
+    """
+    SPARQL RAG Agent Evaluation Framework
+
+    This module provides the evaluation framework for evaluating the performance of the SPARQL query generation agent.
+    It compares generated SPARQL queries against ground truth queries and calculates various metrics.
+
+
+    Key Features:
+    - Executes agent on natural language questions from evaluation dataset.
+    - Validates generated SPARQL syntax.
+    - Compares query results against ground truth.
+    - Calculates precision, recall, and F1 scores for aligned query results.
+    - Calculates translation metrics - SP-BLEU, METEOR - for SPARQL queries.
+    - Tracks token usage and execution times.
+    - Generates detailed evaluation reports.
+    """
+    
     def __init__(self, dataset_dir=None, output_dir=None, endpoint_sets=None, project_name_langsmith: str ="sparql-rag-agent", test: bool = False, experiment_dir: str = None, timeout: int = 300, tracked_token_nodes=None):
         
         self.endpoint_sets = endpoint_sets

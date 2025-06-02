@@ -45,6 +45,9 @@ def get_cache_dir(base_dir: Optional[str] = None) -> str:
     return base_dir
 
 
+
+
+
 def generate_cache_key(query: str, endpoint_url: str) -> str:
     """
     Generate a unique cache key for a query and endpoint combination.
@@ -63,6 +66,9 @@ def generate_cache_key(query: str, endpoint_url: str) -> str:
     return hash_obj.hexdigest()
 
 
+
+
+
 def get_cache_path(cache_key: str, cache_dir: Optional[str] = None) -> str:
     """
     Get the full path to a cache file.
@@ -76,6 +82,9 @@ def get_cache_path(cache_key: str, cache_dir: Optional[str] = None) -> str:
     """
     cache_dir = get_cache_dir(cache_dir)
     return os.path.join(cache_dir, f"{cache_key}.json")
+
+
+
 
 
 def save_to_cache(query: str, endpoint_url: str, result: Any, cache_dir: Optional[str] = None) -> str:
@@ -109,6 +118,9 @@ def save_to_cache(query: str, endpoint_url: str, result: Any, cache_dir: Optiona
     return cache_path
 
 
+
+
+
 def load_from_cache(query: str, endpoint_url: str, cache_dir: Optional[str] = None) -> Optional[Any]:
     """
     Load a query result from the cache if it exists.
@@ -134,6 +146,9 @@ def load_from_cache(query: str, endpoint_url: str, cache_dir: Optional[str] = No
             return None
     
     return None
+
+
+
 
 
 def cached_query_sparql(
@@ -168,13 +183,15 @@ def cached_query_sparql(
     # If not in cache or cache disabled, execute the query
     result = query_sparql_wrapper(query, endpoint_url, timeout=timeout)
 
-    #print(f"  Query result: {result}")
     
     # Update cache if enabled and the result is not an error
     if update_cache and not isinstance(result, Exception):
         save_to_cache(query, endpoint_url, result, cache_dir)
     
     return result
+
+
+
 
 
 def format_query_result_dataframe(
@@ -222,6 +239,9 @@ def format_query_result_dataframe(
         df_ground_truth = pd.DataFrame(processed_data)
     
     return df_ground_truth
+
+
+
 
 
 def cache_dataset_queries(
@@ -282,6 +302,9 @@ def cache_dataset_queries(
     return error_queries
 
 
+
+
+
 def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str], timeout: Optional[int] = None) -> Optional[dict]:
     """
     Helper function to process a TTL file and extract/cache SPARQL queries.
@@ -315,6 +338,9 @@ def process_ttl_file(file_path: str, endpoint_set: str, cache_dir: Optional[str]
             return {"file_path": file_path, "error": f"Error parsing TTL with RDFLib: {str(e)} with function get_sparql_question_meta"}
     except Exception as e:
         return {"file_path": file_path, "error": f"Error reading file: {str(e)}"}
+
+
+
 
 
 def list_cached_queries(cache_dir: Optional[str] = None) -> List[Dict[str, Any]]:

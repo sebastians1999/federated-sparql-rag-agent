@@ -15,11 +15,10 @@ import logging
 import traceback
 
 
-
-# This node is part of the RAG approach that is used by every evaluated methodology. It is used to retrieve identified entities and classes from a vector database. 
-# These have been determined in the question understanding node.
-
-
+"""
+This node is part of the RAG approach that is used by every evaluated methodology. It is used to retrieve identified entities and classes from a vector database. 
+These have been determined in the question understanding node.
+"""
 
 logger = logging.getLogger(__name__)
 
