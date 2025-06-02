@@ -93,12 +93,27 @@ git clone https://github.com/sebastians1999/federated-sparql-rag-agent.git
 cd federated-sparql-rag-agent
 ```
 
-2. Install the required dependencies.
+
+2. Create and activate a virtual environment
+
+
+```bash
+# MacOS
+python -m venv .venv
+source .venv/bin/activate
+
+# Windows (PowerShell)
+python -m venv .venv
+.\.venv\Scripts\Activate
+```
+
+
+3. Install the required dependencies.
  ```bash
-pip install -e
+pip install -e .
    ```
 
-3. Create a .env file in the root directory of the repository to store your API keys securely. This file should contain your LLM provider API keys. Optionally, you can also add a Langsmith API key for enhanced agent tracking and monitoring. 
+4. Create a .env file in the root directory of the repository to store your API keys securely. This file should contain your LLM provider API keys. Optionally, you can also add a Langsmith API key for enhanced agent tracking and monitoring. 
  ```bash
 #Optional
 LANGSMITH_TRACING=true
@@ -117,7 +132,7 @@ GOOGLE_API_KEY =
 Please have a look at the `scr/agent/utils/config.py` file to see examples how the providers can be set. If you would like to use a provider that is not listed here, please have a look at `scr/agent/utils/llm_utils.py` and the functionality accordingly (orientage on the other providers).
 
 
-4. The system can be configured by editing the configuration file in `scr/agent/utils/config.py` directory. Here it is possible to configure LLM settings (provider, models, temperatures, ect.), RAG settings (embbeding models for retrieval, top_k, collection, ect.) and what meta data shall be tracked for experimental runs.
+5. The system can be configured by editing the configuration file in `scr/agent/utils/config.py` directory. Here it is possible to configure LLM settings (provider, models, temperatures, ect.), RAG settings (embbeding models for retrieval, top_k, collection, ect.) and what meta data shall be tracked for experimental runs.
 
 
 ## Usage
@@ -146,18 +161,18 @@ Before running the agent, you need to index entity URIs and depending on what me
 The entites to be indexed are predefined in `entity_indexing/entities_collection.py` and focus on endpoints from the evaluation set, which comprises federated SPARQL queries from Uniprot, Rhea and SwissLipids `experiments/federated_sparql_dataset/examples_federated_19.04.2025`.
 
  ```bash
-python src/indexing/index_entities.py
+python entity_indexing/entity_indexing.py
 
 # Or with custom configuration
-python src/indexing/index_entities.py 
-    --host localhost \
-    --grpc-port 6334 \
-    --collection entities_collection 
-    --dense-model BAAI/bge-small-en-v1.5 \
-    --workers 4 \
-    --batch-size 144 \
-    --recreate False \
-    --log-dir ./upload_logs
+python entity_indexing/entity_indexing.py \
+  --host localhost \
+  --grpc-port 6334 \
+  --collection entities_collection \
+  --dense-model BAAI/bge-small-en-v1.5 \
+  --workers 4 \
+  --batch-size 144 \
+  --recreate False \
+  --log-dir ./upload_logs
 ```
 **Note:** Entities are indexed using FastEmbed, using no GPU. Thus depending on what setup you have please set the number of workers higher to speed things up. Otherwise this process might take a while. The entity indexing uses logging. So if something should happen you can just run the command again and it will continue from where it stopped. 
 
@@ -165,26 +180,26 @@ python src/indexing/index_entities.py
 #### Index question-SPARQL pairs
  ```bash
 # Basic examples indexing with default settings (from project root)
-python src/indexing/index_examples.py
+python endpoint_indexing/endpoint_indexing.py
 
 # Or with custom configuration
-python src/indexing/index_examples.py \
+python endpoint_indexing/endpoint_indexing.py \
     --host localhost \
     --port 6333 \
     --collection biomedical_examples_collection_v1.0 \
     --model BAAI/bge-large-en-v1.5 \
     --parallel 4
 ```
+
+
 ### 3. SPARQL Query Result Caching (Optional)
 
 Since most of the SPARQL queries in the evaluation set are highly complex, executing them can sometimes take a long time. 
-Although caching the results of the ground truth SPARQL queries is part of the evaluation pipeline to shorten future runs, it might be more efficient to cache them once before running experiments. Per default all (32) SPARQL queries of the evaluation set are cached. Modify the script if would like to only index certain queries or for additional endpoints (`endpoint_files_map={"UniProt": [],"Rhea": [],"SwissLipids": []}` to e.g. `endpoint_files_map={"SwissLipids": [6.ttl]}`)
-    )
+Although caching the results of the ground truth SPARQL queries is part of the evaluation pipeline to shorten future runs, it might be more efficient to cache them once before running experiments. Per default all (32) SPARQL queries of the evaluation set are cached. The cached results can be found in the following directory `experiments/federated_sparql_dataset/query_cache` (once at least one query result is cached). Every cached query gets a UUID that corresponds to the cached federated SPARQL query. Modify the script if would like to only index certain queries or for additional endpoints (`endpoint_files_map={"UniProt": [],"Rhea": [],"SwissLipids": []}` to e.g. `endpoint_files_map={"SwissLipids": [6.ttl]}`)
 
  ```bash
 python experiments/utilities/cache_queries.py
 ```
-
 
 
 
@@ -241,7 +256,7 @@ dataset_dir = "path/to/your/dataset"
 
 All experimental runs are saved with a time-stamp to the following directory `experiments/experiment_data`, unless you change it.
 To get insights you can go to the jupyter notebooks `multi_run_evaluation.ipynb` and `single_run_evaluation` in the directory `jupyter_notebooks/evaluation_notebooks`. 
-As this work is part of a Bachelor Thesis there has been done a comprehensive evaluation of the proposed prompting methdologies. These insights can be seen in these notebooks. If you would like to try your own methodologies feel free to add and compare them here. 
+As this work is part of a Bachelor Thesis, there has been done a comprehensive evaluation of the proposed prompting methdologies. These insights can be seen in these notebooks. If you would like to try your own methodologies feel free to add and compare them here. 
 
 ## Additional Information
 
