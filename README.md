@@ -93,12 +93,27 @@ git clone https://github.com/sebastians1999/federated-sparql-rag-agent.git
 cd federated-sparql-rag-agent
 ```
 
-2. Install the required dependencies.
+
+2. Create and activate a virtual environment
+
+
+```bash
+# MacOS
+python -m venv .venv
+source .venv/bin/activate
+
+# Windows (PowerShell)
+python -m venv .venv
+.\.venv\Scripts\Activate
+```
+
+
+3. Install the required dependencies.
  ```bash
 pip install -e
    ```
 
-3. Create a .env file in the root directory of the repository to store your API keys securely. This file should contain your LLM provider API keys. Optionally, you can also add a Langsmith API key for enhanced agent tracking and monitoring. 
+4. Create a .env file in the root directory of the repository to store your API keys securely. This file should contain your LLM provider API keys. Optionally, you can also add a Langsmith API key for enhanced agent tracking and monitoring. 
  ```bash
 #Optional
 LANGSMITH_TRACING=true
@@ -117,7 +132,7 @@ GOOGLE_API_KEY =
 Please have a look at the `scr/agent/utils/config.py` file to see examples how the providers can be set. If you would like to use a provider that is not listed here, please have a look at `scr/agent/utils/llm_utils.py` and the functionality accordingly (orientage on the other providers).
 
 
-4. The system can be configured by editing the configuration file in `scr/agent/utils/config.py` directory. Here it is possible to configure LLM settings (provider, models, temperatures, ect.), RAG settings (embbeding models for retrieval, top_k, collection, ect.) and what meta data shall be tracked for experimental runs.
+5. The system can be configured by editing the configuration file in `scr/agent/utils/config.py` directory. Here it is possible to configure LLM settings (provider, models, temperatures, ect.), RAG settings (embbeding models for retrieval, top_k, collection, ect.) and what meta data shall be tracked for experimental runs.
 
 
 ## Usage
@@ -313,8 +328,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-
 
 
 

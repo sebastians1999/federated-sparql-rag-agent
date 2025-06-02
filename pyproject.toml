@@ -44,7 +44,3 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["scr"]
 
-[[tool.uv.index]]
-name = "pytorch-mps"
-url = "https://download.pytorch.org/whl/nightly/cpu"
-explicit = true
