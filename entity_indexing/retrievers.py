@@ -12,8 +12,6 @@ class Retriever:
     A flexible retriever class for testing different retrieval methods.
     Supports dense, sparse, and hybrid retrieval from Qdrant.
     """
-    
-
 
 
     def __init__(self, client: QdrantClient, collection_name: str):

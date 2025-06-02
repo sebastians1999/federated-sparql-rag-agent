@@ -86,9 +86,9 @@ class LLMConfig:
     
     # API keys for different providers
     together_api_key: Optional[str] = os.environ.get("TOGETHER_API_KEY")
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    groq_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = os.environ.get("OPENAI_API_KEY")
+    anthropic_api_key: Optional[str] = os.environ.get("ANTHROPIC_API_KEY")
+    groq_api_key: Optional[str] = os.environ.get("GROQ_API_KEY")
     google_genai_api_key: Optional[str] = os.environ.get("GOOGLE_API_KEY")
     
     # Determine waht meta data should be tracked when running experiments.

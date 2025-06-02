@@ -18,6 +18,13 @@ def format_query_result_dataframe(
     timeout: Optional[int] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
+    """
+    This function is specifically developed for the evaluation framework. 
+    It queries the ground truth and predicted endpoints and formats the results as pandas DataFrames (for further metric calculation).
+    
+    """
+
+
     print("Querying ground truth endpoint with timeout:", timeout , "seconds")
 
     ground_truth = cached_query_sparql(query = ground_truth_query, endpoint_url = ground_truth_endpoint, timeout=timeout)
@@ -56,46 +63,6 @@ def format_query_result_dataframe(
     return df_ground_truth, df_predicted
 
 
-# old idea how to calculate metrics
-# Chang argued it makes to many assumptions
-# def calculate_column_metrics(df_ground_truth: pd.DataFrame, df_predicted: pd.DataFrame) -> Dict[str, float]:
-#     if df_ground_truth.empty or df_predicted.empty:
-#         return {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}
-    
-#     best_precision = 0.0
-#     best_recall = 0.0
-#     best_f1 = 0.0
-    
-#     for pred_col in df_predicted.columns:
-#         pred_values = set(df_predicted[pred_col].dropna().astype(str))
-#         if not pred_values:
-#             continue
-            
-#         for gt_col in df_ground_truth.columns:
-#             gt_values = set(df_ground_truth[gt_col].dropna().astype(str))
-#             if not gt_values:
-#                 continue
-                
-#             # Calculate true positives (intersection)
-#             true_positives = len(pred_values.intersection(gt_values))
-            
-#             # Calculate precision, recall, F1
-#             precision = true_positives / len(pred_values) if pred_values else 0
-#             recall = true_positives / len(gt_values) if gt_values else 0
-#             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-            
-#             # Update best scores
-#             best_precision = max(best_precision, precision)
-#             best_recall = max(best_recall, recall)
-#             best_f1 = max(best_f1, f1)
-    
-#     return {
-#         "precision": best_precision,
-#         "recall": best_recall,
-#         "f1_score": best_f1
-#     }
-
-
 def calculate_column_metrics_with_label_similarity(
     file_path,
     df_ground_truth: pd.DataFrame,
@@ -104,6 +71,12 @@ def calculate_column_metrics_with_label_similarity(
     embedding_cache_dir: str = "./embeddings_model_cache",
     embedding_model: str = "BAAI/bge-large-en-v1.5"   
 ) -> dict:
+
+    """
+    This is used for the content-based evaluation of the SPARQL query generation agent.
+    If there are results to evaluate, first column alignment is performed.
+    Then, the column metrics (f1, precision, recall) are calculated for these aligned columns.
+    """
 
     print("[calculate_column_metrics_with_label_similarity] Calculating metrics for file:", file_path)
 

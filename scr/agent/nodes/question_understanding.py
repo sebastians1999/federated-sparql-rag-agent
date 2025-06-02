@@ -10,8 +10,10 @@ from scr.agent.utils.config import Configuration
 from langchain_core.runnables import RunnableConfig
 from scr.agent.utils.llm_utils import get_llm
 
-# This note is part of every evaluated methodology. It is part of the RAG approach, to retrieve potential entities and classes from the user question. These are then used in a different node
-# to retrieve entitiy and class URIs from a vector database.
+"""
+This note is part of every evaluated methodology. It is part of the RAG approach, to retrieve potential entities and classes from the user question. 
+These are then used in a different node to retrieve entitiy and class URIs from a vector database.
+"""
 
 async def question_understanding(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     """Extract structured information from the user question.

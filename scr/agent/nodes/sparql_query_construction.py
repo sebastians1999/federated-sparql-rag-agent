@@ -15,16 +15,15 @@ from scr.agent.prompts.CP_A import CONSTRUCTION_PROMPT_AUGMENTED
 from scr.agent.prompts.general import INTRODUCTION_PROMPT, ENPOINT_INFORMATION_PROMPT, QUERY_FORMAT_PROMPT
 from scr.agent.prompts.Baseline import BASELINE_PROMPT
 
+"""
+This file contains two nodes: 
+1. query_generator: Generates a SPARQL. This function was modified slightly, depending on the methodology used (baseline, CP, CP-A, CoT).
+   - CP: Outcomment the part where no retrieved examples are provided. 
+   - CP-A: Currently set.
+   - CoT: Use CP and for ("human","{{input}}") put "USER_PROMPT".
 
-# This file contains two nodes: 
-# 1. query_generator: Generates a SPARQL. This function was modified slightly, depending on the methodology used (baseline, CP, CP-A, CoT).
-#   - CP: Outcomment the part where no retrieved examples are provided. 
-#   - CP-A: Currently set.
-#   - CoT: Use CP and for ("human","{{input}}") put "USER_PROMPT".
-
-
-# 2. query_generator_few_shot_cot: Generates a SPARQL query based on the structured question and retrieved documents using few-shot COT.
-
+2. query_generator_few_shot_cot: Generates a SPARQL query based on the structured question and retrieved documents using few-shot COT.
+"""
 
 async def query_generator_baseline(state: State, config: RunnableConfig) -> Dict[str, List[AIMessage]]:
     """Generate a SPARQL query based on the structured question and retrieved documents.

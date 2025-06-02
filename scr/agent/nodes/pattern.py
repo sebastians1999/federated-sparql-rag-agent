@@ -21,9 +21,9 @@ from entity_indexing.endpoint_loader import query_sparql_wrapper
 from experiments.utilities.sparql_syntax_validation import validate_sparql_syntax
 
 
-
-# This node is part of the LtM methodology. It is used to generate and validate the SPARQL patterns.
-
+"""
+This node is part of the LtM methodology. It is used to generate and validate the SPARQL patterns.
+"""
 
 
 max_attempts = 3

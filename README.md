@@ -268,6 +268,14 @@ During the development of this repository a number of notebooks were created. No
 **Note**: Experiment prefixed with `multi_run_` represent 10 independent trials for statistical analysis. Experiment prefixes with `ev_`are single experimental runs of the evaluation set (32 federated SPARQL queries).
 
 
+- **Baseline**: Simple prompt with basic task description
+- **CP**: Construction Prompt - explicit step-by-step instructions
+- **CP-A**: Construction Prompt Augmented - CP enhanced with example queries
+- **CoT (Baseline)**: Chain-of-Thought with baseline prompt
+- **CoT (CP)**: Chain-of-Thought with construction prompt
+- **few-shot CoT**: Chain-of-Thought with hand-curated examples
+- **LtM**: Least-to-Most - three-stage decomposition approach
+
 
 | Name | Variant | LLM Model | Temperature |
 |------|---------|-----------|-------------|

@@ -21,6 +21,11 @@ from qdrant_client.models import (
     ScoredPoint,
 )
 
+"""
+This file implements a pipeline for indexing entities from SPARQL endpoints into a Qdrant collection.
+It is part of an older implementation of the entity indexing pipeline and is not used in the current version.
+"""
+
 
 
 class RetrievalMode:

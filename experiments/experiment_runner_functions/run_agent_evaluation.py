@@ -10,12 +10,9 @@ sys.path.append(project_root)
 from experiments.utilities.evaluation import AgentEvaluator
 
 async def main():
-    """
-    Run the agent evaluation with the exact configuration from the Jupyter notebook.
-    """
     endpoint_sets = { "SwissLipids": [], "Uniprot": [], "Rhea": [] }
     experiment_dir = os.path.join(project_root, "experiments/experiment_data")
-    project_name = "pattern_assembler_v1.0_gemini-2.0-flash"
+    project_name = "your_project_name"
     timeout = 300
     tracked_token_nodes = ["question_understanding", "planning", "pattern", "assembler"]
     dataset_dir = os.path.join(project_root, "experiments/federated_sparql_dataset/examples_federated_19.04.2025")
