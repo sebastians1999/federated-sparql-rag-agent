@@ -1,9 +1,9 @@
 import os
 import json
-from typing import Any
+from typing import Any, Optional
 from dataclasses import asdict, is_dataclass
 
-def write_experiment_metadata(output_dir, graph_config, extraction_prompt, query_generation_prompt, timeout):
+def write_experiment_metadata(output_dir, graph_config, extraction_prompt: Optional[str] = "", query_generation_prompt: Optional[str] = "", timeout =""):
     meta = {
         'graph_config': {},
         'extraction_prompt': extraction_prompt,

@@ -19,7 +19,6 @@ from experiments.utilities.format import extract_endpoint_from_comment_regex
 from experiments.utilities.result_metric import format_query_result_dataframe, calculate_column_metrics_with_label_similarity
 from experiments.utilities.format import normalize_url
 from experiments.utilities.experiment_metadata_writer import write_experiment_metadata
-from scr.agent.prompts.prompts import EXTRACTION_PROMPT, QUERY_GENERATION_PROMPT
 import traceback
 
 
@@ -43,11 +42,11 @@ class AgentEvaluator:
         self.tracked_token_nodes = tracked_token_nodes
         
         write_experiment_metadata(
-            self.output_dir,
-            getattr(self.graph, 'config_meta', None),
-            EXTRACTION_PROMPT,
-            QUERY_GENERATION_PROMPT,
-            self.timeout
+            output_dir=self.output_dir,
+            graph_config=getattr(self.graph, 'config_meta', None),
+            #EXTRACTION_PROMPT,
+            #QUERY_GENERATION_PROMPT,
+            timeout=self.timeout
         )
         
     def read_dataset(self, dataset_path: str) -> Dataset:

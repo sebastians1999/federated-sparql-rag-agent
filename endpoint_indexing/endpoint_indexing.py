@@ -11,6 +11,27 @@ from sparql_llm import SparqlExamplesLoader, SparqlInfoLoader, SparqlVoidShapesL
 from langchain_core.documents import Document
 import argparse
 
+"""
+Indexes example SPARQL queries from specified endpoints into a Qdrant vector database.
+
+This script connects to a Qdrant instance, (re)creates a collection, and embeds example SPARQL queries
+from biomedical endpoints (UniProt, Rhea, SwissLipids by default) using a configurable embedding model.
+The embedded queries are then indexed for efficient semantic search and retrieval.
+
+Arguments:
+    --host           Qdrant host (default: localhost)
+    --port           Qdrant HTTP port (default: 6333)
+    --grpc-port      Qdrant gRPC port (default: 6334)
+    --collection     Name of the Qdrant collection (default: biomedical_examples_collection_v1.0)
+    --model          Embedding model name (default: BAAI/bge-large-en-v1.5)
+    --vector-size    Size of the embedding vectors (default: 384)
+    --parallel       Number of parallel embedding threads (default: 4)
+
+Modify the endpoints list in the script to index examples from other SPARQL endpoints as needed.
+"""
+
+
+
 def init_endpoint_examples(endpoints: List[str], collection_name: str = "biomedical_examples_collection_v1.0", embedding_model: str = "BAAI/bge-base-en-v1.5", parallel: int = 4, vector_size: int = 768, host: str = "localhost", port: int = 6333, grpc_port: int = 6334) -> None:
 
     client = QdrantClient(
