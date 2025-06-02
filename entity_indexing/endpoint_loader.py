@@ -15,6 +15,23 @@ def sparql_wrapper_base(
     post: bool = False,
     timeout: Optional[int] = 300
 ) -> Any:
+    """
+    Execute a SPARQL query against a specified endpoint using SPARQLWrapper.
+
+    This is a low-level function that handles the basic SPARQL query execution with configurable
+    HTTP method and timeout settings. Although it uses timeout settings, as long as the endpoint is 
+    responsive, the query will not be terminated. for these cases this function is used in 
+    query_sparql_wrapper to enforce the timeout.
+
+    Args:
+        query: The SPARQL query string to execute
+        endpoint_url: URL of the SPARQL endpoint
+        post: If True, use HTTP POST method; otherwise use GET (default: False)
+        timeout: Maximum time in seconds to wait for the query to complete (default: 300)
+
+    Returns:
+        Query results in JSON format if successful, otherwise returns the exception object.
+    """
     sparql = SPARQLWrapper(endpoint_url)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
@@ -34,12 +51,31 @@ def sparql_wrapper_base(
         return e
 
 
+
+
+
 def query_sparql_wrapper(
     query: str,
     endpoint_url: str,
     post: bool = False,
     timeout: Optional[int] = 300
 ) -> Any:
+    """
+    Execute a SPARQL query against a specified endpoint using SPARQLWrapper with timeout enforcement.
+
+    This function is a higher-level wrapper that uses asyncio and nest_asyncio to enforce a timeout
+    on the SPARQL query execution. It handles the setup of the event loop and ensures that the query
+    is terminated if it exceeds the specified timeout.
+
+    Args:
+        query: The SPARQL query string to execute
+        endpoint_url: URL of the SPARQL endpoint
+        post: If True, use HTTP POST method; otherwise use GET (default: False)
+        timeout: Maximum time in seconds to wait for the query to complete (default: 300)
+
+    Returns:
+        Query results in JSON format if successful, otherwise returns the exception object.
+    """
     try:
         asyncio_timeout = timeout + 10 if timeout is not None else 310
         
@@ -60,6 +96,10 @@ def query_sparql_wrapper(
     except Exception as e:
         return e
 
+
+
+
+
 async def run_with_timeout_enforcement(
     query: str,
     endpoint_url: str,
@@ -67,6 +107,19 @@ async def run_with_timeout_enforcement(
     regular_timeout: Optional[int],
     asyncio_timeout: int
 ) -> Any:
+    """
+    This function is a helper function for query_sparql_wrapper and is not intended to be called directly.
+    
+    Args:
+        query: The SPARQL query string to execute
+        endpoint_url: URL of the SPARQL endpoint
+        post: If True, use HTTP POST method; otherwise use GET (default: False)
+        regular_timeout: Maximum time in seconds to wait for the query to complete (default: 300)
+        asyncio_timeout: Maximum time in seconds to wait for the query to complete (default: 310)
+    
+    Returns:
+        Query results in JSON format if successful, otherwise returns the exception object
+    """
     loop = asyncio.get_running_loop()
     
     try:
@@ -81,197 +134,25 @@ async def run_with_timeout_enforcement(
         return Exception(f"Query timed out after {asyncio_timeout} seconds (enforced by asyncio). Results may be partial.")
 
 
-# def query_sparql_wrapper(
-#     query: str,
-#     endpoint_url: str,
-#     post: bool = False,
-#     timeout: Optional[int] = 300
-# ) -> Any:
-#     """
-#     Execute a SPARQL query on a SPARQL endpoint using SPARQLWrapper.
 
-#     Returns 'error' if an exception occurs during the request.
-#     """
-#     sparql = SPARQLWrapper(endpoint_url)
-#     sparql.setQuery(query)
-#     sparql.setReturnFormat(JSON)
-    
-#     if post:
-#         sparql.setMethod('POST')
-#     else:
-#         sparql.setMethod('GET')
-    
-#     if timeout is not None:
-#         sparql.setTimeout(timeout)
-    
-#     try:
-#         results = sparql.query().convert()
-#         return results
-#     except Exception as e:
-#         return e
-
-
-# def parse_sparql_error(response_text):
-#     """
-#     Parse SPARQL error responses and extract meaningful error information.
-    
-#     Args:
-#         response_text: The error response text or exception from a SPARQL endpoint
-        
-#     Returns:
-#         A concise error message string containing the error type and details
-#     """
-    
-#     # Check if it's an Exception object
-#     if isinstance(response_text, Exception):
-#         return f"SPARQL Error: {type(response_text).__name__} - {str(response_text)}"
-    
-#     # Check if it's an HTTP error response as a string
-#     if isinstance(response_text, str):
-#         # Extract the status code
-#         status_match = re.search(r"Error: (\d+)", response_text)
-#         status_code = status_match.group(1) if status_match else "Unknown"
-        
-#         # Try to parse the HTML if present
-#         if "<!DOCTYPE html" in response_text or "<html" in response_text:
-#             try:
-#                 # Extract HTML part from the response
-#                 html_start = response_text.find("<!DOCTYPE") if "<!DOCTYPE" in response_text else response_text.find("<html")
-#                 html_part = response_text[html_start:]
-                
-#                 # Parse with BeautifulSoup
-#                 soup = BeautifulSoup(html_part, 'html.parser')
-                
-#                 # Look for error messages in common locations
-#                 # For main error title/heading
-#                 error_title = None
-#                 for selector in ['.error h2', '.error .page-title', '.page-title', 'section.error h2', 'h2.page-title']:
-#                     element = soup.select_one(selector)
-#                     if element and element.get_text(strip=True):
-#                         error_title = element.get_text(strip=True)
-#                         break
-                
-#                 # For detailed error message
-#                 error_details = None
-#                 for selector in ['.error p', 'section.error p', 'p']:
-#                     element = soup.select_one(selector)
-#                     if element and element.get_text(strip=True):
-#                         error_details = element.get_text(strip=True)
-#                         break
-                
-#                 # If no specific elements found, try the page title
-#                 if not error_title and soup.title:
-#                     error_title = soup.title.string
-                
-#                 # Combine the information
-#                 if error_title or error_details:
-#                     formatted_error = f"SPARQL Error ({status_code}): "
-#                     if error_title:
-#                         formatted_error += error_title
-#                     if error_details:
-#                         if error_title:
-#                             formatted_error += " - "
-#                         formatted_error += error_details
-#                     return formatted_error
-                
-#                 # Fallback if specific elements weren't found
-#                 return f"SPARQL Error ({status_code}): Could not extract specific error details"
-                
-#             except Exception as e:
-#                 # Fallback if HTML parsing fails
-#                 return f"SPARQL Error ({status_code}): Could not parse error details - {str(e)}"
-        
-#         # If no HTML is found, return the original error with status code
-#         return f"SPARQL Error ({status_code}): Non-HTML error response"
-    
-#     # For other types of responses
-#     return f"SPARQL Error: Unknown error format - {str(response_text)[:200]}"
-
-# def query_sparql_wrapper(query, endpoint_url, post=False, timeout=300):
-    
-#     headers = {'Accept': 'application/sparql-results+json'}
-
-#     cli
-    
-#     try:
-#         if post:
-#             response = requests.post(
-#                 endpoint_url, 
-#                 data={'query': query}, 
-#                 headers=headers, 
-#                 timeout=timeout
-#             )
-#         else:
-#             response = requests.get(
-#                 endpoint_url, 
-#                 params={'query': query}, 
-#                 headers=headers, 
-#                 timeout=timeout
-#             )
-        
-#         if response.status_code == 200:
-#             return response.json()
-#         else:
-#             error_msg = f"Error: {response.status_code} - {response.text}"
-#             return parse_sparql_error(error_msg)
-#     except requests.exceptions.Timeout:
-#         return f"SPARQL Error: Query timed out after {timeout} seconds"
-#     except Exception as e:
-#         return parse_sparql_error(e)
-
-
-    
-
-# def query_sparql_wrapper(query, endpoint_url, post=False, timeout=300):
-    
-#     headers = {'Accept': 'application/sparql-results+json'}
-
-#     timeouts = httpx.Timeout(
-#         connect=10.0, 
-#         read=timeout,  
-#         write=60.0,    
-#         pool=10.0    
-#     )
-    
-#     client = httpx.Client(
-#         follow_redirects=True, 
-#         timeout=timeouts
-#     )
-    
-#     try:
-#         if post:
-#             response = client.post(
-#                 endpoint_url, 
-#                 data={'query': query}, 
-#                 headers=headers, 
-#             )
-#         else:
-#             response = client.get(
-#                 endpoint_url, 
-#                 params={'query': query}, 
-#                 headers=headers,
-#             )
-
-#         if response.status_code == 200:
-#             return response.json()
-#         else:
-#             error_msg = f"Error: {response.status_code} - {response.text}"
-#             parsed_error = parse_sparql_error(error_msg)
-#             return Exception(parsed_error)
-            
-#     except httpx.TimeoutException as e:
-#         return e
-#     except json.JSONDecodeError as e:
-#         return Exception(f"Query timeout likely occurred - received partial results: {str(e)}")
-#     except Exception as e:
-#         parsed_error = parse_sparql_error(e)
-#         return Exception(parsed_error)
-#     finally:
-#         client.close()
 
 
 def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tuple = None) -> List[Dict]:
-    """Retrieve entity data from SPARQL endpoint and format it as dictionaries for the indexing pipeline."""
+    """
+    Retrieve and format entity data from a SPARQL endpoint for indexing.
+
+    This function executes a SPARQL query to fetch entity data and formats it into
+    a list of dictionaries suitable for the entity indexing pipeline. This function is
+    meant to be a helper function and is used by load_entities_from_endpoints further below.
+
+    Args:
+        entity: Dictionary containing entity configuration including 'query' and 'endpoint'.
+        entities_list: List to append the retrieved entities to.
+        pagination: Optional tuple (limit, offset) for paginated queries.
+
+    Returns:
+        List of raw entity results from the SPARQL endpoint, or None if an error occurs
+    """
     query = (
         f"{entity['query']} LIMIT {pagination[0]} OFFSET {pagination[1]}"
         if pagination
@@ -298,7 +179,30 @@ def retrieve_index_data(entity: dict, entities_list: List[Dict], pagination: tup
 
     return entities_res
 
+
+
+
+
 def load_entities_from_endpoints(entities_config: List[Dict] = None, max_results_per_batch: int = 200000):
+
+    """
+    Load entities from multiple SPARQL endpoints based on the provided configuration.
+
+    This function processes a list of entity configurations, retrieves entities from
+    their respective SPARQL endpoints, and returns them in a standardized format.
+    Supports pagination for large result sets.
+
+    Args:
+        entities_config: List of entity configurations, where each configuration
+                       contains query and endpoint information. How such a configuration
+                       looks like can be seen in the the entity_indexing/entities_collection.py.
+                       
+        max_results_per_batch: Maximum number of results to retrieve per batch
+                             when pagination is enabled (default: 200000).
+
+    Returns:
+        List of dictionaries containing entity data ready for indexing
+    """
     
     flattened_configs = []
     start_time = time.time()

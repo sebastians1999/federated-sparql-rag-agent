@@ -4,6 +4,7 @@ import uuid
 from typing import List, Dict, Optional, Callable, Set, Union
 
 class UploadTracker:
+    
     """Tracks entity URIs that have been uploaded to a vector database.
     
     This class maintains a persistent record of uploaded entity URIs in a JSON file,
