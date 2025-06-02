@@ -133,6 +133,7 @@ def create_graph(config: Optional[Configuration] = None) -> Graph:
     workflow.add_node("pattern", generate_and_validate_blocks)
     workflow.add_node("assembler", assemble_query)
 
+    workflow.add_edge("question_understanding", "entity_resolution")
     workflow.add_edge("entity_resolution", "example_resolution")
     workflow.add_edge("example_resolution", "planning")
     workflow.add_edge("planning", "pattern")
